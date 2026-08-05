@@ -7,6 +7,11 @@ export type ConnectionRegistry = {
   leaveRoom(playerId: string): Promise<void>;
   sendTo(playerId: string, msg: ServerMessage): Promise<void>;
   broadcast(roomId: string, msg: ServerMessage): Promise<void>;
+  // Returns the room a player is currently bound to via a live socket
+  // (i.e. presence, not seat). Undefined if the player has no live
+  // connection or has not joined any room. Used by socket-close to
+  // notify the opponent before unbinding.
+  findRoomByPlayerId(playerId: string): Promise<string | undefined>;
 };
 
 export type ConnectionLifecycle = {

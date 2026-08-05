@@ -38,11 +38,13 @@ export const useRoomConnection = (roomId: string | undefined): RoomConnection =>
   const status = useStore(store, (s) => s.status);
   const myColor = useStore(store, (s) => s.myColor);
   const errorMsg = useStore(store, (s) => s.errorMsg);
+  const opponent = useStore(store, (s) => s.opponent);
 
   return {
     status,
     myColor,
     errorMsg,
+    opponent,
     controller,
     leave: () => controller?.leave(),
   };

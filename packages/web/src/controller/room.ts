@@ -1,5 +1,5 @@
 import { type Color, type GameState, type Move, applyMove } from '@hive/engine';
-import { fromWire, toWireMove } from '@hive/protocol';
+import { type OpponentPresence, fromWire, toWireMove } from '@hive/protocol';
 import { type StoreApi, createStore } from 'zustand';
 import { createWsClient } from '../network/client.js';
 import { getOrCreatePlayerId } from '../network/player-id.js';
@@ -13,12 +13,14 @@ export type RoomState = {
   readonly status: RoomStatus;
   readonly myColor: Color | null;
   readonly errorMsg: string | null;
+  readonly opponent: OpponentPresence;
 };
 
 export const INITIAL_ROOM_STATE: RoomState = {
   status: 'connecting',
   myColor: null,
   errorMsg: null,
+  opponent: 'empty',
 };
 
 export type RoomController = Controller & {
@@ -50,12 +52,16 @@ export const createRoomController = ({ roomId, playerId }: Options): RoomControl
 
   const offGameJoined = client.on('gameJoined', (msg) => {
     gameStore.getState().applyGameState(fromWire(msg.state));
-    store.setState({ status: 'in-room', myColor: msg.playerColor });
+    store.setState({ status: 'in-room', myColor: msg.playerColor, opponent: msg.opponent });
   });
 
   const offStateUpdated = client.on('stateUpdated', (msg) => {
     pendingSnapshot = null;
     gameStore.getState().applyGameState(fromWire(msg.state));
+  });
+
+  const offPresenceUpdate = client.on('presenceUpdate', (msg) => {
+    store.setState({ opponent: msg.opponent });
   });
 
   const offError = client.on('error', (msg) => {
@@ -97,6 +103,7 @@ export const createRoomController = ({ roomId, playerId }: Options): RoomControl
   const dispose = (): void => {
     offGameJoined();
     offStateUpdated();
+    offPresenceUpdate();
     offError();
     client.close();
   };

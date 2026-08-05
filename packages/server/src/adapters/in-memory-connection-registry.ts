@@ -59,5 +59,6 @@ export const createInMemoryConnectionRegistry = (): InMemoryConnectionRegistry =
       // and the caller (handler) must not see another player's error.
       await Promise.allSettled([...set].map((pid) => dispatch(pid, msg)));
     },
+    findRoomByPlayerId: async (playerId) => playerRoom.get(playerId),
   };
 };

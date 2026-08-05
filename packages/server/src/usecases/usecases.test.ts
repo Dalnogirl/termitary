@@ -30,7 +30,10 @@ const setup = () => {
     });
     return inbox;
   };
-  return { ports, connect, inboxes };
+  const disconnect = (playerId: string): void => {
+    connections.unbind(playerId);
+  };
+  return { ports, connect, disconnect, inboxes };
 };
 
 const lastOf = (inbox: Inbox): ServerMessage => {
@@ -54,10 +57,11 @@ describe('joinGame', () => {
   let alice: Inbox;
   let bob: Inbox;
   let connect: (id: string) => Inbox;
+  let disconnect: (id: string) => void;
   let roomId: string;
 
   beforeEach(async () => {
-    ({ ports, connect } = setup());
+    ({ ports, connect, disconnect } = setup());
     alice = connect('alice');
     bob = connect('bob');
     roomId = await provisionRoom(ports, 'alice');
@@ -71,12 +75,38 @@ describe('joinGame', () => {
     if (bobMsg.type !== 'gameJoined') throw new Error('unreachable');
     expect(bobMsg.playerColor).toBe('black');
     expect(bobMsg.roomId).toBe(roomId);
+    expect(bobMsg.opponent).toBe('connected');
 
-    const aliceMsg = lastOf(alice);
-    expect(aliceMsg.type).toBe('stateUpdated');
+    const aliceKinds = alice.messages.map((m) => m.type);
+    expect(aliceKinds).toContain('stateUpdated');
+    expect(aliceKinds).toContain('presenceUpdate');
+    const alicePresence = alice.messages.find((m) => m.type === 'presenceUpdate');
+    if (alicePresence?.type !== 'presenceUpdate') throw new Error('unreachable');
+    expect(alicePresence.opponent).toBe('connected');
 
     const stored = await ports.rooms.get(roomId);
     expect(stored?.players[1]?.playerId).toBe('bob');
+  });
+
+  it('reports opponent=empty in gameJoined when joining a one-seat room alone', async () => {
+    // provisionRoom() already re-attached alice; here we just inspect the
+    // message she received from that initial joinGame call.
+    const aliceJoined = alice.messages.find((m) => m.type === 'gameJoined');
+    if (aliceJoined?.type !== 'gameJoined') throw new Error('unreachable');
+    expect(aliceJoined.opponent).toBe('empty');
+  });
+
+  it('reports opponent=disconnected on re-attach when peer has no live socket', async () => {
+    // Seat bob (real socket bound) then drop his binding to simulate a
+    // dead socket while the seat remains claimed.
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    disconnect('bob');
+
+    alice.messages.length = 0;
+    await joinGame(ident('alice'), { type: 'joinGame', roomId }, ports);
+    const msg = lastOf(alice);
+    if (msg.type !== 'gameJoined') throw new Error('unreachable');
+    expect(msg.opponent).toBe('disconnected');
   });
 
   it('errors when the room does not exist', async () => {
@@ -109,12 +139,17 @@ describe('joinGame', () => {
     expect(msg.roomId).toBe(roomId);
   });
 
-  it('does not notify the opponent on re-attach', async () => {
+  it('notifies the opponent with presenceUpdate connected on re-attach', async () => {
     await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
     bob.messages.length = 0;
 
     await joinGame(ident('alice'), { type: 'joinGame', roomId }, ports);
-    expect(bob.messages).toEqual([]);
+    // Re-attach does NOT mutate engine state, so bob must NOT see a
+    // stateUpdated; only a presence transition.
+    expect(bob.messages.map((m) => m.type)).toEqual(['presenceUpdate']);
+    const msg = bob.messages[0];
+    if (msg?.type !== 'presenceUpdate') throw new Error('unreachable');
+    expect(msg.opponent).toBe('connected');
   });
 });
 

@@ -78,4 +78,15 @@ describe('InMemoryConnectionRegistry', () => {
     await reg.sendTo('a', sample);
     expect(a.messages).toEqual([]);
   });
+
+  it('findRoomByPlayerId reflects current binding', async () => {
+    const reg = createInMemoryConnectionRegistry();
+    expect(await reg.findRoomByPlayerId('a')).toBeUndefined();
+    await reg.joinRoom('a', 'r1');
+    expect(await reg.findRoomByPlayerId('a')).toBe('r1');
+    await reg.joinRoom('a', 'r2');
+    expect(await reg.findRoomByPlayerId('a')).toBe('r2');
+    await reg.leaveRoom('a');
+    expect(await reg.findRoomByPlayerId('a')).toBeUndefined();
+  });
 });

@@ -175,6 +175,76 @@ describe('ws integration', () => {
     await alice.close();
   });
 
+  it('emits presenceUpdate connected to the opponent on re-attach', async () => {
+    // Validates the lifecycle through the real WS stack: drop a socket,
+    // reconnect with the same playerId, and confirm the still-seated
+    // opponent sees the connect transition. Unit-level coverage in
+    // usecases.test.ts proves the message is sent; this proves it
+    // survives socket teardown + identity round-trip.
+    const roomId = await createRoomViaRest('alice');
+    const alice = await connect(wsUrl, 'alice');
+    let bob = await connect(wsUrl, 'bob');
+    expectKind(await alice.next(), 'connected');
+    expectKind(await bob.next(), 'connected');
+
+    alice.send({ type: 'joinGame', roomId });
+    expectKind(await alice.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    bob.send({ type: 'joinGame', roomId });
+    expectKind(await bob.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    // Drain alice's view of bob's first connect.
+    expectKind(await alice.next((m) => m.type === 'stateUpdated'), 'stateUpdated');
+    expectKind(await alice.next((m) => m.type === 'presenceUpdate'), 'presenceUpdate');
+
+    await bob.close();
+    // Drain the disconnect alice now sees.
+    expectKind(await alice.next((m) => m.type === 'presenceUpdate'), 'presenceUpdate');
+
+    bob = await connect(wsUrl, 'bob');
+    expectKind(await bob.next(), 'connected');
+    bob.send({ type: 'joinGame', roomId });
+    expectKind(await bob.next((m) => m.type === 'gameJoined'), 'gameJoined');
+
+    const reconnect = expectKind(
+      await alice.next((m) => m.type === 'presenceUpdate'),
+      'presenceUpdate',
+    );
+    expect(reconnect.opponent).toBe('connected');
+
+    await alice.close();
+    await bob.close();
+  });
+
+  it('emits presenceUpdate disconnected to the opponent when a socket closes', async () => {
+    const roomId = await createRoomViaRest('alice');
+    const alice = await connect(wsUrl, 'alice');
+    const bob = await connect(wsUrl, 'bob');
+    expectKind(await alice.next(), 'connected');
+    expectKind(await bob.next(), 'connected');
+
+    alice.send({ type: 'joinGame', roomId });
+    expectKind(await alice.next((m) => m.type === 'gameJoined'), 'gameJoined');
+
+    bob.send({ type: 'joinGame', roomId });
+    expectKind(await bob.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    // Drain alice's connection-side of bob's join (stateUpdated + presenceUpdate).
+    expectKind(await alice.next((m) => m.type === 'stateUpdated'), 'stateUpdated');
+    const aliceSawBobConnect = expectKind(
+      await alice.next((m) => m.type === 'presenceUpdate'),
+      'presenceUpdate',
+    );
+    expect(aliceSawBobConnect.opponent).toBe('connected');
+
+    await bob.close();
+    const aliceSawBobDisconnect = expectKind(
+      await alice.next((m) => m.type === 'presenceUpdate'),
+      'presenceUpdate',
+    );
+    expect(aliceSawBobDisconnect.opponent).toBe('disconnected');
+    expect(aliceSawBobDisconnect.roomId).toBe(roomId);
+
+    await alice.close();
+  });
+
   it('generates a playerId when none is provided', async () => {
     const ws = new WebSocket(`${wsUrl}`);
     const opened = new Promise<void>((res, rej) => {

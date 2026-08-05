@@ -86,14 +86,28 @@ describe('message schemas', () => {
     const state = toWire(createGame());
     const samples = [
       { type: 'connected', playerId: 'p1' },
-      { type: 'gameJoined', roomId: 'r1', playerColor: 'black', state },
+      { type: 'gameJoined', roomId: 'r1', playerColor: 'black', state, opponent: 'empty' },
+      { type: 'gameJoined', roomId: 'r1', playerColor: 'black', state, opponent: 'connected' },
+      { type: 'gameJoined', roomId: 'r1', playerColor: 'black', state, opponent: 'disconnected' },
       { type: 'stateUpdated', roomId: 'r1', state },
+      { type: 'presenceUpdate', roomId: 'r1', opponent: 'connected' },
+      { type: 'presenceUpdate', roomId: 'r1', opponent: 'disconnected' },
       { type: 'error', message: 'oops' },
       { type: 'error', message: 'oops', requestKind: 'makeMove' },
     ];
     for (const s of samples) {
       expect(ServerMessageSchema.safeParse(s).success).toBe(true);
     }
+  });
+
+  it('rejects presenceUpdate with non-event opponent values', () => {
+    // 'empty' is a snapshot-only state (only present on gameJoined); a
+    // presenceUpdate carrying it would imply a vacate-but-room-still-alive
+    // transition, which leaveGame does not produce.
+    expect(
+      ServerMessageSchema.safeParse({ type: 'presenceUpdate', roomId: 'r1', opponent: 'empty' })
+        .success,
+    ).toBe(false);
   });
 
   it('rejects unknown client message types', () => {

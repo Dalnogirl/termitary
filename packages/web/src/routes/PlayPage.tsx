@@ -9,6 +9,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import type { OpponentPresence } from '@hive/protocol';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { InputProvider } from '../controller/InputProvider.js';
@@ -16,6 +17,25 @@ import { RoomProvider } from '../controller/RoomContext.js';
 import { useRoomConnection } from '../controller/use-room-connection.js';
 import { useGameStore } from '../store/store.js';
 import { GameLayout } from './GameLayout.js';
+
+const PRESENCE_DOT: Record<OpponentPresence, string> = {
+  empty: 'bg-muted-foreground/40',
+  connected: 'bg-emerald-500',
+  disconnected: 'bg-amber-500',
+};
+
+const PRESENCE_LABEL: Record<OpponentPresence, string> = {
+  empty: 'Waiting for opponent…',
+  connected: 'Opponent connected',
+  disconnected: 'Opponent disconnected',
+};
+
+const PresenceBadge = ({ opponent }: { opponent: OpponentPresence }) => (
+  <span className="inline-flex items-center gap-1.5">
+    <span className={`inline-block size-2 rounded-full ${PRESENCE_DOT[opponent]}`} />
+    <span>{PRESENCE_LABEL[opponent]}</span>
+  </span>
+);
 
 export const PlayPage = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -55,8 +75,11 @@ export const PlayPage = () => {
       <InputProvider controller={room.controller}>
         <div className="flex flex-col flex-1 min-h-0">
           <div className="flex items-center justify-between gap-4 px-5 py-2 border-b border-border text-xs text-muted-foreground">
-            <span>
-              Room <span className="font-mono">{roomId}</span> — share this URL to invite.
+            <span className="flex items-center gap-3">
+              <span>
+                Room <span className="font-mono">{roomId}</span> — share this URL to invite.
+              </span>
+              <PresenceBadge opponent={room.opponent} />
             </span>
             {!gameOver && (
               <Button variant="ghost" size="sm" onClick={() => setShowLeaveDialog(true)}>

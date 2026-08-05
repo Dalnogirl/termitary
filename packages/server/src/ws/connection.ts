@@ -3,6 +3,7 @@ import type { FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
 import type { ConnectionLifecycle } from '../domain/connection-registry.js';
 import type { Ports } from '../domain/ports.js';
+import { otherPlayer } from '../domain/room.js';
 import { dispatchClientMessage } from './dispatcher.js';
 import { extractIdentity } from './identity.js';
 import { parseInbound } from './inbound.js';
@@ -42,8 +43,33 @@ export const handleConnection = ({ socket, req, ports, lifecycle }: ConnectionCo
     });
   });
 
-  socket.on('close', () => {
-    lifecycle.unbind(playerId);
-    req.log.info({ playerId }, 'ws client disconnected');
+  socket.on('close', async () => {
+    // Await the notification BEFORE unbind: unbind tears down the
+    // registry's playerRoom mapping, after which findRoomByPlayerId
+    // returns undefined. Disconnect ≠ leave — room state (seats) is
+    // untouched, so a reconnect lands in joinGame's re-attach branch.
+    // Awaiting (rather than fire-and-forget .finally) keeps unbind from
+    // racing with a fresh bind() for the same playerId — e.g. a reload
+    // that opens a new socket before the old close handler runs.
+    try {
+      await notifyOpponentOfDisconnect(playerId, ports);
+    } finally {
+      lifecycle.unbind(playerId);
+      req.log.info({ playerId }, 'ws client disconnected');
+    }
+  });
+};
+
+const notifyOpponentOfDisconnect = async (playerId: string, ports: Ports): Promise<void> => {
+  const roomId = await ports.connections.findRoomByPlayerId(playerId);
+  if (roomId === undefined) return;
+  const room = await ports.rooms.get(roomId);
+  if (room === undefined) return;
+  const opp = otherPlayer(room, playerId);
+  if (opp === undefined) return;
+  await ports.connections.sendTo(opp.playerId, {
+    type: 'presenceUpdate',
+    roomId,
+    opponent: 'disconnected',
   });
 };
