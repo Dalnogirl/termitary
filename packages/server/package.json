@@ -13,6 +13,7 @@
     "format": "biome format --write src"
   },
   "dependencies": {
+    "@fastify/cors": "^10.0.0",
     "@fastify/websocket": "^11.0.0",
     "@hive/engine": "workspace:*",
     "@hive/protocol": "workspace:*",

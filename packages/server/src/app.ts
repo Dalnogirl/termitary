@@ -1,3 +1,4 @@
+import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { createInMemoryConnectionRegistry } from './adapters/in-memory-connection-registry.js';
@@ -15,6 +16,9 @@ export const buildApp = async (
   const connections = createInMemoryConnectionRegistry();
   const ports: Ports = { rooms, connections };
 
+  // Phase 3: permissive CORS so the local dev web client (any vite port)
+  // can hit /rooms. Lock down to an allowlist in Phase 6+.
+  await app.register(cors, { origin: true });
   await app.register(websocket);
 
   app.get('/health', async () => ({ ok: true }));
