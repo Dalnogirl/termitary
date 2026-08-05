@@ -48,9 +48,9 @@ describe('getValidMoves', () => {
   });
 
   it('returns [] for unimplemented piece types (graceful fallback)', () => {
-    // beetle has no movement fn yet; even with valid pinning + connectivity, returns []
-    const b = place(place(empty(), ORIGIN, BB), E, WA);
-    expect(getValidMoves(BB, ORIGIN, b)).toEqual([]);
+    // ant has no movement fn yet; even with valid pinning + connectivity, returns []
+    const b = place(place(empty(), ORIGIN, WA), E, WA);
+    expect(getValidMoves(WA, ORIGIN, b)).toEqual([]);
   });
 
   it('queen with a single neighbor: 5 of 6 axial cells are reachable', () => {
