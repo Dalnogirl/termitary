@@ -91,6 +91,10 @@ export const createRenderer = (
   callbacks: RendererCallbacks,
   options: RendererOptions,
 ): Renderer => {
+  // Disable native touch gestures on the canvas so our pinch handler is the
+  // sole zoom source. Konva binds touch listeners passively, so preventDefault
+  // inside them is a no-op — touch-action is the only working mute.
+  container.style.touchAction = 'none';
   const stage = new Stage({
     container,
     width: container.clientWidth || 800,
@@ -105,6 +109,9 @@ export const createRenderer = (
   let dragging = false;
   let dragMoved = false;
   const DRAG_THRESHOLD = 3;
+  let pinching = false;
+  let lastPinchDist = 0;
+  let cancelPan: (() => void) | null = null;
 
   const pointerXY = (evt: MouseEvent | TouchEvent): { x: number; y: number } | null => {
     if ('touches' in evt) {
@@ -114,8 +121,13 @@ export const createRenderer = (
     return { x: evt.clientX, y: evt.clientY };
   };
 
+  const touchDistance = (a: Touch, b: Touch): number =>
+    Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+
   stage.on('mousedown touchstart', (e) => {
     if (e.target !== stage) return;
+    // Multi-touch defers to the pinch handler below.
+    if ('touches' in e.evt && e.evt.touches.length > 1) return;
     const start = pointerXY(e.evt);
     if (!start) return;
     dragging = true;
@@ -124,6 +136,7 @@ export const createRenderer = (
     container.style.cursor = 'grabbing';
 
     const onMove = (moveEvt: MouseEvent | TouchEvent) => {
+      if (pinching) return;
       const cur = pointerXY(moveEvt);
       if (!cur) return;
       const dx = cur.x - start.x;
@@ -138,11 +151,67 @@ export const createRenderer = (
       window.removeEventListener('mouseup', onUp);
       window.removeEventListener('touchmove', onMove);
       window.removeEventListener('touchend', onUp);
+      cancelPan = null;
     };
+    cancelPan = onUp;
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     window.addEventListener('touchmove', onMove);
     window.addEventListener('touchend', onUp);
+  });
+
+  stage.on('touchstart', (e) => {
+    if (e.evt.touches.length < 2) return;
+    // Hard-cancel any in-flight pan so its onMove stops fighting us. We also
+    // gate that onMove on `pinching`, but cancelling fully avoids a positional
+    // jump when the second finger lifts and pan would otherwise resume from a
+    // stale layerOrig reference.
+    cancelPan?.();
+    pinching = true;
+    dragMoved = true; // suppress the click/tap that follows a pinch
+    const [t1, t2] = [e.evt.touches[0], e.evt.touches[1]];
+    if (!t1 || !t2) return;
+    lastPinchDist = touchDistance(t1, t2);
+    e.evt.preventDefault();
+  });
+
+  stage.on('touchmove', (e) => {
+    if (!pinching || e.evt.touches.length < 2) return;
+    const [t1, t2] = [e.evt.touches[0], e.evt.touches[1]];
+    if (!t1 || !t2) return;
+    e.evt.preventDefault();
+    const newDist = touchDistance(t1, t2);
+    if (lastPinchDist <= 0) {
+      lastPinchDist = newDist;
+      return;
+    }
+    const oldScale = layer.scaleX();
+    const rawScale = oldScale * (newDist / lastPinchDist);
+    const newScale = Math.max(SCALE_MIN, Math.min(SCALE_MAX, rawScale));
+    const rect = stage.container().getBoundingClientRect();
+    const cx = (t1.clientX + t2.clientX) / 2 - rect.left;
+    const cy = (t1.clientY + t2.clientY) / 2 - rect.top;
+    const pointTo = {
+      x: (cx - layer.x()) / oldScale,
+      y: (cy - layer.y()) / oldScale,
+    };
+    layer.scale({ x: newScale, y: newScale });
+    layer.position({
+      x: cx - pointTo.x * newScale,
+      y: cy - pointTo.y * newScale,
+    });
+    lastPinchDist = newDist;
+  });
+
+  stage.on('touchend touchcancel', (e) => {
+    if (e.evt.touches.length < 2) {
+      pinching = false;
+      lastPinchDist = 0;
+      // Pinches that end on a child node never re-enter the pan-start handler,
+      // so the dragMoved=true we set on pinch start would persist and suppress
+      // the next stage tap. Reset here.
+      dragMoved = false;
+    }
   });
 
   stage.on('click tap', (e) => {

@@ -12,7 +12,7 @@ const COLOR_LABEL: Record<Color, string> = { white: 'White', black: 'Black' };
 type Props = { readonly color: Color };
 
 const slotBase =
-  'inline-flex flex-col items-center justify-center w-14 h-14 rounded-md font-bold transition-all ' +
+  'inline-flex flex-col items-center justify-center w-11 h-11 md:w-14 md:h-14 rounded-md font-bold transition-all ' +
   'disabled:opacity-30 disabled:pointer-events-none cursor-pointer';
 
 const slotPalette: Record<Color, string> = {
@@ -50,19 +50,19 @@ export const Hand = ({ color }: Props) => {
   return (
     <div
       className={cn(
-        'flex items-center gap-4 px-5 py-3 min-h-20 transition-colors border-y-2',
+        'flex items-center gap-2 md:gap-4 px-2 md:px-5 py-2 md:py-3 min-h-16 md:min-h-20 transition-colors border-y-2',
         isActive ? 'border-foreground bg-muted' : 'border-transparent bg-background',
       )}
     >
       <span
         className={cn(
-          'min-w-15 text-xs uppercase tracking-[0.15em]',
+          'hidden md:inline min-w-15 text-xs uppercase tracking-[0.15em]',
           isActive ? 'text-foreground font-semibold' : 'text-muted-foreground',
         )}
       >
         {COLOR_LABEL[color]}
       </span>
-      <div className="flex gap-2">
+      <div className="flex gap-1.5 md:gap-2">
         {PIECE_ORDER.map((type) => {
           const count = hand[type];
           const enabled = count > 0 && isActive && hasPlacement(type);
@@ -87,7 +87,8 @@ export const Hand = ({ color }: Props) => {
       </div>
       {passOnly && (
         <Button onClick={handlePassClick} className="ml-auto" size="sm">
-          Pass turn (no moves available)
+          <span className="md:hidden">Pass</span>
+          <span className="hidden md:inline">Pass turn (no moves available)</span>
         </Button>
       )}
     </div>
