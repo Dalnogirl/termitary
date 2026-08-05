@@ -1,5 +1,9 @@
 import { createRenderer } from './board/renderer.js';
-import { handleTargetClick } from './controller/input.js';
+import {
+  handleBackgroundClick,
+  handleBoardPieceClick,
+  handleTargetClick,
+} from './controller/input.js';
 import { createHandView } from './hand/view.js';
 import { getState, subscribe } from './store/store.js';
 
@@ -13,6 +17,10 @@ if (!handTop || !handBottom || !boardEl) {
 createHandView(handTop, 'black');
 createHandView(handBottom, 'white');
 
-const renderer = createRenderer(boardEl, { onTargetClick: handleTargetClick });
+const renderer = createRenderer(boardEl, {
+  onTargetClick: handleTargetClick,
+  onPieceClick: handleBoardPieceClick,
+  onBackgroundClick: handleBackgroundClick,
+});
 subscribe((state) => renderer.draw(state));
 renderer.draw(getState());

@@ -1,12 +1,16 @@
 import {
   type GameState,
+  type HexCoord,
   type Move,
   type PieceType,
   createGame,
   listValidMoves,
 } from '@hive/engine';
 
-export type Selection = { readonly kind: 'hand'; readonly piece: PieceType } | null;
+export type Selection =
+  | { readonly kind: 'hand'; readonly piece: PieceType }
+  | { readonly kind: 'board'; readonly coord: HexCoord }
+  | null;
 
 export type StoreState = {
   readonly game: GameState;
