@@ -29,5 +29,5 @@ export const BoardCanvas = () => {
     };
   }, []);
 
-  return <div id="board" ref={containerRef} />;
+  return <div ref={containerRef} className="flex-1 relative overflow-hidden" />;
 };
