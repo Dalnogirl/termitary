@@ -1,11 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { type WsClient, createWsClient } from '../network/client.js';
-import { getOrCreatePlayerId } from '../network/player-id.js';
 import { fetchRooms } from '../network/rooms-api.js';
-import { getWsUrl } from '../network/url.js';
+import { useCreateRoom } from '../network/use-create-room.js';
 
 export const LobbyPage = () => {
   const navigate = useNavigate();
@@ -19,43 +16,15 @@ export const LobbyPage = () => {
     queryFn: fetchRooms,
   });
 
-  // Ephemeral create-game WS, owned by the lobby. Same useRef + useEffect
-  // cleanup pattern as the earlier RootLayout version: unmount or HMR
-  // closes any in-flight socket so we don't leak.
-  const [creating, setCreating] = useState(false);
-  const clientRef = useRef<WsClient | null>(null);
-
-  useEffect(
-    () => () => {
-      clientRef.current?.close();
-      clientRef.current = null;
-    },
-    [],
-  );
+  const createRoom = useCreateRoom();
 
   const handleCreate = (): void => {
-    if (creating) return;
-    setCreating(true);
-    const client = createWsClient({ url: getWsUrl(), playerId: getOrCreatePlayerId() });
-    clientRef.current = client;
-
-    const finish = (): void => {
-      if (clientRef.current !== client) return;
-      client.close();
-      clientRef.current = null;
-      setCreating(false);
-    };
-
-    client.on('gameCreated', (msg) => {
-      const { roomId } = msg;
-      finish();
-      void navigate(`/play/${roomId}`);
+    createRoom.mutate(undefined, {
+      onSuccess: ({ roomId }) => void navigate(`/play/${roomId}`),
+      onError: (err) => {
+        console.error('failed to create game:', err);
+      },
     });
-    client.on('error', (msg) => {
-      finish();
-      console.error('failed to create game:', msg.message);
-    });
-    client.send({ type: 'createGame' });
   };
 
   const joinable = (rooms ?? []).filter((r) => r.status === 'in_progress' && r.playerCount < 2);
@@ -64,8 +33,8 @@ export const LobbyPage = () => {
     <div className="flex flex-col flex-1 min-h-0 p-6 gap-6 max-w-3xl mx-auto w-full">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Lobby</h1>
-        <Button onClick={handleCreate} disabled={creating}>
-          {creating ? 'Creating…' : 'Create new game'}
+        <Button onClick={handleCreate} disabled={createRoom.isPending}>
+          {createRoom.isPending ? 'Creating…' : 'Create new game'}
         </Button>
       </div>
 
