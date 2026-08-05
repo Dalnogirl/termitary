@@ -29,5 +29,5 @@ export const BoardCanvas = () => {
     };
   }, []);
 
-  return <div ref={containerRef} className="flex-1 relative overflow-hidden" />;
+  return <div ref={containerRef} className="flex-1 relative overflow-hidden cursor-grab" />;
 };
