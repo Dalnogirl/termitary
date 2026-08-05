@@ -2,15 +2,16 @@ import type { ServerMessage } from '@hive/protocol';
 import type { FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
 import type { ConnectionLifecycle } from '../domain/connection-registry.js';
+import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { otherPlayer } from '../domain/room.js';
 import { dispatchClientMessage } from './dispatcher.js';
-import { extractIdentity } from './identity.js';
 import { parseInbound } from './inbound.js';
 
 export type ConnectionContext = {
   readonly socket: WebSocket;
   readonly req: FastifyRequest;
+  readonly identity: Identity;
   readonly ports: Ports;
   readonly lifecycle: ConnectionLifecycle;
 };
@@ -19,8 +20,13 @@ const send = (socket: WebSocket, msg: ServerMessage): void => {
   socket.send(JSON.stringify(msg));
 };
 
-export const handleConnection = ({ socket, req, ports, lifecycle }: ConnectionContext): void => {
-  const identity = extractIdentity(req);
+export const handleConnection = ({
+  socket,
+  req,
+  identity,
+  ports,
+  lifecycle,
+}: ConnectionContext): void => {
   const { playerId } = identity;
   req.log.info({ playerId }, 'ws client connected');
 

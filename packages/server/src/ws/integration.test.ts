@@ -6,10 +6,9 @@ import {
   fromWire,
   toWireMove,
 } from '@hive/protocol';
-import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
-import { buildApp } from '../app.js';
+import { type TestApp, createTestApp } from '../testing/auth-helper.js';
 
 type TestClient = {
   readonly playerId: string;
@@ -18,8 +17,8 @@ type TestClient = {
   close(): Promise<void>;
 };
 
-const connect = async (url: string, playerId: string): Promise<TestClient> => {
-  const ws = new WebSocket(`${url}?playerId=${playerId}`);
+const connect = async (url: string, playerId: string, cookie: string): Promise<TestClient> => {
+  const ws = new WebSocket(url, { headers: { cookie } });
   const queue: ServerMessage[] = [];
   const waiters: Array<{
     predicate: (m: ServerMessage) => boolean;
@@ -86,179 +85,178 @@ const expectKind = <K extends ServerMessage['type']>(
 };
 
 describe('ws integration', () => {
-  let app: FastifyInstance;
+  let ctx: TestApp;
   let baseUrl: string;
   let wsUrl: string;
+  let alice: { userId: string; cookie: string };
+  let bob: { userId: string; cookie: string };
 
-  const createRoomViaRest = async (playerId: string): Promise<string> => {
-    const res = await app.inject({
+  const createRoomViaRest = async (cookie: string): Promise<string> => {
+    const res = await ctx.app.inject({
       method: 'POST',
       url: '/rooms',
-      payload: { playerId },
-      headers: { 'content-type': 'application/json' },
+      headers: { cookie },
     });
     const body = res.json() as { roomId: string };
     return body.roomId;
   };
 
   beforeEach(async () => {
-    app = await buildApp();
-    baseUrl = await app.listen({ port: 0, host: '127.0.0.1' });
+    ctx = await createTestApp();
+    baseUrl = await ctx.app.listen({ port: 0, host: '127.0.0.1' });
     wsUrl = `${baseUrl.replace('http://', 'ws://')}/ws`;
+    alice = await ctx.signIn('alice@test.dev');
+    bob = await ctx.signIn('bob@test.dev');
   });
 
   afterEach(async () => {
-    await app.close();
+    await ctx.app.close();
+    ctx.db.close();
   });
 
   it('drives a full create → join → move → leave flow between two clients', async () => {
     // Create over REST, the way the real client does (no WS until the join).
-    const roomId = await createRoomViaRest('alice');
+    const roomId = await createRoomViaRest(alice.cookie);
 
-    const alice = await connect(wsUrl, 'alice');
-    const bob = await connect(wsUrl, 'bob');
+    const aliceWs = await connect(wsUrl, alice.userId, alice.cookie);
+    const bobWs = await connect(wsUrl, bob.userId, bob.cookie);
 
-    expectKind(await alice.next(), 'connected');
-    expectKind(await bob.next(), 'connected');
+    expectKind(await aliceWs.next(), 'connected');
+    expectKind(await bobWs.next(), 'connected');
 
     // Alice rejoins her own room — server's re-attach path sends gameJoined.
-    alice.send({ type: 'joinGame', roomId });
-    const aliceJoined = expectKind(await alice.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    aliceWs.send({ type: 'joinGame', roomId });
+    const aliceJoined = expectKind(
+      await aliceWs.next((m) => m.type === 'gameJoined'),
+      'gameJoined',
+    );
     expect(aliceJoined.playerColor).toBe('white');
     expect(aliceJoined.roomId).toBe(roomId);
 
     // Bob joins as the second seat (black).
-    bob.send({ type: 'joinGame', roomId });
-    const bobJoined = expectKind(await bob.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    bobWs.send({ type: 'joinGame', roomId });
+    const bobJoined = expectKind(await bobWs.next((m) => m.type === 'gameJoined'), 'gameJoined');
     expect(bobJoined.playerColor).toBe('black');
     expect(bobJoined.roomId).toBe(roomId);
 
     const aliceJoinUpdate = expectKind(
-      await alice.next((m) => m.type === 'stateUpdated'),
+      await aliceWs.next((m) => m.type === 'stateUpdated'),
       'stateUpdated',
     );
     expect(aliceJoinUpdate.roomId).toBe(roomId);
 
     const firstMove = listValidMoves(fromWire(aliceJoined.state))[0];
     if (!firstMove) throw new Error('no valid first move');
-    alice.send({ type: 'makeMove', roomId, move: toWireMove(firstMove) });
+    aliceWs.send({ type: 'makeMove', roomId, move: toWireMove(firstMove) });
 
     const aliceAfterMove = expectKind(
-      await alice.next((m) => m.type === 'stateUpdated'),
+      await aliceWs.next((m) => m.type === 'stateUpdated'),
       'stateUpdated',
     );
     const bobAfterMove = expectKind(
-      await bob.next((m) => m.type === 'stateUpdated'),
+      await bobWs.next((m) => m.type === 'stateUpdated'),
       'stateUpdated',
     );
     expect(fromWire(aliceAfterMove.state).currentPlayer).toBe('black');
     expect(fromWire(bobAfterMove.state).history.length).toBe(1);
 
-    alice.send({ type: 'leaveGame', roomId });
+    aliceWs.send({ type: 'leaveGame', roomId });
     const opponentLeft = expectKind(
-      await bob.next((m) => m.type === 'error' && m.message === 'opponent left'),
+      await bobWs.next((m) => m.type === 'error' && m.message === 'opponent left'),
       'error',
     );
     expect(opponentLeft.message).toBe('opponent left');
 
-    await alice.close();
-    await bob.close();
+    await aliceWs.close();
+    await bobWs.close();
   });
 
   it('returns an error tagged with requestKind for moves on unknown rooms', async () => {
-    const alice = await connect(wsUrl, 'alice');
-    expectKind(await alice.next(), 'connected');
-    alice.send({ type: 'makeMove', roomId: 'nope', move: { kind: 'pass' } });
-    const err = expectKind(await alice.next((m) => m.type === 'error'), 'error');
+    const aliceWs = await connect(wsUrl, alice.userId, alice.cookie);
+    expectKind(await aliceWs.next(), 'connected');
+    aliceWs.send({ type: 'makeMove', roomId: 'nope', move: { kind: 'pass' } });
+    const err = expectKind(await aliceWs.next((m) => m.type === 'error'), 'error');
     expect(err.requestKind).toBe('makeMove');
     expect(err.message).toBe('room not found');
-    await alice.close();
+    await aliceWs.close();
   });
 
   it('emits presenceUpdate connected to the opponent on re-attach', async () => {
     // Validates the lifecycle through the real WS stack: drop a socket,
-    // reconnect with the same playerId, and confirm the still-seated
+    // reconnect with the same identity, and confirm the still-seated
     // opponent sees the connect transition. Unit-level coverage in
     // usecases.test.ts proves the message is sent; this proves it
     // survives socket teardown + identity round-trip.
-    const roomId = await createRoomViaRest('alice');
-    const alice = await connect(wsUrl, 'alice');
-    let bob = await connect(wsUrl, 'bob');
-    expectKind(await alice.next(), 'connected');
-    expectKind(await bob.next(), 'connected');
+    const roomId = await createRoomViaRest(alice.cookie);
+    const aliceWs = await connect(wsUrl, alice.userId, alice.cookie);
+    let bobWs = await connect(wsUrl, bob.userId, bob.cookie);
+    expectKind(await aliceWs.next(), 'connected');
+    expectKind(await bobWs.next(), 'connected');
 
-    alice.send({ type: 'joinGame', roomId });
-    expectKind(await alice.next((m) => m.type === 'gameJoined'), 'gameJoined');
-    bob.send({ type: 'joinGame', roomId });
-    expectKind(await bob.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    aliceWs.send({ type: 'joinGame', roomId });
+    expectKind(await aliceWs.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    bobWs.send({ type: 'joinGame', roomId });
+    expectKind(await bobWs.next((m) => m.type === 'gameJoined'), 'gameJoined');
     // Drain alice's view of bob's first connect.
-    expectKind(await alice.next((m) => m.type === 'stateUpdated'), 'stateUpdated');
-    expectKind(await alice.next((m) => m.type === 'presenceUpdate'), 'presenceUpdate');
+    expectKind(await aliceWs.next((m) => m.type === 'stateUpdated'), 'stateUpdated');
+    expectKind(await aliceWs.next((m) => m.type === 'presenceUpdate'), 'presenceUpdate');
 
-    await bob.close();
+    await bobWs.close();
     // Drain the disconnect alice now sees.
-    expectKind(await alice.next((m) => m.type === 'presenceUpdate'), 'presenceUpdate');
+    expectKind(await aliceWs.next((m) => m.type === 'presenceUpdate'), 'presenceUpdate');
 
-    bob = await connect(wsUrl, 'bob');
-    expectKind(await bob.next(), 'connected');
-    bob.send({ type: 'joinGame', roomId });
-    expectKind(await bob.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    bobWs = await connect(wsUrl, bob.userId, bob.cookie);
+    expectKind(await bobWs.next(), 'connected');
+    bobWs.send({ type: 'joinGame', roomId });
+    expectKind(await bobWs.next((m) => m.type === 'gameJoined'), 'gameJoined');
 
     const reconnect = expectKind(
-      await alice.next((m) => m.type === 'presenceUpdate'),
+      await aliceWs.next((m) => m.type === 'presenceUpdate'),
       'presenceUpdate',
     );
     expect(reconnect.opponent).toBe('connected');
 
-    await alice.close();
-    await bob.close();
+    await aliceWs.close();
+    await bobWs.close();
   });
 
   it('emits presenceUpdate disconnected to the opponent when a socket closes', async () => {
-    const roomId = await createRoomViaRest('alice');
-    const alice = await connect(wsUrl, 'alice');
-    const bob = await connect(wsUrl, 'bob');
-    expectKind(await alice.next(), 'connected');
-    expectKind(await bob.next(), 'connected');
+    const roomId = await createRoomViaRest(alice.cookie);
+    const aliceWs = await connect(wsUrl, alice.userId, alice.cookie);
+    const bobWs = await connect(wsUrl, bob.userId, bob.cookie);
+    expectKind(await aliceWs.next(), 'connected');
+    expectKind(await bobWs.next(), 'connected');
 
-    alice.send({ type: 'joinGame', roomId });
-    expectKind(await alice.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    aliceWs.send({ type: 'joinGame', roomId });
+    expectKind(await aliceWs.next((m) => m.type === 'gameJoined'), 'gameJoined');
 
-    bob.send({ type: 'joinGame', roomId });
-    expectKind(await bob.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    bobWs.send({ type: 'joinGame', roomId });
+    expectKind(await bobWs.next((m) => m.type === 'gameJoined'), 'gameJoined');
     // Drain alice's connection-side of bob's join (stateUpdated + presenceUpdate).
-    expectKind(await alice.next((m) => m.type === 'stateUpdated'), 'stateUpdated');
+    expectKind(await aliceWs.next((m) => m.type === 'stateUpdated'), 'stateUpdated');
     const aliceSawBobConnect = expectKind(
-      await alice.next((m) => m.type === 'presenceUpdate'),
+      await aliceWs.next((m) => m.type === 'presenceUpdate'),
       'presenceUpdate',
     );
     expect(aliceSawBobConnect.opponent).toBe('connected');
 
-    await bob.close();
+    await bobWs.close();
     const aliceSawBobDisconnect = expectKind(
-      await alice.next((m) => m.type === 'presenceUpdate'),
+      await aliceWs.next((m) => m.type === 'presenceUpdate'),
       'presenceUpdate',
     );
     expect(aliceSawBobDisconnect.opponent).toBe('disconnected');
     expect(aliceSawBobDisconnect.roomId).toBe(roomId);
 
-    await alice.close();
+    await aliceWs.close();
   });
 
-  it('generates a playerId when none is provided', async () => {
-    const ws = new WebSocket(`${wsUrl}`);
-    const opened = new Promise<void>((res, rej) => {
-      ws.once('open', () => res());
-      ws.once('error', rej);
+  it('rejects WS upgrade without an auth cookie with 401', async () => {
+    const ws = new WebSocket(wsUrl);
+    const err = await new Promise<Error>((resolve, reject) => {
+      ws.once('open', () => reject(new Error('expected upgrade to fail')));
+      ws.once('error', (e) => resolve(e));
     });
-    const firstMsg = new Promise<ServerMessage>((res) => {
-      ws.once('message', (raw: Buffer) => {
-        res(ServerMessageSchema.parse(JSON.parse(raw.toString())));
-      });
-    });
-    await opened;
-    const connected = expectKind(await firstMsg, 'connected');
-    expect(connected.playerId.length).toBeGreaterThan(0);
-    ws.close();
+    expect(String(err)).toMatch(/401/);
   });
 });

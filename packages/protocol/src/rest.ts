@@ -12,13 +12,6 @@ export type RoomSummary = z.infer<typeof RoomSummarySchema>;
 export const RoomSummaryListSchema = z.array(RoomSummarySchema);
 export type RoomSummaryList = z.infer<typeof RoomSummaryListSchema>;
 
-export const CreateRoomRequestSchema = z
-  .object({
-    playerId: z.string().min(1),
-  })
-  .strict();
-export type CreateRoomRequest = z.infer<typeof CreateRoomRequestSchema>;
-
 export const CreateRoomResponseSchema = z
   .object({
     roomId: z.string().min(1),

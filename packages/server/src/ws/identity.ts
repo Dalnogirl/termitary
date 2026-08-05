@@ -1,13 +1,16 @@
-import { randomUUID } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
+import type { Auth } from '../adapters/auth/better-auth.js';
+import { getUserIdFromHeaders } from '../adapters/auth/session.js';
 import type { Identity } from '../domain/identity.js';
 
-// TODO(phase-4/phase-7): replace query-string playerId with an authenticated
-// principal — JWT verify (Phase 4) → Cognito JWT (Phase 7). The Identity
-// type is the abstraction boundary; only this function changes.
-export const extractIdentity = (req: FastifyRequest): Identity => {
-  const url = new URL(req.url, 'http://localhost');
-  const requested = url.searchParams.get('playerId');
-  const playerId = requested && requested.length > 0 ? requested : randomUUID();
-  return { playerId };
-};
+// DIP seam: ws/* sees only (req) => Promise<Identity | null>; the rest of
+// the server doesn't know better-auth exists. Swapping to JWT or Cognito
+// (Phase 7) changes only this factory + adapters/auth/session.ts.
+export type IdentityExtractor = (req: FastifyRequest) => Promise<Identity | null>;
+
+export const createIdentityExtractor =
+  (auth: Auth): IdentityExtractor =>
+  async (req) => {
+    const userId = await getUserIdFromHeaders(auth, req.headers);
+    return userId === null ? null : { playerId: userId };
+  };
