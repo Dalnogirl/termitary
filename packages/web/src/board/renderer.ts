@@ -1,15 +1,19 @@
 import { Stage } from 'konva/lib/Stage.js';
 import { Layer } from 'konva/lib/Layer.js';
-import { Line } from 'konva/lib/shapes/Line.js';
 import { Text } from 'konva/lib/shapes/Text.js';
 import { type HexCoord, type Piece, occupiedCells } from '@hive/engine';
-import { axialToPixel, hexCorners } from './hex.js';
+import { axialToPixel, createHexShape } from './hex.js';
 import { pieceFill, pieceLetter, pieceTextColor } from './pieces.js';
 import { type CanvasTheme, readTheme } from './theme.js';
 import type { StoreState } from '../store/store.js';
 
 const HEX_SIZE = 40;
+const HEX_DRAW_SIZE = 38;
+const HEX_RADIUS = 7;
+const TARGET_SIZE = 36;
+const TARGET_RADIUS = 6;
 const CHIP_SIZE = 14;
+const CHIP_RADIUS = 3;
 const SCALE_MIN = 0.4;
 const SCALE_MAX = 3;
 const SCALE_FACTOR = 1.1;
@@ -182,14 +186,11 @@ export const createRenderer = (
     const key = coordKey(coord);
     const isSelected = key === selectedCoord;
     const isHinted = movable.has(key);
-    const stroke = isSelected ? theme.selectStroke : isHinted ? theme.hintStroke : theme.pieceStroke;
-    const strokeWidth = isSelected ? 3 : isHinted ? 2 : 1.5;
-    const poly = new Line({
-      points: hexCorners(p, HEX_SIZE),
-      closed: true,
+    const stroke = isSelected ? theme.selectStroke : isHinted ? theme.hintStroke : undefined;
+    const strokeWidth = isSelected ? 3 : isHinted ? 2 : 0;
+    const poly = createHexShape(p, HEX_DRAW_SIZE, HEX_RADIUS, {
       fill: pieceFill(top, theme),
-      stroke,
-      strokeWidth,
+      ...(stroke ? { stroke, strokeWidth } : {}),
     });
     poly.on('click tap', () => callbacks.onPieceClick(coord));
     const text = new Text({
@@ -211,9 +212,7 @@ export const createRenderer = (
       const below = stack[stack.length - 2];
       if (!below) return;
       const chipCenter = { x: p.x + HEX_SIZE * 0.55, y: p.y - HEX_SIZE * 0.65 };
-      const chip = new Line({
-        points: hexCorners(chipCenter, CHIP_SIZE),
-        closed: true,
+      const chip = createHexShape(chipCenter, CHIP_SIZE, CHIP_RADIUS, {
         fill: pieceFill(below, theme),
         stroke: theme.pieceStroke,
         strokeWidth: 1.5,
@@ -249,9 +248,7 @@ export const createRenderer = (
 
     for (const coord of targetsFor(state)) {
       const p = axialToPixel(coord, HEX_SIZE);
-      const poly = new Line({
-        points: hexCorners(p, HEX_SIZE),
-        closed: true,
+      const poly = createHexShape(p, TARGET_SIZE, TARGET_RADIUS, {
         fill: theme.targetFill,
         stroke: theme.targetStroke,
         strokeWidth: 2,
