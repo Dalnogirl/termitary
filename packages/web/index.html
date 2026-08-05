@@ -11,15 +11,96 @@
         padding: 0;
         height: 100%;
         background: #1f2328;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: #e6e6e6;
       }
       #app {
+        display: flex;
+        flex-direction: column;
         width: 100vw;
         height: 100vh;
+      }
+      #board {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
+      .hand-strip {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 12px 20px;
+        background: #2a2f36;
+        border-top: 3px solid transparent;
+        border-bottom: 3px solid transparent;
+        min-height: 80px;
+        box-sizing: border-box;
+      }
+      .hand-strip.active {
+        border-color: #f5d56a;
+      }
+      .hand-label {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        min-width: 60px;
+        color: #b0b0b0;
+      }
+      .hand-strip.active .hand-label {
+        color: #f5d56a;
+      }
+      .hand-slots {
+        display: flex;
+        gap: 8px;
+      }
+      .hand-slot {
+        width: 56px;
+        height: 56px;
+        border-radius: 8px;
+        border: 2px solid transparent;
+        background: #3a3a3a;
+        color: #f5e6c8;
+        cursor: pointer;
+        font-family: inherit;
+        font-weight: bold;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        padding: 0;
+        transition: border-color 0.1s, transform 0.1s;
+      }
+      .hand-white .hand-slot {
+        background: #f5e6c8;
+        color: #1a1a1a;
+      }
+      .hand-slot:hover:not(:disabled) {
+        transform: translateY(-2px);
+      }
+      .hand-slot.selected {
+        border-color: #f5d56a;
+      }
+      .hand-slot:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .hand-letter {
+        font-size: 22px;
+        line-height: 1;
+      }
+      .hand-count {
+        font-size: 11px;
+        opacity: 0.75;
       }
     </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div id="hand-top"></div>
+      <div id="board"></div>
+      <div id="hand-bottom"></div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -1,19 +1,33 @@
-import { type GameState, type Move, createGame, listValidMoves } from '@hive/engine';
+import {
+  type GameState,
+  type Move,
+  type PieceType,
+  createGame,
+  listValidMoves,
+} from '@hive/engine';
+
+export type Selection = { readonly kind: 'hand'; readonly piece: PieceType } | null;
 
 export type StoreState = {
   readonly game: GameState;
   readonly validMoves: readonly Move[];
+  readonly selection: Selection;
 };
 
 type Subscriber = (state: StoreState) => void;
 
-const compute = (game: GameState): StoreState => ({
-  game,
-  validMoves: listValidMoves(game),
-});
+const initialGame = createGame();
+let state: StoreState = {
+  game: initialGame,
+  validMoves: listValidMoves(initialGame),
+  selection: null,
+};
 
-let state: StoreState = compute(createGame());
 const subscribers = new Set<Subscriber>();
+
+const notify = (): void => {
+  for (const fn of subscribers) fn(state);
+};
 
 export const getState = (): StoreState => state;
 
@@ -25,8 +39,13 @@ export const subscribe = (fn: Subscriber): (() => void) => {
 };
 
 export const commit = (next: GameState): void => {
-  state = compute(next);
-  for (const fn of subscribers) fn(state);
+  state = { game: next, validMoves: listValidMoves(next), selection: null };
+  notify();
+};
+
+export const setSelection = (selection: Selection): void => {
+  state = { ...state, selection };
+  notify();
 };
 
 export const reset = (): void => commit(createGame());
