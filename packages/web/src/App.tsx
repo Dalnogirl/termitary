@@ -5,20 +5,17 @@ import {
   handleBoardPieceClick,
   handleTargetClick,
 } from './controller/input.js';
-import { createGameOverModal } from './game-over/modal.js';
+import { Modal } from './game-over/Modal.js';
 import { Hand } from './hand/Hand.js';
 import { getState, subscribe } from './store/store.js';
 
 export const App = () => {
-  const appRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const app = appRef.current;
     const board = boardRef.current;
-    if (!app || !board) return;
+    if (!board) return;
 
-    const modal = createGameOverModal(app);
     const renderer = createRenderer(board, {
       onTargetClick: handleTargetClick,
       onPieceClick: handleBoardPieceClick,
@@ -30,16 +27,16 @@ export const App = () => {
 
     return () => {
       unsubscribe();
-      modal.destroy();
       renderer.destroy();
     };
   }, []);
 
   return (
-    <div id="app" ref={appRef}>
+    <div id="app">
       <Hand color="black" />
       <div id="board" ref={boardRef} />
       <Hand color="white" />
+      <Modal />
     </div>
   );
 };
