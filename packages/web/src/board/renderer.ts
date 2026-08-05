@@ -1,12 +1,12 @@
 import 'konva/lib/_CoreInternals.js';
-import { Stage } from 'konva/lib/Stage.js';
-import { Layer } from 'konva/lib/Layer.js';
-import { Text } from 'konva/lib/shapes/Text.js';
 import { type Color, type HexCoord, type Piece, occupiedCells } from '@hive/engine';
+import { Layer } from 'konva/lib/Layer.js';
+import { Stage } from 'konva/lib/Stage.js';
+import { Text } from 'konva/lib/shapes/Text.js';
+import type { StoreState } from '../store/store.js';
 import { axialToPixel, createHexShape } from './hex.js';
 import { pieceFill, pieceLetter, pieceTextColor } from './pieces.js';
 import { type CanvasTheme, readTheme } from './theme.js';
-import type { StoreState } from '../store/store.js';
 
 const HEX_SIZE = 40;
 const HEX_DRAW_SIZE = 38;
@@ -50,7 +50,11 @@ const movableOrigins = (state: StoreState, myColor: Color | null): Set<string> =
   // In network play, only highlight my pieces. When it's the opponent's turn,
   // validMoves describes THEIR options — show no highlights at all. The input
   // handlers apply the same gate, so this is a presentation-mirror of intent.
-  if (myColor !== null && state.game.status === 'in_progress' && state.game.currentPlayer !== myColor) {
+  if (
+    myColor !== null &&
+    state.game.status === 'in_progress' &&
+    state.game.currentPlayer !== myColor
+  ) {
     return out;
   }
   for (const m of state.validMoves) {

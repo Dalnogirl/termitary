@@ -41,6 +41,8 @@ export const History = () => {
             const player = idx % 2 === 0 ? 'White' : 'Black';
             return (
               <li
+                // Move history is append-only — idx IS the canonical move ordinal.
+                // biome-ignore lint/suspicious/noArrayIndexKey: append-only list
                 key={idx}
                 className="flex gap-2 px-4 py-1.5 border-b border-border/50 hover:bg-muted/50"
               >

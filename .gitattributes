@@ -1,0 +1,4 @@
+# Force LF line endings for all text files. Biome's formatter defaults to
+# LF; without this rule a Windows checkout silently CRLF-ifies files and
+# every subsequent lint run fails on otherwise-untouched code.
+* text=auto eol=lf

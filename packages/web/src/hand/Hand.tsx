@@ -66,8 +66,7 @@ export const Hand = ({ color }: Props) => {
         {PIECE_ORDER.map((type) => {
           const count = hand[type];
           const enabled = count > 0 && isActive && hasPlacement(type);
-          const isSelected =
-            isActive && selection?.kind === 'hand' && selection.piece === type;
+          const isSelected = isActive && selection?.kind === 'hand' && selection.piece === type;
           return (
             <button
               key={type}
