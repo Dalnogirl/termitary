@@ -81,8 +81,10 @@ describe('e2e: scripted endgame scenarios', () => {
 
   it('white wins when its final move surrounds the black queen', () => {
     // Mirror of the black-wins coordinator test, with colors swapped:
-    // black queen at origin, 5 of 6 neighbors filled, white ant at (0,2)
-    // slides into (0,1) to complete the surround.
+    // black queen at origin, 5 of 6 neighbors filled, white ant at (1,1)
+    // slides into (0,1) to complete the surround. (1,1) is adjacent to
+    // (1,0)BA, so the ant is connected; slide (1,1)→(0,1) has anchor at
+    // (1,0)BA with empty gap at (0,2).
     const ORIGIN: HexCoord = { q: 0, r: 0 };
     const board = fromCells([
       [ORIGIN, [BQ]],
@@ -91,7 +93,7 @@ describe('e2e: scripted endgame scenarios', () => {
       [{ q: 0, r: -1 }, [BA]],
       [{ q: -1, r: 0 }, [BA]],
       [{ q: -1, r: 1 }, [WS]],
-      [{ q: 0, r: 2 }, [WA]],
+      [{ q: 1, r: 1 }, [WA]],
       [{ q: 2, r: 0 }, [WQ]],
     ]);
 
@@ -109,7 +111,7 @@ describe('e2e: scripted endgame scenarios', () => {
 
     const after = applyMove(state, {
       kind: 'relocate',
-      from: { q: 0, r: 2 },
+      from: { q: 1, r: 1 },
       to: { q: 0, r: 1 },
     });
 
@@ -159,6 +161,8 @@ describe('e2e: scripted endgame scenarios', () => {
   it('white-wins-by-mid-game-surround scenario produces consistent history and result', () => {
     // Reuse the same surround setup to verify history accumulation alongside
     // the status transition: applyMove appends the final move to history.
+    // WA at (1,1) — connected via (1,0)BA — slides to (0,1) with (1,0) as
+    // anchor and (0,2) as gap.
     const ORIGIN: HexCoord = { q: 0, r: 0 };
     const board = fromCells([
       [ORIGIN, [BQ]],
@@ -167,7 +171,7 @@ describe('e2e: scripted endgame scenarios', () => {
       [{ q: 0, r: -1 }, [BA]],
       [{ q: -1, r: 0 }, [BA]],
       [{ q: -1, r: 1 }, [WG]],
-      [{ q: 0, r: 2 }, [WA]],
+      [{ q: 1, r: 1 }, [WA]],
       [{ q: 2, r: 0 }, [WQ]],
     ]);
     const state: GameState = {
@@ -183,7 +187,7 @@ describe('e2e: scripted endgame scenarios', () => {
     };
     const after = applyMove(state, {
       kind: 'relocate',
-      from: { q: 0, r: 2 },
+      from: { q: 1, r: 1 },
       to: { q: 0, r: 1 },
     });
     expect(after.history.length).toBe(2);

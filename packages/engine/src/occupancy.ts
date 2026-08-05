@@ -2,8 +2,12 @@ import type { Board } from './board.js';
 import { isEmpty } from './board.js';
 import { type HexCoord, key, neighbors, parse, sharedNeighbors } from './hex.js';
 
-export const canSlide = (board: Board, from: HexCoord, to: HexCoord): boolean =>
-  sharedNeighbors(from, to).some((gate) => isEmpty(board, gate));
+export const canSlide = (board: Board, from: HexCoord, to: HexCoord): boolean => {
+  const gates = sharedNeighbors(from, to);
+  const hasGap = gates.some((g) => isEmpty(board, g));
+  const hasAnchor = gates.some((g) => !isEmpty(board, g));
+  return hasGap && hasAnchor;
+};
 
 export const isConnectedWithout = (board: Board, c: HexCoord): boolean => {
   const excluded = key(c);

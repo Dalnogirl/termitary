@@ -164,7 +164,9 @@ describe('applyMove: finished state rejects further moves', () => {
 describe('applyMove: transitions to finished when a queen becomes surrounded', () => {
   it("recognizes black's surrounding move and ends the game", () => {
     // Hand-built state: white queen at origin with 5 of 6 neighbors filled.
-    // Black ant at (0,2) is poised to slide into (0,1), completing the surround.
+    // Black ant at (1,1) is poised to slide into (0,1), completing the surround.
+    // (1,1) is adjacent to (1,0)WA so the ant is connected to the hive;
+    // sliding (1,1)→(0,1) has anchor at (1,0)WA and empty gap at (0,2).
     const board = fromCells([
       [ORIGIN, [WQ]],
       [{ q: 1, r: 0 }, [WA]],
@@ -172,7 +174,7 @@ describe('applyMove: transitions to finished when a queen becomes surrounded', (
       [{ q: 0, r: -1 }, [WA]],
       [{ q: -1, r: 0 }, [WA]],
       [{ q: -1, r: 1 }, [WA]],
-      [{ q: 0, r: 2 }, [BA]],
+      [{ q: 1, r: 1 }, [BA]],
       [{ q: 2, r: 0 }, [BQ]],
     ]);
 
@@ -190,7 +192,7 @@ describe('applyMove: transitions to finished when a queen becomes surrounded', (
 
     const after = applyMove(state, {
       kind: 'relocate',
-      from: { q: 0, r: 2 },
+      from: { q: 1, r: 1 },
       to: { q: 0, r: 1 },
     });
 

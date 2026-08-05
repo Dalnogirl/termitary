@@ -12,11 +12,11 @@ const NE: HexCoord = { q: 1, r: -1 };
 const SE: HexCoord = { q: 0, r: 1 };
 
 describe('canSlide', () => {
-  it('returns true on an open board (both gates empty)', () => {
-    expect(canSlide(empty(), ORIGIN, E)).toBe(true);
+  it('returns false on an open board: no anchor piece to slide along', () => {
+    expect(canSlide(empty(), ORIGIN, E)).toBe(false);
   });
 
-  it('returns true when one gate is blocked', () => {
+  it('returns true when exactly one gate is occupied (the anchor) and one is empty', () => {
     const b = place(empty(), NE, WA);
     expect(canSlide(b, ORIGIN, E)).toBe(true);
   });
@@ -26,9 +26,13 @@ describe('canSlide', () => {
     expect(canSlide(b, ORIGIN, E)).toBe(false);
   });
 
-  it('ignores occupancy at from and to themselves', () => {
-    const b = place(place(empty(), ORIGIN, WA), E, WA);
-    expect(canSlide(b, ORIGIN, E)).toBe(true);
+  it('ignores occupancy at from and to themselves; anchor still required at a gate', () => {
+    const occupiedEnds = place(place(empty(), ORIGIN, WA), E, WA);
+    // Both gates still empty → no anchor → cannot slide
+    expect(canSlide(occupiedEnds, ORIGIN, E)).toBe(false);
+    // Add anchor at NE → slide becomes valid
+    const withAnchor = place(occupiedEnds, NE, WA);
+    expect(canSlide(withAnchor, ORIGIN, E)).toBe(true);
   });
 
   it('returns false for far-apart coords (no shared neighbors)', () => {
