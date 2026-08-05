@@ -2,6 +2,8 @@ import { type GameState, createGame } from '@hive/engine';
 import type { Color } from '@hive/engine';
 import type { Identity } from './identity.js';
 
+// TODO(future-cleanup): consider Record<Color, Identity | undefined> instead of
+// a positional tuple — leaks the white=0/black=1 convention into seat/unseat.
 export type Room = {
   readonly id: string;
   readonly state: GameState;

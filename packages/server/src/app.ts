@@ -1,0 +1,25 @@
+import websocket from '@fastify/websocket';
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import { createInMemoryConnectionRegistry } from './adapters/in-memory-connection-registry.js';
+import { createInMemoryRoomStore } from './adapters/in-memory-room-store.js';
+import type { Ports } from './domain/ports.js';
+import { handleConnection } from './ws/connection.js';
+
+export const buildApp = async (
+  options: { logger?: FastifyServerOptions['logger'] } = {},
+): Promise<FastifyInstance> => {
+  const app = Fastify({ logger: options.logger ?? false });
+
+  const rooms = createInMemoryRoomStore();
+  const connections = createInMemoryConnectionRegistry();
+  const ports: Ports = { rooms, connections };
+
+  await app.register(websocket);
+
+  app.get('/health', async () => ({ ok: true }));
+  app.get('/ws', { websocket: true }, (socket, req) => {
+    handleConnection({ socket, req, ports, lifecycle: connections });
+  });
+
+  return app;
+};

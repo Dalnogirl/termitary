@@ -1,21 +1,15 @@
-import Fastify from 'fastify';
+import { buildApp } from './app.js';
 import { env } from './env.js';
-import { registerWs } from './ws/plugin.js';
 
-const app = Fastify({
-  logger:
-    env.nodeEnv === 'development'
-      ? {
-          transport: {
-            target: 'pino-pretty',
-            options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' },
-          },
-        }
-      : true,
-});
+const logger =
+  env.nodeEnv === 'development'
+    ? {
+        transport: {
+          target: 'pino-pretty',
+          options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' },
+        },
+      }
+    : true;
 
-app.get('/health', async () => ({ ok: true }));
-
-await registerWs(app);
-
+const app = await buildApp({ logger });
 await app.listen({ port: env.port, host: env.host });

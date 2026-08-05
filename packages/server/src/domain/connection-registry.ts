@@ -8,3 +8,8 @@ export type ConnectionRegistry = {
   sendTo(playerId: string, msg: ServerMessage): Promise<void>;
   broadcast(roomId: string, msg: ServerMessage): Promise<void>;
 };
+
+export type ConnectionLifecycle = {
+  bind(playerId: string, sender: Sender): void;
+  unbind(playerId: string): void;
+};

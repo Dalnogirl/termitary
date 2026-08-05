@@ -1,14 +1,17 @@
 import type { ClientJoinGame } from '@hive/protocol';
 import { toWire } from '@hive/protocol';
 import type { Identity } from '../domain/identity.js';
+import type { Ports } from '../domain/ports.js';
 import { colorOf, isFull, seatPlayer } from '../domain/room.js';
-import type { Services } from '../domain/services.js';
 import { sendError } from './send-error.js';
+
+// TODO(phase-3-s5): on reconnect, treat "already in room" as a re-attach and
+// resend the current state via gameJoined instead of erroring.
 
 export const handleJoinGame = async (
   identity: Identity,
   msg: ClientJoinGame,
-  { rooms, connections }: Services,
+  { rooms, connections }: Ports,
 ): Promise<void> => {
   const room = await rooms.get(msg.roomId);
   if (room === undefined) {
@@ -30,8 +33,7 @@ export const handleJoinGame = async (
 
   const color = colorOf(updated, identity.playerId);
   if (color === undefined) {
-    await sendError(connections, identity, 'failed to seat player', 'joinGame');
-    return;
+    throw new Error('invariant: just-seated player has no color');
   }
 
   const wireState = toWire(updated.state);

@@ -2,14 +2,14 @@ import { IllegalMoveError, applyMove } from '@hive/engine';
 import type { ClientMakeMove } from '@hive/protocol';
 import { fromWireMove, toWire } from '@hive/protocol';
 import type { Identity } from '../domain/identity.js';
+import type { Ports } from '../domain/ports.js';
 import { type Room, colorOf } from '../domain/room.js';
-import type { Services } from '../domain/services.js';
 import { sendError } from './send-error.js';
 
 export const handleMakeMove = async (
   identity: Identity,
   msg: ClientMakeMove,
-  { rooms, connections }: Services,
+  { rooms, connections }: Ports,
 ): Promise<void> => {
   const room = await rooms.get(msg.roomId);
   if (room === undefined) {

@@ -1,10 +1,11 @@
 import type { ServerMessage } from '@hive/protocol';
-import type { ConnectionRegistry, Sender } from '../domain/connection-registry.js';
+import type {
+  ConnectionLifecycle,
+  ConnectionRegistry,
+  Sender,
+} from '../domain/connection-registry.js';
 
-export type InMemoryConnectionRegistry = ConnectionRegistry & {
-  bind(playerId: string, sender: Sender): void;
-  unbind(playerId: string): void;
-};
+export type InMemoryConnectionRegistry = ConnectionRegistry & ConnectionLifecycle;
 
 export const createInMemoryConnectionRegistry = (): InMemoryConnectionRegistry => {
   const senders = new Map<string, Sender>();
@@ -35,6 +36,7 @@ export const createInMemoryConnectionRegistry = (): InMemoryConnectionRegistry =
       removeFromRoom(playerId);
     },
     joinRoom: async (playerId, roomId) => {
+      if (playerRoom.get(playerId) === roomId) return;
       removeFromRoom(playerId);
       playerRoom.set(playerId, roomId);
       let set = roomPlayers.get(roomId);
@@ -53,7 +55,9 @@ export const createInMemoryConnectionRegistry = (): InMemoryConnectionRegistry =
     broadcast: async (roomId, msg) => {
       const set = roomPlayers.get(roomId);
       if (set === undefined) return;
-      await Promise.all([...set].map((pid) => dispatch(pid, msg)));
+      // allSettled: one peer's transport failure must not poison the broadcast,
+      // and the caller (handler) must not see another player's error.
+      await Promise.allSettled([...set].map((pid) => dispatch(pid, msg)));
     },
   };
 };

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createInMemoryConnectionRegistry } from '../adapters/in-memory-connection-registry.js';
 import { createInMemoryRoomStore } from '../adapters/in-memory-room-store.js';
 import type { Identity } from '../domain/identity.js';
-import type { Services } from '../domain/services.js';
+import type { Ports } from '../domain/ports.js';
 import { handleCreateGame } from './create-game.js';
 import { handleJoinGame } from './join-game.js';
 import { handleLeaveGame } from './leave-game.js';
@@ -16,23 +16,21 @@ const ident = (id: string): Identity => ({ playerId: id });
 type Inbox = { messages: ServerMessage[] };
 
 const setup = () => {
-  const services: Services = {
+  const connections = createInMemoryConnectionRegistry();
+  const ports: Ports = {
     rooms: createInMemoryRoomStore(),
-    connections: createInMemoryConnectionRegistry(),
+    connections,
   };
   const inboxes = new Map<string, Inbox>();
   const connect = (playerId: string): Inbox => {
     const inbox: Inbox = { messages: [] };
     inboxes.set(playerId, inbox);
-    (services.connections as ReturnType<typeof createInMemoryConnectionRegistry>).bind(
-      playerId,
-      async (msg) => {
-        inbox.messages.push(msg);
-      },
-    );
+    connections.bind(playerId, async (msg) => {
+      inbox.messages.push(msg);
+    });
     return inbox;
   };
-  return { services, connect, inboxes };
+  return { ports, connect, inboxes };
 };
 
 const lastOf = (inbox: Inbox): ServerMessage => {
@@ -49,9 +47,9 @@ const roomIdFromCreated = (inbox: Inbox): string => {
 
 describe('handleCreateGame', () => {
   it('creates a room, seats the creator as white, sends gameCreated', async () => {
-    const { services, connect } = setup();
+    const { ports, connect } = setup();
     const alice = connect('alice');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, services);
+    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
 
     const msg = lastOf(alice);
     expect(msg.type).toBe('gameCreated');
@@ -60,29 +58,29 @@ describe('handleCreateGame', () => {
     expect(msg.state.status).toBe('in_progress');
     expect(fromWire(msg.state).currentPlayer).toBe('white');
 
-    const stored = await services.rooms.get(msg.roomId);
+    const stored = await ports.rooms.get(msg.roomId);
     expect(stored?.players[0]?.playerId).toBe('alice');
     expect(stored?.players[1]).toBeUndefined();
   });
 });
 
 describe('handleJoinGame', () => {
-  let services: Services;
+  let ports: Ports;
   let alice: Inbox;
   let bob: Inbox;
   let connect: (id: string) => Inbox;
   let roomId: string;
 
   beforeEach(async () => {
-    ({ services, connect } = setup());
+    ({ ports, connect } = setup());
     alice = connect('alice');
     bob = connect('bob');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, services);
+    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
     roomId = roomIdFromCreated(alice);
   });
 
   it('seats the joiner as black and notifies both players', async () => {
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, services);
+    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
     const bobMsg = lastOf(bob);
     expect(bobMsg.type).toBe('gameJoined');
@@ -93,12 +91,12 @@ describe('handleJoinGame', () => {
     const aliceMsg = lastOf(alice);
     expect(aliceMsg.type).toBe('stateUpdated');
 
-    const stored = await services.rooms.get(roomId);
+    const stored = await ports.rooms.get(roomId);
     expect(stored?.players[1]?.playerId).toBe('bob');
   });
 
   it('errors when the room does not exist', async () => {
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId: 'nope' }, services);
+    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId: 'nope' }, ports);
     const msg = lastOf(bob);
     expect(msg.type).toBe('error');
     if (msg.type !== 'error') throw new Error('unreachable');
@@ -106,9 +104,9 @@ describe('handleJoinGame', () => {
   });
 
   it('errors when the room is full', async () => {
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, services);
+    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
     const carol = connect('carol');
-    await handleJoinGame(ident('carol'), { type: 'joinGame', roomId }, services);
+    await handleJoinGame(ident('carol'), { type: 'joinGame', roomId }, ports);
     const msg = lastOf(carol);
     expect(msg.type).toBe('error');
     if (msg.type !== 'error') throw new Error('unreachable');
@@ -116,7 +114,7 @@ describe('handleJoinGame', () => {
   });
 
   it('errors when the joiner is the creator', async () => {
-    await handleJoinGame(ident('alice'), { type: 'joinGame', roomId }, services);
+    await handleJoinGame(ident('alice'), { type: 'joinGame', roomId }, ports);
     const msg = lastOf(alice);
     expect(msg.type).toBe('error');
     if (msg.type !== 'error') throw new Error('unreachable');
@@ -126,21 +124,21 @@ describe('handleJoinGame', () => {
 
 describe('handleMakeMove', () => {
   it('applies a legal move and broadcasts new state to both players', async () => {
-    const { services, connect } = setup();
+    const { ports, connect } = setup();
     const alice = connect('alice');
     const bob = connect('bob');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, services);
+    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
     const roomId = roomIdFromCreated(alice);
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, services);
+    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
-    const room = await services.rooms.get(roomId);
+    const room = await ports.rooms.get(roomId);
     if (!room) throw new Error('room missing');
     const firstMove = listValidMoves(room.state)[0];
     if (!firstMove) throw new Error('no valid moves');
     await handleMakeMove(
       ident('alice'),
       { type: 'makeMove', roomId, move: toWireMove(firstMove) },
-      services,
+      ports,
     );
 
     const aliceMsg = lastOf(alice);
@@ -153,21 +151,21 @@ describe('handleMakeMove', () => {
   });
 
   it('rejects a move from the wrong player', async () => {
-    const { services, connect } = setup();
+    const { ports, connect } = setup();
     const alice = connect('alice');
     const bob = connect('bob');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, services);
+    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
     const roomId = roomIdFromCreated(alice);
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, services);
+    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
-    const room = await services.rooms.get(roomId);
+    const room = await ports.rooms.get(roomId);
     if (!room) throw new Error('room missing');
     const aliceMove = listValidMoves(room.state)[0];
     if (!aliceMove) throw new Error('no valid moves');
     await handleMakeMove(
       ident('bob'),
       { type: 'makeMove', roomId, move: toWireMove(aliceMove) },
-      services,
+      ports,
     );
 
     const bobMsg = lastOf(bob);
@@ -177,12 +175,12 @@ describe('handleMakeMove', () => {
   });
 
   it('rejects an illegal move with the engine error message', async () => {
-    const { services, connect } = setup();
+    const { ports, connect } = setup();
     const alice = connect('alice');
     const bob = connect('bob');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, services);
+    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
     const roomId = roomIdFromCreated(alice);
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, services);
+    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
     await handleMakeMove(
       ident('alice'),
@@ -195,7 +193,7 @@ describe('handleMakeMove', () => {
           to: { q: 99, r: 99 },
         },
       },
-      services,
+      ports,
     );
 
     const msg = lastOf(alice);
@@ -203,24 +201,20 @@ describe('handleMakeMove', () => {
   });
 
   it('rejects moves on unknown rooms and when the caller is not seated', async () => {
-    const { services, connect } = setup();
+    const { ports, connect } = setup();
     const alice = connect('alice');
     const eve = connect('eve');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, services);
+    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
     const roomId = roomIdFromCreated(alice);
 
     await handleMakeMove(
       ident('alice'),
       { type: 'makeMove', roomId: 'nope', move: { kind: 'pass' } },
-      services,
+      ports,
     );
     expect(lastOf(alice).type).toBe('error');
 
-    await handleMakeMove(
-      ident('eve'),
-      { type: 'makeMove', roomId, move: { kind: 'pass' } },
-      services,
-    );
+    await handleMakeMove(ident('eve'), { type: 'makeMove', roomId, move: { kind: 'pass' } }, ports);
     const eveMsg = lastOf(eve);
     expect(eveMsg.type).toBe('error');
     if (eveMsg.type !== 'error') throw new Error('unreachable');
@@ -230,26 +224,39 @@ describe('handleMakeMove', () => {
 
 describe('handleLeaveGame', () => {
   it('notifies the opponent and deletes the room', async () => {
-    const { services, connect } = setup();
+    const { ports, connect } = setup();
     const alice = connect('alice');
     const bob = connect('bob');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, services);
+    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
     const roomId = roomIdFromCreated(alice);
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, services);
+    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
-    await handleLeaveGame(ident('alice'), { type: 'leaveGame', roomId }, services);
+    await handleLeaveGame(ident('alice'), { type: 'leaveGame', roomId }, ports);
 
     const bobMsg = lastOf(bob);
     expect(bobMsg.type).toBe('error');
     if (bobMsg.type !== 'error') throw new Error('unreachable');
     expect(bobMsg.message).toBe('opponent left');
-    expect(await services.rooms.get(roomId)).toBeUndefined();
+    expect(await ports.rooms.get(roomId)).toBeUndefined();
   });
 
-  it('is a silent no-op on unknown rooms', async () => {
-    const { services, connect } = setup();
+  it('is silent on unknown rooms (idempotent leave)', async () => {
+    const { ports, connect } = setup();
     const alice = connect('alice');
-    await handleLeaveGame(ident('alice'), { type: 'leaveGame', roomId: 'nope' }, services);
+    await handleLeaveGame(ident('alice'), { type: 'leaveGame', roomId: 'nope' }, ports);
     expect(alice.messages).toEqual([]);
+  });
+
+  it('errors when the caller is not seated in the room', async () => {
+    const { ports, connect } = setup();
+    const alice = connect('alice');
+    const eve = connect('eve');
+    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
+    const roomId = roomIdFromCreated(alice);
+    await handleLeaveGame(ident('eve'), { type: 'leaveGame', roomId }, ports);
+    const msg = lastOf(eve);
+    expect(msg.type).toBe('error');
+    if (msg.type !== 'error') throw new Error('unreachable');
+    expect(msg.message).toBe('not in room');
   });
 });
