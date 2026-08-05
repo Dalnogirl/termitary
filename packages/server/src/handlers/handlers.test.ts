@@ -113,12 +113,25 @@ describe('handleJoinGame', () => {
     expect(msg.message).toBe('room is full');
   });
 
-  it('errors when the joiner is the creator', async () => {
+  it('re-attaches when the same player joins again, sending current state', async () => {
+    // First, advance the game so we can assert the re-attach carries state.
+    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    alice.messages.length = 0;
+
     await handleJoinGame(ident('alice'), { type: 'joinGame', roomId }, ports);
     const msg = lastOf(alice);
-    expect(msg.type).toBe('error');
-    if (msg.type !== 'error') throw new Error('unreachable');
-    expect(msg.message).toBe('already in room');
+    expect(msg.type).toBe('gameJoined');
+    if (msg.type !== 'gameJoined') throw new Error('unreachable');
+    expect(msg.playerColor).toBe('white');
+    expect(msg.roomId).toBe(roomId);
+  });
+
+  it('does not notify the opponent on re-attach', async () => {
+    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    bob.messages.length = 0;
+
+    await handleJoinGame(ident('alice'), { type: 'joinGame', roomId }, ports);
+    expect(bob.messages).toEqual([]);
   });
 });
 

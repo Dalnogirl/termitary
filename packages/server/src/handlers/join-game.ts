@@ -5,9 +5,6 @@ import type { Ports } from '../domain/ports.js';
 import { colorOf, isFull, seatPlayer } from '../domain/room.js';
 import { sendError } from './send-error.js';
 
-// TODO(phase-3-s5): on reconnect, treat "already in room" as a re-attach and
-// resend the current state via gameJoined instead of erroring.
-
 export const handleJoinGame = async (
   identity: Identity,
   msg: ClientJoinGame,
@@ -18,10 +15,22 @@ export const handleJoinGame = async (
     await sendError(connections, identity, 'room not found', 'joinGame');
     return;
   }
-  if (colorOf(room, identity.playerId) !== undefined) {
-    await sendError(connections, identity, 'already in room', 'joinGame');
+
+  const existingColor = colorOf(room, identity.playerId);
+  if (existingColor !== undefined) {
+    // Re-attach: the same player is rejoining (route remount, reconnect,
+    // or "Play online" → /play navigation). Re-bind the connection to the
+    // room and resend current state. No mutation, no opponent notification.
+    await connections.joinRoom(identity.playerId, room.id);
+    await connections.sendTo(identity.playerId, {
+      type: 'gameJoined',
+      roomId: room.id,
+      playerColor: existingColor,
+      state: toWire(room.state),
+    });
     return;
   }
+
   if (isFull(room)) {
     await sendError(connections, identity, 'room is full', 'joinGame');
     return;
