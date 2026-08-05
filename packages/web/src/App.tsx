@@ -6,24 +6,18 @@ import {
   handleTargetClick,
 } from './controller/input.js';
 import { createGameOverModal } from './game-over/modal.js';
-import { createHandView } from './hand/view.js';
+import { Hand } from './hand/Hand.js';
 import { getState, subscribe } from './store/store.js';
 
 export const App = () => {
   const appRef = useRef<HTMLDivElement>(null);
-  const handTopRef = useRef<HTMLDivElement>(null);
-  const handBottomRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const app = appRef.current;
-    const ht = handTopRef.current;
-    const hb = handBottomRef.current;
     const board = boardRef.current;
-    if (!app || !ht || !hb || !board) return;
+    if (!app || !board) return;
 
-    const handBlack = createHandView(ht, 'black');
-    const handWhite = createHandView(hb, 'white');
     const modal = createGameOverModal(app);
     const renderer = createRenderer(board, {
       onTargetClick: handleTargetClick,
@@ -36,8 +30,6 @@ export const App = () => {
 
     return () => {
       unsubscribe();
-      handBlack.destroy();
-      handWhite.destroy();
       modal.destroy();
       renderer.destroy();
     };
@@ -45,9 +37,9 @@ export const App = () => {
 
   return (
     <div id="app" ref={appRef}>
-      <div id="hand-top" ref={handTopRef} />
+      <Hand color="black" />
       <div id="board" ref={boardRef} />
-      <div id="hand-bottom" ref={handBottomRef} />
+      <Hand color="white" />
     </div>
   );
 };
