@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import type { Color, PieceType } from '@hive/engine';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { pieceLetter } from '../board/pieces.js';
 import { handlePassClick } from '../controller/input.js';
 import { getState, setSelection, subscribe } from '../store/store.js';
@@ -10,6 +12,15 @@ const COLOR_LABEL: Record<Color, string> = { white: 'White', black: 'Black' };
 const useStore = () => useSyncExternalStore(subscribe, getState, getState);
 
 type Props = { readonly color: Color };
+
+const slotBase =
+  'inline-flex flex-col items-center justify-center w-14 h-14 rounded-md font-bold transition-all ' +
+  'disabled:opacity-30 disabled:pointer-events-none cursor-pointer';
+
+const slotPalette: Record<Color, string> = {
+  white: 'bg-foreground text-background hover:bg-foreground/90',
+  black: 'bg-card text-foreground border border-border hover:bg-card/70',
+};
 
 export const Hand = ({ color }: Props) => {
   const state = useStore();
@@ -35,9 +46,21 @@ export const Hand = ({ color }: Props) => {
   };
 
   return (
-    <div className={`hand-strip hand-${color}${isActive ? ' active' : ''}`}>
-      <span className="hand-label">{COLOR_LABEL[color]}</span>
-      <div className="hand-slots">
+    <div
+      className={cn(
+        'flex items-center gap-4 px-5 py-3 min-h-20 transition-colors border-y-2',
+        isActive ? 'border-foreground bg-muted' : 'border-transparent bg-background',
+      )}
+    >
+      <span
+        className={cn(
+          'min-w-15 text-xs uppercase tracking-[0.15em]',
+          isActive ? 'text-foreground font-semibold' : 'text-muted-foreground',
+        )}
+      >
+        {COLOR_LABEL[color]}
+      </span>
+      <div className="flex gap-2">
         {PIECE_ORDER.map((type) => {
           const count = hand[type];
           const enabled = count > 0 && isActive && hasPlacement(type);
@@ -47,20 +70,24 @@ export const Hand = ({ color }: Props) => {
             <button
               key={type}
               type="button"
-              className={`hand-slot${isSelected ? ' selected' : ''}`}
+              className={cn(
+                slotBase,
+                slotPalette[color],
+                isSelected && 'ring-2 ring-foreground ring-offset-2 ring-offset-background',
+              )}
               disabled={!enabled}
               onClick={() => onSlotClick(type)}
             >
-              <span className="hand-letter">{pieceLetter(type)}</span>
-              <span className="hand-count">{count}</span>
+              <span className="text-lg leading-none">{pieceLetter(type)}</span>
+              <span className="text-[10px] opacity-75 mt-0.5">{count}</span>
             </button>
           );
         })}
       </div>
       {passOnly && (
-        <button type="button" className="pass-btn" onClick={handlePassClick}>
+        <Button onClick={handlePassClick} className="ml-auto" size="sm">
           Pass turn (no moves available)
-        </button>
+        </Button>
       )}
     </div>
   );
