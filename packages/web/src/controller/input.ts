@@ -1,4 +1,4 @@
-import type { HexCoord, Move } from '@hive/engine';
+import type { Color, HexCoord, Move } from '@hive/engine';
 import { getState, setSelection } from '../store/store.js';
 import type { Controller } from './port.js';
 
@@ -11,10 +11,21 @@ export type InputHandlers = {
 
 const sameCoord = (a: HexCoord, b: HexCoord): boolean => a.q === b.q && a.r === b.r;
 
-export const createInputHandlers = (controller: Controller): InputHandlers => {
+// In network play (myColor !== null), interaction is gated on whose turn it is:
+// when it's not mine, validMoves describes the opponent's options, which the UI
+// must neither highlight nor act on. In hot-seat (myColor === null), both sides
+// are mine to play, so the gate is open.
+const canInteract = (myColor: Color | null, currentPlayer: Color): boolean =>
+  myColor === null || myColor === currentPlayer;
+
+export const createInputHandlers = (
+  controller: Controller,
+  myColor: Color | null,
+): InputHandlers => {
   const handleBoardPieceClick = (coord: HexCoord): void => {
     const state = getState();
     if (state.game.status !== 'in_progress') return;
+    if (!canInteract(myColor, state.game.currentPlayer)) return;
 
     const cur = state.selection;
     if (cur?.kind === 'board' && sameCoord(cur.coord, coord)) {
@@ -37,6 +48,7 @@ export const createInputHandlers = (controller: Controller): InputHandlers => {
   const handlePassClick = (): void => {
     const state = getState();
     if (state.game.status !== 'in_progress') return;
+    if (!canInteract(myColor, state.game.currentPlayer)) return;
     const passMove = state.validMoves.find((m) => m.kind === 'pass');
     if (!passMove || state.validMoves.length !== 1) return;
     controller.commitMove(passMove);
@@ -45,6 +57,7 @@ export const createInputHandlers = (controller: Controller): InputHandlers => {
   const handleTargetClick = (coord: HexCoord): void => {
     const state = getState();
     if (state.game.status !== 'in_progress') return;
+    if (!canInteract(myColor, state.game.currentPlayer)) return;
     const sel = state.selection;
     if (!sel) return;
 

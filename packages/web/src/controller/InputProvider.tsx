@@ -1,6 +1,7 @@
 import { type ReactNode, createContext, useContext, useMemo } from 'react';
 import { type InputHandlers, createInputHandlers } from './input.js';
 import type { Controller } from './port.js';
+import { useRoomContext } from './RoomContext.js';
 
 const InputContext = createContext<InputHandlers | null>(null);
 
@@ -10,7 +11,13 @@ type Props = {
 };
 
 export const InputProvider = ({ controller, children }: Props) => {
-  const handlers = useMemo(() => createInputHandlers(controller), [controller]);
+  // InputProvider must be rendered inside a RoomProvider — myColor gates
+  // input handling so the off-turn / off-color clicks no-op.
+  const { myColor } = useRoomContext();
+  const handlers = useMemo(
+    () => createInputHandlers(controller, myColor),
+    [controller, myColor],
+  );
   return <InputContext.Provider value={handlers}>{children}</InputContext.Provider>;
 };
 
