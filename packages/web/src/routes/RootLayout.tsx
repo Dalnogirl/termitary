@@ -1,16 +1,26 @@
 import { NavLink, Outlet } from 'react-router';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    buttonVariants({ variant: isActive ? 'secondary' : 'ghost', size: 'sm' }),
+    'no-underline',
+  );
 
 export const RootLayout = () => (
-  <div id="layout">
-    <nav className="navbar">
-      <span className="navbar-brand">Hive</span>
-      <ul className="navbar-links">
+  <div className="flex h-screen w-screen flex-col bg-background text-foreground">
+    <nav className="flex items-center gap-6 border-b border-border bg-background px-5 py-3">
+      <span className="text-base font-bold tracking-[0.2em] uppercase">Hive</span>
+      <ul className="flex items-center gap-2 list-none p-0 m-0">
         <li>
-          <NavLink to="/hotseat">Hotseat</NavLink>
+          <NavLink to="/hotseat" className={navLinkClass}>
+            Hotseat
+          </NavLink>
         </li>
       </ul>
     </nav>
-    <main className="page">
+    <main className="flex-1 flex flex-col min-h-0">
       <Outlet />
     </main>
   </div>
