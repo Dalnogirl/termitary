@@ -1,0 +1,19 @@
+{
+  "name": "hive",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "dev": "pnpm --filter @hive/web dev"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "packageManager": "pnpm@9.12.0"
+}
