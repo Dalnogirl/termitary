@@ -22,11 +22,17 @@ export const handleJoinGame = async (
     // or "Play online" → /play navigation). Re-bind the connection to the
     // room and resend current state. No mutation, no opponent notification.
     await connections.joinRoom(identity.playerId, room.id);
+    // Re-fetch right before send: in Phase 8 (DDB adapter) the awaits above
+    // yield to other I/O, so the room snapshot from this handler's start may
+    // be stale by now. In-memory adapter is single-task so this is currently
+    // a no-op, but the protocol semantic "gameJoined carries current state"
+    // is enforced here.
+    const fresh = (await rooms.get(room.id)) ?? room;
     await connections.sendTo(identity.playerId, {
       type: 'gameJoined',
-      roomId: room.id,
+      roomId: fresh.id,
       playerColor: existingColor,
-      state: toWire(room.state),
+      state: toWire(fresh.state),
     });
     return;
   }
