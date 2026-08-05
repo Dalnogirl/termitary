@@ -25,6 +25,22 @@ export const handleBackgroundClick = (): void => {
   setSelection(null);
 };
 
+export const handlePassClick = (): void => {
+  const state = getState();
+  if (state.game.status !== 'in_progress') return;
+  const passMove = state.validMoves.find((m) => m.kind === 'pass');
+  if (!passMove || state.validMoves.length !== 1) return;
+  try {
+    commit(applyMove(state.game, passMove));
+  } catch (e) {
+    if (e instanceof IllegalMoveError) {
+      console.warn('IllegalMoveError on pass:', e.message);
+      return;
+    }
+    throw e;
+  }
+};
+
 export const handleTargetClick = (coord: HexCoord): void => {
   const state = getState();
   if (state.game.status !== 'in_progress') return;

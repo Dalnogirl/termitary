@@ -1,4 +1,5 @@
 import type { Color, PieceType } from '@hive/engine';
+import { handlePassClick } from '../controller/input.js';
 import { type StoreState, getState, setSelection, subscribe } from '../store/store.js';
 import { pieceLetter } from '../board/pieces.js';
 
@@ -52,7 +53,13 @@ export const createHandView = (container: HTMLElement, color: Color): HandView =
     slots.set(type, { btn, countEl });
   }
 
-  container.append(label, slotsEl);
+  const passBtn = document.createElement('button');
+  passBtn.className = 'pass-btn';
+  passBtn.textContent = 'Pass turn (no moves available)';
+  passBtn.style.display = 'none';
+  passBtn.addEventListener('click', handlePassClick);
+
+  container.append(label, slotsEl, passBtn);
 
   const render = (state: StoreState): void => {
     const isActive = state.game.status === 'in_progress' && state.game.currentPlayer === color;
@@ -76,6 +83,10 @@ export const createHandView = (container: HTMLElement, color: Color): HandView =
         state.selection.piece === type;
       slot.btn.classList.toggle('selected', isSelected);
     }
+
+    const passOnly =
+      isActive && state.validMoves.length === 1 && state.validMoves[0]?.kind === 'pass';
+    passBtn.style.display = passOnly ? '' : 'none';
   };
 
   const unsubscribe = subscribe(render);
