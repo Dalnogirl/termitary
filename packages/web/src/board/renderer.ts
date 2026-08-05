@@ -1,3 +1,4 @@
+import 'konva/lib/_CoreInternals.js';
 import { Stage } from 'konva/lib/Stage.js';
 import { Layer } from 'konva/lib/Layer.js';
 import { Text } from 'konva/lib/shapes/Text.js';

@@ -53,3 +53,12 @@ export const setSelection = (selection: Selection): void => {
 };
 
 export const reset = (): void => commit(createGame());
+
+if (import.meta.env.DEV) {
+  (globalThis as Record<string, unknown>).__hive = {
+    getState,
+    subscribe,
+    commit,
+    reset,
+  };
+}
