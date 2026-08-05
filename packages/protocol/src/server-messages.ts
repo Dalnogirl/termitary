@@ -8,16 +8,6 @@ export const ServerConnectedSchema = z
   .strict();
 export type ServerConnected = z.infer<typeof ServerConnectedSchema>;
 
-export const ServerGameCreatedSchema = z
-  .object({
-    type: z.literal('gameCreated'),
-    roomId: z.string().min(1),
-    playerColor: PlayerColorSchema,
-    state: WireGameStateSchema,
-  })
-  .strict();
-export type ServerGameCreated = z.infer<typeof ServerGameCreatedSchema>;
-
 export const ServerGameJoinedSchema = z
   .object({
     type: z.literal('gameJoined'),
@@ -48,7 +38,6 @@ export type ServerError = z.infer<typeof ServerErrorSchema>;
 
 export const ServerMessageSchema = z.discriminatedUnion('type', [
   ServerConnectedSchema,
-  ServerGameCreatedSchema,
   ServerGameJoinedSchema,
   ServerStateUpdatedSchema,
   ServerErrorSchema,

@@ -3,10 +3,10 @@ import { parseInbound } from './inbound.js';
 
 describe('parseInbound', () => {
   it('returns the parsed message on valid input', () => {
-    const result = parseInbound(JSON.stringify({ type: 'createGame' }));
+    const result = parseInbound(JSON.stringify({ type: 'joinGame', roomId: 'r1' }));
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('unreachable');
-    expect(result.message.type).toBe('createGame');
+    expect(result.message.type).toBe('joinGame');
   });
 
   it('flags invalid JSON', () => {
@@ -22,7 +22,7 @@ describe('parseInbound', () => {
   });
 
   it('accepts Buffer input', () => {
-    const result = parseInbound(Buffer.from(JSON.stringify({ type: 'createGame' })));
+    const result = parseInbound(Buffer.from(JSON.stringify({ type: 'joinGame', roomId: 'r1' })));
     expect(result.ok).toBe(true);
   });
 });

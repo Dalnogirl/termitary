@@ -87,12 +87,24 @@ const expectKind = <K extends ServerMessage['type']>(
 
 describe('ws integration', () => {
   let app: FastifyInstance;
-  let url: string;
+  let baseUrl: string;
+  let wsUrl: string;
+
+  const createRoomViaRest = async (playerId: string): Promise<string> => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/rooms',
+      payload: { playerId },
+      headers: { 'content-type': 'application/json' },
+    });
+    const body = res.json() as { roomId: string };
+    return body.roomId;
+  };
 
   beforeEach(async () => {
     app = await buildApp();
-    const address = await app.listen({ port: 0, host: '127.0.0.1' });
-    url = `${address.replace('http://', 'ws://')}/ws`;
+    baseUrl = await app.listen({ port: 0, host: '127.0.0.1' });
+    wsUrl = `${baseUrl.replace('http://', 'ws://')}/ws`;
   });
 
   afterEach(async () => {
@@ -100,21 +112,26 @@ describe('ws integration', () => {
   });
 
   it('drives a full create → join → move → leave flow between two clients', async () => {
-    const alice = await connect(url, 'alice');
-    const bob = await connect(url, 'bob');
+    // Create over REST, the way the real client does (no WS until the join).
+    const roomId = await createRoomViaRest('alice');
+
+    const alice = await connect(wsUrl, 'alice');
+    const bob = await connect(wsUrl, 'bob');
 
     expectKind(await alice.next(), 'connected');
     expectKind(await bob.next(), 'connected');
 
-    alice.send({ type: 'createGame' });
-    const created = expectKind(await alice.next((m) => m.type === 'gameCreated'), 'gameCreated');
-    expect(created.playerColor).toBe('white');
-    const { roomId } = created;
+    // Alice rejoins her own room — server's re-attach path sends gameJoined.
+    alice.send({ type: 'joinGame', roomId });
+    const aliceJoined = expectKind(await alice.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    expect(aliceJoined.playerColor).toBe('white');
+    expect(aliceJoined.roomId).toBe(roomId);
 
+    // Bob joins as the second seat (black).
     bob.send({ type: 'joinGame', roomId });
-    const joined = expectKind(await bob.next((m) => m.type === 'gameJoined'), 'gameJoined');
-    expect(joined.playerColor).toBe('black');
-    expect(joined.roomId).toBe(roomId);
+    const bobJoined = expectKind(await bob.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    expect(bobJoined.playerColor).toBe('black');
+    expect(bobJoined.roomId).toBe(roomId);
 
     const aliceJoinUpdate = expectKind(
       await alice.next((m) => m.type === 'stateUpdated'),
@@ -122,7 +139,7 @@ describe('ws integration', () => {
     );
     expect(aliceJoinUpdate.roomId).toBe(roomId);
 
-    const firstMove = listValidMoves(fromWire(created.state))[0];
+    const firstMove = listValidMoves(fromWire(aliceJoined.state))[0];
     if (!firstMove) throw new Error('no valid first move');
     alice.send({ type: 'makeMove', roomId, move: toWireMove(firstMove) });
 
@@ -149,7 +166,7 @@ describe('ws integration', () => {
   });
 
   it('returns an error tagged with requestKind for moves on unknown rooms', async () => {
-    const alice = await connect(url, 'alice');
+    const alice = await connect(wsUrl, 'alice');
     expectKind(await alice.next(), 'connected');
     alice.send({ type: 'makeMove', roomId: 'nope', move: { kind: 'pass' } });
     const err = expectKind(await alice.next((m) => m.type === 'error'), 'error');
@@ -159,7 +176,7 @@ describe('ws integration', () => {
   });
 
   it('generates a playerId when none is provided', async () => {
-    const ws = new WebSocket(`${url}`);
+    const ws = new WebSocket(`${wsUrl}`);
     const opened = new Promise<void>((res, rej) => {
       ws.once('open', () => res());
       ws.once('error', rej);

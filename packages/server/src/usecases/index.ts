@@ -1,4 +1,3 @@
-export { createGame } from './create-game.js';
 export { createRoom } from './create-room.js';
 export { joinGame } from './join-game.js';
 export { leaveGame } from './leave-game.js';

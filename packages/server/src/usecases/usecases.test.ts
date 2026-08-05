@@ -6,7 +6,7 @@ import { createInMemoryConnectionRegistry } from '../adapters/in-memory-connecti
 import { createInMemoryRoomStore } from '../adapters/in-memory-room-store.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
-import { createGame } from './create-game.js';
+import { createRoom } from './create-room.js';
 import { joinGame } from './join-game.js';
 import { leaveGame } from './leave-game.js';
 import { makeMove } from './make-move.js';
@@ -39,30 +39,15 @@ const lastOf = (inbox: Inbox): ServerMessage => {
   return m;
 };
 
-const roomIdFromCreated = (inbox: Inbox): string => {
-  const m = lastOf(inbox);
-  if (m.type !== 'gameCreated') throw new Error(`expected gameCreated, got ${m.type}`);
-  return m.roomId;
+// Provisions a room with `creator` seated as white. Mirrors production flow:
+// REST POST /rooms (creates the room and seats the creator) followed by the
+// creator's WS joinGame (re-attach branch, which adds them to the connection
+// registry so subsequent broadcasts reach them).
+const provisionRoom = async (ports: Ports, creator: string): Promise<string> => {
+  const { roomId } = await createRoom(ident(creator), ports.rooms);
+  await joinGame(ident(creator), { type: 'joinGame', roomId }, ports);
+  return roomId;
 };
-
-describe('createGame', () => {
-  it('creates a room, seats the creator as white, sends gameCreated', async () => {
-    const { ports, connect } = setup();
-    const alice = connect('alice');
-    await createGame(ident('alice'), { type: 'createGame' }, ports);
-
-    const msg = lastOf(alice);
-    expect(msg.type).toBe('gameCreated');
-    if (msg.type !== 'gameCreated') throw new Error('unreachable');
-    expect(msg.playerColor).toBe('white');
-    expect(msg.state.status).toBe('in_progress');
-    expect(fromWire(msg.state).currentPlayer).toBe('white');
-
-    const stored = await ports.rooms.get(msg.roomId);
-    expect(stored?.players[0]?.playerId).toBe('alice');
-    expect(stored?.players[1]).toBeUndefined();
-  });
-});
 
 describe('joinGame', () => {
   let ports: Ports;
@@ -75,8 +60,7 @@ describe('joinGame', () => {
     ({ ports, connect } = setup());
     alice = connect('alice');
     bob = connect('bob');
-    await createGame(ident('alice'), { type: 'createGame' }, ports);
-    roomId = roomIdFromCreated(alice);
+    roomId = await provisionRoom(ports, 'alice');
   });
 
   it('seats the joiner as black and notifies both players', async () => {
@@ -114,7 +98,6 @@ describe('joinGame', () => {
   });
 
   it('re-attaches when the same player joins again, sending current state', async () => {
-    // First, advance the game so we can assert the re-attach carries state.
     await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
     alice.messages.length = 0;
 
@@ -140,8 +123,7 @@ describe('makeMove', () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
     const bob = connect('bob');
-    await createGame(ident('alice'), { type: 'createGame' }, ports);
-    const roomId = roomIdFromCreated(alice);
+    const roomId = await provisionRoom(ports, 'alice');
     await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
     const room = await ports.rooms.get(roomId);
@@ -165,10 +147,9 @@ describe('makeMove', () => {
 
   it('rejects a move from the wrong player', async () => {
     const { ports, connect } = setup();
-    const alice = connect('alice');
+    connect('alice');
     const bob = connect('bob');
-    await createGame(ident('alice'), { type: 'createGame' }, ports);
-    const roomId = roomIdFromCreated(alice);
+    const roomId = await provisionRoom(ports, 'alice');
     await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
     const room = await ports.rooms.get(roomId);
@@ -186,9 +167,8 @@ describe('makeMove', () => {
   it('rejects an illegal move with the engine error message', async () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
-    const bob = connect('bob');
-    await createGame(ident('alice'), { type: 'createGame' }, ports);
-    const roomId = roomIdFromCreated(alice);
+    connect('bob');
+    const roomId = await provisionRoom(ports, 'alice');
     await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
     await makeMove(
@@ -213,8 +193,7 @@ describe('makeMove', () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
     const eve = connect('eve');
-    await createGame(ident('alice'), { type: 'createGame' }, ports);
-    const roomId = roomIdFromCreated(alice);
+    const roomId = await provisionRoom(ports, 'alice');
 
     await makeMove(
       ident('alice'),
@@ -234,10 +213,9 @@ describe('makeMove', () => {
 describe('leaveGame', () => {
   it('notifies the opponent and deletes the room', async () => {
     const { ports, connect } = setup();
-    const alice = connect('alice');
+    connect('alice');
     const bob = connect('bob');
-    await createGame(ident('alice'), { type: 'createGame' }, ports);
-    const roomId = roomIdFromCreated(alice);
+    const roomId = await provisionRoom(ports, 'alice');
     await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
     await leaveGame(ident('alice'), { type: 'leaveGame', roomId }, ports);
@@ -258,10 +236,9 @@ describe('leaveGame', () => {
 
   it('errors when the caller is not seated in the room', async () => {
     const { ports, connect } = setup();
-    const alice = connect('alice');
+    connect('alice');
     const eve = connect('eve');
-    await createGame(ident('alice'), { type: 'createGame' }, ports);
-    const roomId = roomIdFromCreated(alice);
+    const roomId = await provisionRoom(ports, 'alice');
     await leaveGame(ident('eve'), { type: 'leaveGame', roomId }, ports);
     const msg = lastOf(eve);
     expect(msg.type).toBe('error');

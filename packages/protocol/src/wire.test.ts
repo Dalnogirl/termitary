@@ -69,7 +69,6 @@ describe('wire serialization', () => {
 describe('message schemas', () => {
   it('parses each ClientMessage variant', () => {
     const samples = [
-      { type: 'createGame' },
       { type: 'joinGame', roomId: 'r1' },
       {
         type: 'makeMove',
@@ -87,7 +86,6 @@ describe('message schemas', () => {
     const state = toWire(createGame());
     const samples = [
       { type: 'connected', playerId: 'p1' },
-      { type: 'gameCreated', roomId: 'r1', playerColor: 'white', state },
       { type: 'gameJoined', roomId: 'r1', playerColor: 'black', state },
       { type: 'stateUpdated', roomId: 'r1', state },
       { type: 'error', message: 'oops' },
@@ -99,6 +97,9 @@ describe('message schemas', () => {
   });
 
   it('rejects unknown client message types', () => {
+    // createGame used to be a WS message; it's now a REST POST. Asserting it
+    // is rejected ensures the protocol surface stays minimal.
+    expect(ClientMessageSchema.safeParse({ type: 'createGame' }).success).toBe(false);
     expect(ClientMessageSchema.safeParse({ type: 'ping' }).success).toBe(false);
   });
 });

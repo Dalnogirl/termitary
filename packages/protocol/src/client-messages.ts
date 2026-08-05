@@ -1,9 +1,6 @@
 import { z } from 'zod';
 import { WireMoveSchema } from './wire.js';
 
-export const ClientCreateGameSchema = z.object({ type: z.literal('createGame') }).strict();
-export type ClientCreateGame = z.infer<typeof ClientCreateGameSchema>;
-
 export const ClientJoinGameSchema = z
   .object({ type: z.literal('joinGame'), roomId: z.string().min(1) })
   .strict();
@@ -24,7 +21,6 @@ export const ClientLeaveGameSchema = z
 export type ClientLeaveGame = z.infer<typeof ClientLeaveGameSchema>;
 
 export const ClientMessageSchema = z.discriminatedUnion('type', [
-  ClientCreateGameSchema,
   ClientJoinGameSchema,
   ClientMakeMoveSchema,
   ClientLeaveGameSchema,
