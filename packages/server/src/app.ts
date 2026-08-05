@@ -3,6 +3,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import { createInMemoryConnectionRegistry } from './adapters/in-memory-connection-registry.js';
 import { createInMemoryRoomStore } from './adapters/in-memory-room-store.js';
 import type { Ports } from './domain/ports.js';
+import { listRooms } from './usecases/list-rooms.js';
 import { handleConnection } from './ws/connection.js';
 
 export const buildApp = async (
@@ -17,6 +18,7 @@ export const buildApp = async (
   await app.register(websocket);
 
   app.get('/health', async () => ({ ok: true }));
+  app.get('/rooms', async () => listRooms(rooms));
   app.get('/ws', { websocket: true }, (socket, req) => {
     handleConnection({ socket, req, ports, lifecycle: connections });
   });

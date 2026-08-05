@@ -5,7 +5,7 @@ import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { createRoom } from '../domain/room.js';
 
-export const handleCreateGame = async (
+export const createGame = async (
   identity: Identity,
   _msg: ClientCreateGame,
   { rooms, connections }: Ports,

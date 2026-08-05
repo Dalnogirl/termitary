@@ -6,7 +6,7 @@ import type { Ports } from '../domain/ports.js';
 import { type Room, colorOf } from '../domain/room.js';
 import { sendError } from './send-error.js';
 
-export const handleMakeMove = async (
+export const makeMove = async (
   identity: Identity,
   msg: ClientMakeMove,
   { rooms, connections }: Ports,

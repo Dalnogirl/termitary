@@ -1,12 +1,7 @@
 import type { ClientMessage } from '@hive/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
-import {
-  handleCreateGame,
-  handleJoinGame,
-  handleLeaveGame,
-  handleMakeMove,
-} from '../handlers/index.js';
+import { createGame, joinGame, leaveGame, makeMove } from '../usecases/index.js';
 
 export const dispatchClientMessage = (
   identity: Identity,
@@ -15,13 +10,13 @@ export const dispatchClientMessage = (
 ): Promise<void> => {
   switch (msg.type) {
     case 'createGame':
-      return handleCreateGame(identity, msg, ports);
+      return createGame(identity, msg, ports);
     case 'joinGame':
-      return handleJoinGame(identity, msg, ports);
+      return joinGame(identity, msg, ports);
     case 'makeMove':
-      return handleMakeMove(identity, msg, ports);
+      return makeMove(identity, msg, ports);
     case 'leaveGame':
-      return handleLeaveGame(identity, msg, ports);
+      return leaveGame(identity, msg, ports);
     default: {
       const _exhaustive: never = msg;
       throw new Error(`unhandled client message: ${JSON.stringify(_exhaustive)}`);

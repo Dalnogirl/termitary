@@ -5,7 +5,7 @@ import type { Ports } from '../domain/ports.js';
 import { colorOf, isFull, seatPlayer } from '../domain/room.js';
 import { sendError } from './send-error.js';
 
-export const handleJoinGame = async (
+export const joinGame = async (
   identity: Identity,
   msg: ClientJoinGame,
   { rooms, connections }: Ports,

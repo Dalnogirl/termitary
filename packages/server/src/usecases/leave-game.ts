@@ -4,7 +4,7 @@ import type { Ports } from '../domain/ports.js';
 import { colorOf, otherPlayer } from '../domain/room.js';
 import { sendError } from './send-error.js';
 
-export const handleLeaveGame = async (
+export const leaveGame = async (
   identity: Identity,
   msg: ClientLeaveGame,
   { rooms, connections }: Ports,

@@ -6,10 +6,10 @@ import { createInMemoryConnectionRegistry } from '../adapters/in-memory-connecti
 import { createInMemoryRoomStore } from '../adapters/in-memory-room-store.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
-import { handleCreateGame } from './create-game.js';
-import { handleJoinGame } from './join-game.js';
-import { handleLeaveGame } from './leave-game.js';
-import { handleMakeMove } from './make-move.js';
+import { createGame } from './create-game.js';
+import { joinGame } from './join-game.js';
+import { leaveGame } from './leave-game.js';
+import { makeMove } from './make-move.js';
 
 const ident = (id: string): Identity => ({ playerId: id });
 
@@ -45,11 +45,11 @@ const roomIdFromCreated = (inbox: Inbox): string => {
   return m.roomId;
 };
 
-describe('handleCreateGame', () => {
+describe('createGame', () => {
   it('creates a room, seats the creator as white, sends gameCreated', async () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
+    await createGame(ident('alice'), { type: 'createGame' }, ports);
 
     const msg = lastOf(alice);
     expect(msg.type).toBe('gameCreated');
@@ -64,7 +64,7 @@ describe('handleCreateGame', () => {
   });
 });
 
-describe('handleJoinGame', () => {
+describe('joinGame', () => {
   let ports: Ports;
   let alice: Inbox;
   let bob: Inbox;
@@ -75,12 +75,12 @@ describe('handleJoinGame', () => {
     ({ ports, connect } = setup());
     alice = connect('alice');
     bob = connect('bob');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
+    await createGame(ident('alice'), { type: 'createGame' }, ports);
     roomId = roomIdFromCreated(alice);
   });
 
   it('seats the joiner as black and notifies both players', async () => {
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
     const bobMsg = lastOf(bob);
     expect(bobMsg.type).toBe('gameJoined');
@@ -96,7 +96,7 @@ describe('handleJoinGame', () => {
   });
 
   it('errors when the room does not exist', async () => {
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId: 'nope' }, ports);
+    await joinGame(ident('bob'), { type: 'joinGame', roomId: 'nope' }, ports);
     const msg = lastOf(bob);
     expect(msg.type).toBe('error');
     if (msg.type !== 'error') throw new Error('unreachable');
@@ -104,9 +104,9 @@ describe('handleJoinGame', () => {
   });
 
   it('errors when the room is full', async () => {
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
     const carol = connect('carol');
-    await handleJoinGame(ident('carol'), { type: 'joinGame', roomId }, ports);
+    await joinGame(ident('carol'), { type: 'joinGame', roomId }, ports);
     const msg = lastOf(carol);
     expect(msg.type).toBe('error');
     if (msg.type !== 'error') throw new Error('unreachable');
@@ -115,10 +115,10 @@ describe('handleJoinGame', () => {
 
   it('re-attaches when the same player joins again, sending current state', async () => {
     // First, advance the game so we can assert the re-attach carries state.
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
     alice.messages.length = 0;
 
-    await handleJoinGame(ident('alice'), { type: 'joinGame', roomId }, ports);
+    await joinGame(ident('alice'), { type: 'joinGame', roomId }, ports);
     const msg = lastOf(alice);
     expect(msg.type).toBe('gameJoined');
     if (msg.type !== 'gameJoined') throw new Error('unreachable');
@@ -127,28 +127,28 @@ describe('handleJoinGame', () => {
   });
 
   it('does not notify the opponent on re-attach', async () => {
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
     bob.messages.length = 0;
 
-    await handleJoinGame(ident('alice'), { type: 'joinGame', roomId }, ports);
+    await joinGame(ident('alice'), { type: 'joinGame', roomId }, ports);
     expect(bob.messages).toEqual([]);
   });
 });
 
-describe('handleMakeMove', () => {
+describe('makeMove', () => {
   it('applies a legal move and broadcasts new state to both players', async () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
     const bob = connect('bob');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
+    await createGame(ident('alice'), { type: 'createGame' }, ports);
     const roomId = roomIdFromCreated(alice);
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
     const room = await ports.rooms.get(roomId);
     if (!room) throw new Error('room missing');
     const firstMove = listValidMoves(room.state)[0];
     if (!firstMove) throw new Error('no valid moves');
-    await handleMakeMove(
+    await makeMove(
       ident('alice'),
       { type: 'makeMove', roomId, move: toWireMove(firstMove) },
       ports,
@@ -167,19 +167,15 @@ describe('handleMakeMove', () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
     const bob = connect('bob');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
+    await createGame(ident('alice'), { type: 'createGame' }, ports);
     const roomId = roomIdFromCreated(alice);
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
     const room = await ports.rooms.get(roomId);
     if (!room) throw new Error('room missing');
     const aliceMove = listValidMoves(room.state)[0];
     if (!aliceMove) throw new Error('no valid moves');
-    await handleMakeMove(
-      ident('bob'),
-      { type: 'makeMove', roomId, move: toWireMove(aliceMove) },
-      ports,
-    );
+    await makeMove(ident('bob'), { type: 'makeMove', roomId, move: toWireMove(aliceMove) }, ports);
 
     const bobMsg = lastOf(bob);
     expect(bobMsg.type).toBe('error');
@@ -191,11 +187,11 @@ describe('handleMakeMove', () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
     const bob = connect('bob');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
+    await createGame(ident('alice'), { type: 'createGame' }, ports);
     const roomId = roomIdFromCreated(alice);
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
-    await handleMakeMove(
+    await makeMove(
       ident('alice'),
       {
         type: 'makeMove',
@@ -217,17 +213,17 @@ describe('handleMakeMove', () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
     const eve = connect('eve');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
+    await createGame(ident('alice'), { type: 'createGame' }, ports);
     const roomId = roomIdFromCreated(alice);
 
-    await handleMakeMove(
+    await makeMove(
       ident('alice'),
       { type: 'makeMove', roomId: 'nope', move: { kind: 'pass' } },
       ports,
     );
     expect(lastOf(alice).type).toBe('error');
 
-    await handleMakeMove(ident('eve'), { type: 'makeMove', roomId, move: { kind: 'pass' } }, ports);
+    await makeMove(ident('eve'), { type: 'makeMove', roomId, move: { kind: 'pass' } }, ports);
     const eveMsg = lastOf(eve);
     expect(eveMsg.type).toBe('error');
     if (eveMsg.type !== 'error') throw new Error('unreachable');
@@ -235,16 +231,16 @@ describe('handleMakeMove', () => {
   });
 });
 
-describe('handleLeaveGame', () => {
+describe('leaveGame', () => {
   it('notifies the opponent and deletes the room', async () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
     const bob = connect('bob');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
+    await createGame(ident('alice'), { type: 'createGame' }, ports);
     const roomId = roomIdFromCreated(alice);
-    await handleJoinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
-    await handleLeaveGame(ident('alice'), { type: 'leaveGame', roomId }, ports);
+    await leaveGame(ident('alice'), { type: 'leaveGame', roomId }, ports);
 
     const bobMsg = lastOf(bob);
     expect(bobMsg.type).toBe('error');
@@ -256,7 +252,7 @@ describe('handleLeaveGame', () => {
   it('is silent on unknown rooms (idempotent leave)', async () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
-    await handleLeaveGame(ident('alice'), { type: 'leaveGame', roomId: 'nope' }, ports);
+    await leaveGame(ident('alice'), { type: 'leaveGame', roomId: 'nope' }, ports);
     expect(alice.messages).toEqual([]);
   });
 
@@ -264,9 +260,9 @@ describe('handleLeaveGame', () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
     const eve = connect('eve');
-    await handleCreateGame(ident('alice'), { type: 'createGame' }, ports);
+    await createGame(ident('alice'), { type: 'createGame' }, ports);
     const roomId = roomIdFromCreated(alice);
-    await handleLeaveGame(ident('eve'), { type: 'leaveGame', roomId }, ports);
+    await leaveGame(ident('eve'), { type: 'leaveGame', roomId }, ports);
     const msg = lastOf(eve);
     expect(msg.type).toBe('error');
     if (msg.type !== 'error') throw new Error('unreachable');
