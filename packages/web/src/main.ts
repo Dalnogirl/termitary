@@ -1,7 +1,9 @@
-import { createGame } from '@hive/engine';
+import { createRenderer } from './board/renderer.js';
+import { getState, subscribe } from './store/store.js';
 
-const state = createGame();
-const app = document.querySelector<HTMLDivElement>('#app');
-if (app) {
-  app.textContent = `Hive scaffolding alive — engine status: ${state.status}, current player: ${state.currentPlayer}`;
-}
+const root = document.querySelector<HTMLDivElement>('#app');
+if (!root) throw new Error('#app element not found');
+
+const renderer = createRenderer(root);
+subscribe((state) => renderer.draw(state));
+renderer.draw(getState());
