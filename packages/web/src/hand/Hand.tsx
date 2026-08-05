@@ -3,7 +3,7 @@ import type { Color, PieceType } from '@hive/engine';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { pieceLetter } from '../board/pieces.js';
-import { handlePassClick } from '../controller/input.js';
+import { useInputHandlers } from '../controller/InputProvider.js';
 import { getState, setSelection, subscribe } from '../store/store.js';
 
 const PIECE_ORDER: readonly PieceType[] = ['queen', 'ant', 'beetle', 'spider', 'grasshopper'];
@@ -24,6 +24,7 @@ const slotPalette: Record<Color, string> = {
 
 export const Hand = ({ color }: Props) => {
   const state = useStore();
+  const { handlePassClick } = useInputHandlers();
   const isActive = state.game.status === 'in_progress' && state.game.currentPlayer === color;
   const hand = state.game.hands[color];
 
