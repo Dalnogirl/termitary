@@ -1,77 +1,49 @@
-import type { Color } from '@hive/engine';
-import { fromWire } from '@hive/protocol';
-import { useEffect, useRef, useState } from 'react';
-import { type WsClient, createWsClient } from '../network/client.js';
-import { getOrCreatePlayerId } from '../network/player-id.js';
-import { getWsUrl } from '../network/url.js';
-import { gameStore } from '../store/store.js';
-import { type NetworkController, createNetworkController } from './network.js';
+import { useEffect, useState } from 'react';
+import { createStore, useStore } from 'zustand';
+import {
+  INITIAL_ROOM_STATE,
+  type RoomController,
+  type RoomState,
+  createRoomController,
+} from './room.js';
 
-type Status = 'connecting' | 'in-room' | 'error';
-
-export type RoomConnection = {
-  readonly status: Status;
-  readonly controller: NetworkController | null;
-  readonly myColor: Color | null;
-  readonly errorMsg: string | null;
+export type RoomConnection = RoomState & {
+  readonly controller: RoomController | null;
   readonly leave: () => void;
 };
 
-// Owns the WS connection, network controller, and joinGame round-trip for a
-// single /play/:roomId session.
+// Reads as INITIAL_ROOM_STATE forever; used by useStore on first render
+// before the effect creates the real controller. Keeps the hook's call
+// signature stable (useStore needs a store argument, not undefined).
+const FALLBACK_STORE = createStore<RoomState>(() => INITIAL_ROOM_STATE);
+
+// Lifecycle-only wrapper around RoomController: creates it on mount,
+// disposes on unmount, and projects its store into React. All protocol
+// wiring lives in createRoomController — there are no client.on(...)
+// calls in this file by design.
 export const useRoomConnection = (roomId: string | undefined): RoomConnection => {
-  const [status, setStatus] = useState<Status>('connecting');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [controller, setController] = useState<NetworkController | null>(null);
-  const [myColor, setMyColor] = useState<Color | null>(null);
-  const clientRef = useRef<WsClient | null>(null);
+  const [controller, setController] = useState<RoomController | null>(null);
 
   useEffect(() => {
     if (roomId === undefined || roomId.length === 0) return;
-    setStatus('connecting');
-    setErrorMsg(null);
-    setMyColor(null);
-
-    const client = createWsClient({
-      url: getWsUrl(),
-      playerId: getOrCreatePlayerId(),
-    });
-    clientRef.current = client;
-    const networkController = createNetworkController({ client, roomId });
-
-    const offGameJoined = client.on('gameJoined', (msg) => {
-      gameStore.getState().applyGameState(fromWire(msg.state));
-      setMyColor(msg.playerColor);
-      setStatus('in-room');
-    });
-
-    // Move-errors are owned by the network controller (rollback). The hook
-    // surfaces only the non-move errors: join failures, opponent-left, etc.
-    const offError = client.on('error', (msg) => {
-      if (msg.requestKind === 'makeMove') return;
-      setErrorMsg(msg.message);
-      setStatus('error');
-    });
-
-    client.send({ type: 'joinGame', roomId });
-    setController(networkController);
-
+    const c = createRoomController({ roomId });
+    setController(c);
     return () => {
-      offGameJoined();
-      offError();
-      networkController.dispose();
-      client.close();
-      clientRef.current = null;
+      c.dispose();
       setController(null);
-      setMyColor(null);
     };
   }, [roomId]);
 
-  const leave = (): void => {
-    if (clientRef.current && roomId !== undefined) {
-      clientRef.current.send({ type: 'leaveGame', roomId });
-    }
-  };
+  const store = controller?.store ?? FALLBACK_STORE;
+  const status = useStore(store, (s) => s.status);
+  const myColor = useStore(store, (s) => s.myColor);
+  const errorMsg = useStore(store, (s) => s.errorMsg);
 
-  return { status, controller, myColor, errorMsg, leave };
+  return {
+    status,
+    myColor,
+    errorMsg,
+    controller,
+    leave: () => controller?.leave(),
+  };
 };
