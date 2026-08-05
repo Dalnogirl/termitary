@@ -25,7 +25,11 @@ const slotPalette: Record<Color, string> = {
 export const Hand = ({ color }: Props) => {
   const state = useStore();
   const { handlePassClick } = useInputHandlers();
-  const isActive = state.game.status === 'in_progress' && state.game.currentPlayer === color;
+  // myColor null = hot-seat (this client controls both sides). When set,
+  // only the matching hand can act regardless of whose turn it is.
+  const controllable = state.myColor === null || state.myColor === color;
+  const isActive =
+    state.game.status === 'in_progress' && state.game.currentPlayer === color && controllable;
   const hand = state.game.hands[color];
 
   const hasPlacement = (type: PieceType): boolean =>

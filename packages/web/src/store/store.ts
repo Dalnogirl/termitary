@@ -1,4 +1,5 @@
 import {
+  type Color,
   type GameState,
   type HexCoord,
   type Move,
@@ -16,6 +17,9 @@ export type StoreState = {
   readonly game: GameState;
   readonly validMoves: readonly Move[];
   readonly selection: Selection;
+  // null = hot-seat (both colors playable by this client). When set by a
+  // network route, the UI restricts interaction to the matching color.
+  readonly myColor: Color | null;
 };
 
 type Subscriber = (state: StoreState) => void;
@@ -25,6 +29,7 @@ let state: StoreState = {
   game: initialGame,
   validMoves: listValidMoves(initialGame),
   selection: null,
+  myColor: null,
 };
 
 const subscribers = new Set<Subscriber>();
@@ -43,12 +48,18 @@ export const subscribe = (fn: Subscriber): (() => void) => {
 };
 
 export const commit = (next: GameState): void => {
-  state = { game: next, validMoves: listValidMoves(next), selection: null };
+  // commit only touches game-derived fields; myColor is owned by the route.
+  state = { ...state, game: next, validMoves: listValidMoves(next), selection: null };
   notify();
 };
 
 export const setSelection = (selection: Selection): void => {
   state = { ...state, selection };
+  notify();
+};
+
+export const setMyColor = (color: Color | null): void => {
+  state = { ...state, myColor: color };
   notify();
 };
 
