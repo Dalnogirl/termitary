@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
+import { toast } from 'sonner';
 import { fetchRooms } from '../network/rooms-api.js';
 import { useCreateRoom } from '../network/use-create-room.js';
 
@@ -22,7 +23,7 @@ export const LobbyPage = () => {
     createRoom.mutate(undefined, {
       onSuccess: ({ roomId }) => void navigate(`/play/${roomId}`),
       onError: (err) => {
-        console.error('failed to create game:', err);
+        toast.error(err instanceof Error ? err.message : 'Could not create game');
       },
     });
   };

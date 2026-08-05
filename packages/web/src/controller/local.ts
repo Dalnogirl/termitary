@@ -1,4 +1,5 @@
 import { IllegalMoveError, type Move, applyMove } from '@hive/engine';
+import { toast } from 'sonner';
 import { gameStore } from '../store/store.js';
 import type { Controller } from './port.js';
 
@@ -9,7 +10,7 @@ export const createLocalController = (): Controller => ({
       applyGameState(applyMove(game, move));
     } catch (e) {
       if (e instanceof IllegalMoveError) {
-        console.warn('IllegalMoveError:', e.message);
+        toast.error(e.message);
         setSelection(null);
         return;
       }

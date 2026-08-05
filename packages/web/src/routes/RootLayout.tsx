@@ -1,6 +1,7 @@
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { NavLink, Outlet } from 'react-router';
+import { Toaster } from 'sonner';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(buttonVariants({ variant: isActive ? 'secondary' : 'ghost', size: 'sm' }), 'no-underline');
@@ -25,5 +26,6 @@ export const RootLayout = () => (
     <main className="flex-1 flex flex-col min-h-0">
       <Outlet />
     </main>
+    <Toaster theme="dark" richColors closeButton />
   </div>
 );

@@ -10,8 +10,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import type { OpponentPresence } from '@hive/protocol';
-import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
+import { toast } from 'sonner';
 import { InputProvider } from '../controller/InputProvider.js';
 import { RoomProvider } from '../controller/RoomContext.js';
 import { useRoomConnection } from '../controller/use-room-connection.js';
@@ -50,16 +51,13 @@ export const PlayPage = () => {
     void navigate('/lobby');
   };
 
-  if (room.status === 'error') {
-    return (
-      <div className="flex flex-1 items-center justify-center flex-col gap-4">
-        <p className="text-foreground">{room.errorMsg ?? 'Unknown error'}</p>
-        <Button asChild variant="secondary">
-          <Link to="/lobby">Back to lobby</Link>
-        </Button>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (room.status !== 'error') return;
+    toast.error(room.errorMsg ?? 'Unknown error');
+    void navigate('/lobby');
+  }, [room.status, room.errorMsg, navigate]);
+
+  if (room.status === 'error') return null;
   if (room.controller === null) {
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground">

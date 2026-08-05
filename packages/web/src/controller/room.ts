@@ -1,5 +1,6 @@
 import { type Color, type GameState, type Move, applyMove } from '@hive/engine';
 import { type OpponentPresence, fromWire, toWireMove } from '@hive/protocol';
+import { toast } from 'sonner';
 import { type StoreApi, createStore } from 'zustand';
 import { createWsClient } from '../network/client.js';
 import { getOrCreatePlayerId } from '../network/player-id.js';
@@ -89,7 +90,8 @@ export const createRoomController = ({ roomId, playerId }: Options): RoomControl
       // is unreachable in normal play. Abort the round-trip rather than
       // send a known-bad move.
       pendingSnapshot = null;
-      console.warn('local applyMove failed:', e);
+      const msg = e instanceof Error ? e.message : 'Move rejected';
+      toast.error(msg);
       before.setSelection(null);
       return;
     }
