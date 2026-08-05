@@ -7,30 +7,54 @@ Base game only (no expansions). Untimed. Expansions + clock added later.
 
 ---
 
-## Phase 1: Game Engine (pure TS, zero deps)
+## Phase 1: Game Engine (pure TS, zero deps) — ✅ COMPLETE
 
 **Goal:** Playable Hive logic, fully tested, no UI/network/infra.
 
 `packages/engine/`
 
-- [ ] Hex coordinate system (axial: `{ q, r }`) — neighbors, distance, ring detection
-- [ ] Board representation — `Map<string, Piece[]>` (string = serialized coord, array for beetle stacking)
-- [ ] Piece types: Queen, Ant, Grasshopper, Spider, Beetle
-- [ ] Placement rules (color alternation, queen by turn 4, adjacent to own color only after turn 1)
-- [ ] One-hive rule validation (board stays connected after removing piece)
-- [ ] Movement rules per piece type
-- [ ] Valid move generation — given state, return all legal moves for active player
-- [ ] Win/draw detection (queen surrounded)
-- [ ] Game state machine: `not_started → in_progress → finished`
-- [ ] CLI playground — play a game in terminal via stdin to smoke-test
+- [x] Hex coordinate system (axial: `{ q, r }`) — `neighbors`, `sharedNeighbors`, `key`, `parse`
+  - Distance and ring detection were dropped (no caller — YAGNI).
+- [x] Board representation — `Board = { cells: ReadonlyMap<string, readonly Piece[]> }` (immutable, beetle stacking)
+- [x] Piece types: Queen, Ant, Grasshopper, Spider, Beetle (value objects: `{ type, color }`)
+- [x] Placement rules — `placement.getValidPlacementCoords(board, color, turnNumber)`. White opens at (0,0), color-touching rule from turn 1.
+- [x] One-hive rule — `occupancy.isConnectedWithout(board, c)` (BFS, beetle-stack short-circuit).
+- [x] Movement rules per piece type — `movements/{queen,ant,beetle,spider,grasshopper}.ts` over a shared `slideStep` primitive. Touching-hive rule enforced for every relocation.
+- [x] Valid move generation — `coordinator.listValidMoves(state)` combines placements + relocations + pass; queen-by-turn-4 enforced.
+- [x] Win/draw detection — `result.{isQueenSurrounded, getResult}`.
+- [x] Game state machine: 2-state discriminated union `in_progress | finished`. (`not_started` dropped — derivable from `history.length === 0`.)
+- [x] ~~CLI playground~~ — replaced by **e2e fuzzer + scripted endgame tests** (`src/e2e.test.ts`). 30 random games × 80 moves with invariant checks.
 
-**Key design:** Engine is pure functions. `applyMove(state, move) → { newState, validMoves, result }`. No side effects, no IO. This package never gains dependencies.
+**Key design:** Engine is pure functions over value-object state. Free functions everywhere; classes only where state truly needs encapsulation (none so far). `applyMove(state, move): GameState` returns new state and throws `IllegalMoveError` on illegal input. `listValidMoves(state)` is the single source of truth for legality.
 
 ---
 
-## Phase 2: Local Multiplayer Server
+## Phase 2: Hot-seat Web UI (revised ordering)
 
-**Goal:** Two players can play Hive over WebSockets on localhost.
+**Goal:** Two humans on the same screen drive a Hive game through a browser, against the live engine. No server, no network.
+
+`packages/web/`
+
+- [ ] Tooling: Vite + TS + chosen framework (React or alternative — to grill)
+- [ ] Hex grid rendering — pointy-top hexagons, axial-to-pixel conversion (SVG or Canvas — to grill)
+- [ ] Piece visuals — distinct per type + color
+- [ ] State: hold a `GameState` from the engine, re-render on every `applyMove`
+- [ ] Interaction:
+  - Click own piece on board → show valid relocation targets from `listValidMoves`
+  - Click own piece in hand → show valid placement targets
+  - Click target → `applyMove`, re-render
+  - Pass button when only `pass` is legal
+- [ ] HUD: whose turn, hand counts per color, game status, winner overlay
+- [ ] Move history sidebar (cheap; engine already records history)
+- [ ] No accounts, no rooms, no lobby — single browser tab is the whole game
+
+This phase validates the engine end-to-end through human interaction before any network code lands.
+
+---
+
+## Phase 3: Local Multiplayer Server (was Phase 2)
+
+**Goal:** Two players can play Hive over WebSockets on localhost, using the same UI from Phase 2.
 
 `packages/server/`
 
@@ -41,25 +65,7 @@ Base game only (no expansions). Untimed. Expansions + clock added later.
 - [ ] Basic reconnection — rejoin by gameId, re-send full state
 - [ ] Simple lobby — list open games, create/join
 
-No auth, no persistence, no DB. Players are ephemeral socket IDs.
-
----
-
-## Phase 3: Web Client
-
-**Goal:** Playable Hive in the browser against another human.
-
-`packages/web/`
-
-- [ ] Vite + React SPA
-- [ ] Konva (`react-konva`) for board rendering
-- [ ] Hex grid rendering — pointy-top hexagons, axial-to-pixel conversion
-- [ ] Piece sprites/shapes — distinct visuals per piece type + color
-- [ ] Interaction: click piece → show valid targets (from server) → click target → send move
-- [ ] Drag-and-drop as enhancement
-- [ ] Lobby screen — create/join game
-- [ ] Game screen — board, move history sidebar, turn indicator
-- [ ] Socket.IO client — connect, send moves, receive state updates
+No auth, no persistence, no DB. Players are ephemeral socket IDs. The hot-seat UI gets a network mode bolted on rather than being rewritten.
 
 ---
 
