@@ -4,10 +4,11 @@ import { Line } from 'konva/lib/shapes/Line.js';
 import { Text } from 'konva/lib/shapes/Text.js';
 import { type HexCoord, occupiedCells } from '@hive/engine';
 import { axialToPixel, hexCorners } from './hex.js';
-import { pieceFill, pieceLetter, pieceStroke, pieceTextColor } from './pieces.js';
+import { pieceFill, pieceLetter, pieceTextColor, pieceTypeAccent } from './pieces.js';
 import type { StoreState } from '../store/store.js';
 
 const HEX_SIZE = 40;
+const CHIP_SIZE = 14;
 const SELECT_STROKE = '#f5d56a';
 const HINT_STROKE = '#bba85a';
 
@@ -98,8 +99,12 @@ export const createRenderer = (
       const key = coordKey(coord);
       const isSelected = key === selectedCoord;
       const isHinted = movable.has(key);
-      const stroke = isSelected ? SELECT_STROKE : isHinted ? HINT_STROKE : pieceStroke(top);
-      const strokeWidth = isSelected ? 4 : isHinted ? 3 : 2;
+      const stroke = isSelected
+        ? SELECT_STROKE
+        : isHinted
+          ? HINT_STROKE
+          : pieceTypeAccent(top.type);
+      const strokeWidth = isSelected ? 4 : isHinted ? 3 : 3;
       const poly = new Line({
         points: hexCorners(center, HEX_SIZE),
         closed: true,
@@ -122,6 +127,35 @@ export const createRenderer = (
         listening: false,
       });
       layer.add(poly, text);
+
+      if (stack.length > 1) {
+        const below = stack[stack.length - 2];
+        if (below) {
+          const chipCenter = { x: center.x + HEX_SIZE * 0.55, y: center.y - HEX_SIZE * 0.65 };
+          const chip = new Line({
+            points: hexCorners(chipCenter, CHIP_SIZE),
+            closed: true,
+            fill: pieceFill(below),
+            stroke: pieceTypeAccent(below.type),
+            strokeWidth: 2,
+            listening: false,
+          });
+          const chipText = new Text({
+            x: chipCenter.x - CHIP_SIZE,
+            y: chipCenter.y - CHIP_SIZE,
+            width: CHIP_SIZE * 2,
+            height: CHIP_SIZE * 2,
+            text: pieceLetter(below.type),
+            fontSize: CHIP_SIZE,
+            fontStyle: 'bold',
+            fill: pieceTextColor(below),
+            align: 'center',
+            verticalAlign: 'middle',
+            listening: false,
+          });
+          layer.add(chip, chipText);
+        }
+      }
     }
 
     for (const coord of targetsFor(state)) {
