@@ -6,3 +6,4 @@ coverage/
 **/coverage/
 *.tsbuildinfo
 .DS_Store
+packages/server/data/

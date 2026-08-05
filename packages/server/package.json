@@ -10,20 +10,28 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src",
-    "format": "biome format --write src"
+    "format": "biome format --write src",
+    "db:generate-schema": "better-auth generate --config src/adapters/auth/auth.config.ts --output src/adapters/db/schema.ts --y",
+    "db:generate-migration": "drizzle-kit generate"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.0",
     "@fastify/websocket": "^11.0.0",
     "@hive/engine": "workspace:*",
     "@hive/protocol": "workspace:*",
+    "better-auth": "^1.6.11",
+    "better-sqlite3": "^12.10.0",
+    "drizzle-orm": "^0.45.2",
     "fastify": "^5.0.0",
     "pino-pretty": "^11.2.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@better-auth/cli": "^1.4.21",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.1",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.19.0",
     "ws": "^8.18.0"
   }
