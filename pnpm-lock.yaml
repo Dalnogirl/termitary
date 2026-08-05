@@ -75,6 +75,9 @@ importers:
       '@hive/engine':
         specifier: workspace:*
         version: link:../engine
+      '@hive/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
