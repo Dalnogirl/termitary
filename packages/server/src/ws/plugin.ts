@@ -26,10 +26,11 @@ export const registerWs = async (app: FastifyInstance): Promise<void> => {
         send(socket, { type: 'error', message: result.error.message });
         return;
       }
-      const msg = result.data;
-      if (msg.type === 'ping') {
-        send(socket, { type: 'pong' });
-      }
+      send(socket, {
+        type: 'error',
+        message: 'not implemented',
+        requestKind: result.data.type,
+      });
     });
 
     socket.on('close', () => {

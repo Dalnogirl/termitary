@@ -9,11 +9,14 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src",
     "format": "biome format --write src"
   },
   "dependencies": {
+    "@hive/engine": "workspace:*",
     "zod": "^3.23.0"
   }
 }
