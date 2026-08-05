@@ -1,7 +1,7 @@
 import { type GameState, type Move, applyMove } from '@hive/engine';
 import { fromWire, toWireMove } from '@hive/protocol';
 import type { WsClient } from '../network/client.js';
-import { commit, getState, setSelection } from '../store/store.js';
+import { gameStore } from '../store/store.js';
 import type { Controller } from './port.js';
 
 export type NetworkController = Controller & {
@@ -20,20 +20,20 @@ export const createNetworkController = ({ client, roomId }: Options): NetworkCon
   let pendingSnapshot: GameState | null = null;
 
   const commitMove = (move: Move): void => {
-    const before = getState();
+    const before = gameStore.getState();
     if (before.game.status !== 'in_progress') return;
 
     pendingSnapshot = before.game;
 
     try {
-      commit(applyMove(before.game, move));
+      before.applyGameState(applyMove(before.game, move));
     } catch (e) {
       // Local engine rejected the move. UI is supposed to filter by
       // validMoves so this is unreachable in normal play. Abort the
       // round-trip rather than send a known-bad move to the server.
       pendingSnapshot = null;
       console.warn('local applyMove failed:', e);
-      setSelection(null);
+      before.setSelection(null);
       return;
     }
 
@@ -46,12 +46,12 @@ export const createNetworkController = ({ client, roomId }: Options): NetworkCon
 
   const offStateUpdated = client.on('stateUpdated', (msg) => {
     pendingSnapshot = null;
-    commit(fromWire(msg.state));
+    gameStore.getState().applyGameState(fromWire(msg.state));
   });
 
   const offError = client.on('error', (msg) => {
     if (msg.requestKind === 'makeMove' && pendingSnapshot !== null) {
-      commit(pendingSnapshot);
+      gameStore.getState().applyGameState(pendingSnapshot);
       pendingSnapshot = null;
     }
   });

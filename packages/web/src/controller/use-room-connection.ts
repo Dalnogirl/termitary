@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { type WsClient, createWsClient } from '../network/client.js';
 import { getOrCreatePlayerId } from '../network/player-id.js';
 import { getWsUrl } from '../network/url.js';
-import { commit } from '../store/store.js';
+import { gameStore } from '../store/store.js';
 import { type NetworkController, createNetworkController } from './network.js';
 
 type Status = 'connecting' | 'in-room' | 'error';
@@ -40,7 +40,7 @@ export const useRoomConnection = (roomId: string | undefined): RoomConnection =>
     const networkController = createNetworkController({ client, roomId });
 
     const offGameJoined = client.on('gameJoined', (msg) => {
-      commit(fromWire(msg.state));
+      gameStore.getState().applyGameState(fromWire(msg.state));
       setMyColor(msg.playerColor);
       setStatus('in-room');
     });

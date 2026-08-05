@@ -1,16 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { Color, PieceType } from '@hive/engine';
-import { useSyncExternalStore } from 'react';
 import { pieceLetter } from '../board/pieces.js';
 import { useInputHandlers } from '../controller/InputProvider.js';
 import { useRoomContext } from '../controller/RoomContext.js';
-import { getState, setSelection, subscribe } from '../store/store.js';
+import { useGameStore } from '../store/store.js';
 
 const PIECE_ORDER: readonly PieceType[] = ['queen', 'ant', 'beetle', 'spider', 'grasshopper'];
 const COLOR_LABEL: Record<Color, string> = { white: 'White', black: 'Black' };
-
-const useStore = () => useSyncExternalStore(subscribe, getState, getState);
 
 type Props = { readonly color: Color };
 
@@ -24,28 +21,26 @@ const slotPalette: Record<Color, string> = {
 };
 
 export const Hand = ({ color }: Props) => {
-  const state = useStore();
+  const game = useGameStore((s) => s.game);
+  const validMoves = useGameStore((s) => s.validMoves);
+  const selection = useGameStore((s) => s.selection);
+  const setSelection = useGameStore((s) => s.setSelection);
   const { handlePassClick } = useInputHandlers();
   const { myColor } = useRoomContext();
   // myColor null = hot-seat (this client controls both sides). When set,
   // only the matching hand can act regardless of whose turn it is.
   const controllable = myColor === null || myColor === color;
-  const isActive =
-    state.game.status === 'in_progress' && state.game.currentPlayer === color && controllable;
-  const hand = state.game.hands[color];
+  const isActive = game.status === 'in_progress' && game.currentPlayer === color && controllable;
+  const hand = game.hands[color];
 
   const hasPlacement = (type: PieceType): boolean =>
-    state.validMoves.some(
-      (m) => m.kind === 'place' && m.piece.type === type && m.piece.color === color,
-    );
+    validMoves.some((m) => m.kind === 'place' && m.piece.type === type && m.piece.color === color);
 
-  const passOnly =
-    isActive && state.validMoves.length === 1 && state.validMoves[0]?.kind === 'pass';
+  const passOnly = isActive && validMoves.length === 1 && validMoves[0]?.kind === 'pass';
 
   const onSlotClick = (type: PieceType): void => {
     if (!isActive) return;
-    const cur = state.selection;
-    if (cur?.kind === 'hand' && cur.piece === type) {
+    if (selection?.kind === 'hand' && selection.piece === type) {
       setSelection(null);
     } else {
       setSelection({ kind: 'hand', piece: type });
@@ -72,7 +67,7 @@ export const Hand = ({ color }: Props) => {
           const count = hand[type];
           const enabled = count > 0 && isActive && hasPlacement(type);
           const isSelected =
-            isActive && state.selection?.kind === 'hand' && state.selection.piece === type;
+            isActive && selection?.kind === 'hand' && selection.piece === type;
           return (
             <button
               key={type}

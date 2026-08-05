@@ -1,5 +1,5 @@
 import type { Color, HexCoord, Move } from '@hive/engine';
-import { getState, setSelection } from '../store/store.js';
+import { gameStore } from '../store/store.js';
 import type { Controller } from './port.js';
 
 export type InputHandlers = {
@@ -23,13 +23,13 @@ export const createInputHandlers = (
   myColor: Color | null,
 ): InputHandlers => {
   const handleBoardPieceClick = (coord: HexCoord): void => {
-    const state = getState();
+    const state = gameStore.getState();
     if (state.game.status !== 'in_progress') return;
     if (!canInteract(myColor, state.game.currentPlayer)) return;
 
     const cur = state.selection;
     if (cur?.kind === 'board' && sameCoord(cur.coord, coord)) {
-      setSelection(null);
+      state.setSelection(null);
       return;
     }
 
@@ -38,15 +38,15 @@ export const createInputHandlers = (
     );
     if (!hasRelocate) return;
 
-    setSelection({ kind: 'board', coord });
+    state.setSelection({ kind: 'board', coord });
   };
 
   const handleBackgroundClick = (): void => {
-    setSelection(null);
+    gameStore.getState().setSelection(null);
   };
 
   const handlePassClick = (): void => {
-    const state = getState();
+    const state = gameStore.getState();
     if (state.game.status !== 'in_progress') return;
     if (!canInteract(myColor, state.game.currentPlayer)) return;
     const passMove = state.validMoves.find((m) => m.kind === 'pass');
@@ -55,7 +55,7 @@ export const createInputHandlers = (
   };
 
   const handleTargetClick = (coord: HexCoord): void => {
-    const state = getState();
+    const state = gameStore.getState();
     if (state.game.status !== 'in_progress') return;
     if (!canInteract(myColor, state.game.currentPlayer)) return;
     const sel = state.selection;

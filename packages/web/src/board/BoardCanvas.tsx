@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useInputHandlers } from '../controller/InputProvider.js';
 import { useRoomContext } from '../controller/RoomContext.js';
-import { getState, subscribe } from '../store/store.js';
+import { gameStore } from '../store/store.js';
 import { createRenderer } from './renderer.js';
 
 export const BoardCanvas = () => {
@@ -23,8 +23,8 @@ export const BoardCanvas = () => {
       { myColor },
     );
 
-    const unsubscribe = subscribe((state) => renderer.draw(state));
-    renderer.draw(getState());
+    const unsubscribe = gameStore.subscribe((state) => renderer.draw(state));
+    renderer.draw(gameStore.getState());
 
     return () => {
       unsubscribe();

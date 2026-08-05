@@ -1,8 +1,5 @@
-import { useSyncExternalStore } from 'react';
 import type { HexCoord, Move, PieceType } from '@hive/engine';
-import { getState, subscribe } from '../store/store.js';
-
-const useStore = () => useSyncExternalStore(subscribe, getState, getState);
+import { useGameStore } from '../store/store.js';
 
 const PIECE_NAME: Record<PieceType, string> = {
   queen: 'Queen',
@@ -26,8 +23,7 @@ const formatMove = (move: Move): string => {
 };
 
 export const History = () => {
-  const state = useStore();
-  const history = state.game.history;
+  const history = useGameStore((s) => s.game.history);
 
   return (
     <aside className="flex flex-col w-60 border-l border-border bg-card overflow-hidden">

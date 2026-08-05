@@ -9,12 +9,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { useState, useSyncExternalStore } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { InputProvider } from '../controller/InputProvider.js';
 import { RoomProvider } from '../controller/RoomContext.js';
 import { useRoomConnection } from '../controller/use-room-connection.js';
-import { getState, subscribe } from '../store/store.js';
+import { useGameStore } from '../store/store.js';
 import { GameLayout } from './GameLayout.js';
 
 export const PlayPage = () => {
@@ -22,7 +22,7 @@ export const PlayPage = () => {
   const navigate = useNavigate();
   const room = useRoomConnection(roomId);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
-  const storeState = useSyncExternalStore(subscribe, getState, getState);
+  const gameStatus = useGameStore((s) => s.game.status);
 
   const handleConfirmLeave = (): void => {
     setShowLeaveDialog(false);
@@ -48,7 +48,7 @@ export const PlayPage = () => {
     );
   }
 
-  const gameOver = storeState.game.status === 'finished';
+  const gameOver = gameStatus === 'finished';
 
   return (
     <RoomProvider myColor={room.myColor}>

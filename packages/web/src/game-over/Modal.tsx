@@ -1,4 +1,3 @@
-import { useSyncExternalStore } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -8,7 +7,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { getState, reset, subscribe } from '../store/store.js';
+import { useGameStore } from '../store/store.js';
 
 type FinishedResult = 'white-wins' | 'black-wins' | 'draw';
 
@@ -18,13 +17,12 @@ const RESULT_TEXT: Record<FinishedResult, { title: string; subtitle: string }> =
   draw: { title: 'Draw', subtitle: 'Both queens surrounded simultaneously' },
 };
 
-const useStore = () => useSyncExternalStore(subscribe, getState, getState);
-
 export const Modal = () => {
-  const state = useStore();
-  if (state.game.status !== 'finished') return null;
+  const game = useGameStore((s) => s.game);
+  const reset = useGameStore((s) => s.reset);
+  if (game.status !== 'finished') return null;
 
-  const { title, subtitle } = RESULT_TEXT[state.game.result];
+  const { title, subtitle } = RESULT_TEXT[game.result];
 
   return (
     <AlertDialog open>

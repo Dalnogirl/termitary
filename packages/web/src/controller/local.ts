@@ -1,12 +1,12 @@
 import { IllegalMoveError, type Move, applyMove } from '@hive/engine';
-import { commit, getState, setSelection } from '../store/store.js';
+import { gameStore } from '../store/store.js';
 import type { Controller } from './port.js';
 
 export const createLocalController = (): Controller => ({
   commitMove: (move: Move): void => {
-    const state = getState();
+    const { game, applyGameState, setSelection } = gameStore.getState();
     try {
-      commit(applyMove(state.game, move));
+      applyGameState(applyMove(game, move));
     } catch (e) {
       if (e instanceof IllegalMoveError) {
         console.warn('IllegalMoveError:', e.message);

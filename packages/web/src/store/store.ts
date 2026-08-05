@@ -6,6 +6,8 @@ import {
   createGame,
   listValidMoves,
 } from '@hive/engine';
+import { type StateCreator, createStore, useStore } from 'zustand';
+import { devtools } from 'zustand/middleware';
 
 export type Selection =
   | { readonly kind: 'hand'; readonly piece: PieceType }
@@ -18,47 +20,29 @@ export type StoreState = {
   readonly selection: Selection;
 };
 
-type Subscriber = (state: StoreState) => void;
-
-const initialGame = createGame();
-let state: StoreState = {
-  game: initialGame,
-  validMoves: listValidMoves(initialGame),
-  selection: null,
+type StoreActions = {
+  readonly applyGameState: (game: GameState) => void;
+  readonly setSelection: (selection: Selection) => void;
+  readonly reset: () => void;
 };
 
-const subscribers = new Set<Subscriber>();
+export type GameStore = StoreState & StoreActions;
 
-const notify = (): void => {
-  for (const fn of subscribers) fn(state);
+const initialState = (): StoreState => {
+  const game = createGame();
+  return { game, validMoves: listValidMoves(game), selection: null };
 };
 
-export const getState = (): StoreState => state;
+const initializer: StateCreator<GameStore, [['zustand/devtools', never]]> = (set) => ({
+  ...initialState(),
+  applyGameState: (game) =>
+    set({ game, validMoves: listValidMoves(game), selection: null }, false, 'applyGameState'),
+  setSelection: (selection) => set({ selection }, false, 'setSelection'),
+  reset: () => set(initialState(), false, 'reset'),
+});
 
-export const subscribe = (fn: Subscriber): (() => void) => {
-  subscribers.add(fn);
-  return () => {
-    subscribers.delete(fn);
-  };
-};
+export const gameStore = createStore<GameStore>()(
+  devtools(initializer, { name: 'hive-game', enabled: import.meta.env.DEV }),
+);
 
-export const commit = (next: GameState): void => {
-  state = { game: next, validMoves: listValidMoves(next), selection: null };
-  notify();
-};
-
-export const setSelection = (selection: Selection): void => {
-  state = { ...state, selection };
-  notify();
-};
-
-export const reset = (): void => commit(createGame());
-
-if (import.meta.env.DEV) {
-  (globalThis as Record<string, unknown>).__hive = {
-    getState,
-    subscribe,
-    commit,
-    reset,
-  };
-}
+export const useGameStore = <T>(selector: (s: GameStore) => T): T => useStore(gameStore, selector);
