@@ -18,3 +18,8 @@ export const parse = (s: string): HexCoord => {
   const i = s.indexOf(',');
   return { q: Number(s.slice(0, i)), r: Number(s.slice(i + 1)) };
 };
+
+export const sharedNeighbors = (a: HexCoord, b: HexCoord): HexCoord[] => {
+  const aKeys = new Set(neighbors(a).map(key));
+  return neighbors(b).filter((n) => aKeys.has(key(n)));
+};
