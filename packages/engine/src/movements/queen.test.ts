@@ -17,28 +17,11 @@ const SW: HexCoord = { q: -1, r: 1 };
 const SE: HexCoord = { q: 0, r: 1 };
 
 describe('queenMovement', () => {
-  it('returns empty list when alone on the board (no friend to slide along)', () => {
-    // A lone queen is technically against Hive's "stay connected" rule but
-    // queenMovement is a geometry primitive — it only cares about sliding.
-    // On a board with just the queen, all 6 neighbors are empty AND both
-    // gates of each are empty, so all 6 are returned.
+  it('returns [] when alone on the board (no hive to touch)', () => {
+    // Touching-hive rule: every move must end adjacent to at least one
+    // other occupied cell. A lone queen has no friends, so no moves.
     const b = place(empty(), ORIGIN, WQ);
-    const moves = queenMovement(ORIGIN, b);
-    expect(moves).toHaveLength(6);
-  });
-
-  it('with one adjacent friend, can slide to 4 empty neighbors (skips the friend, 1 squeezed gap)', () => {
-    // Queen at ORIGIN, friend at E. Of the remaining 5 neighbors of origin:
-    //   NE and SE are adjacent to both ORIGIN and E -> their gates include E.
-    //   For target NE: gates are E (occupied) and NW (empty) -> can slide.
-    //   For target SE: gates are E (occupied) and SW (empty) -> can slide.
-    //   For NW, W, SW: gates do not include E -> all empty -> can slide.
-    // So 5 valid moves, not 4. Let me re-check by walking through.
-    const b = place(place(empty(), ORIGIN, WQ), E, WA);
-    const moves = queenMovement(ORIGIN, b);
-    const moveKeys = new Set(moves.map(key));
-    expect(moveKeys).not.toContain(key(E));
-    expect(moveKeys.size).toBe(5);
+    expect(queenMovement(ORIGIN, b)).toEqual([]);
   });
 
   it('returns no moves when squeezed: gap between two adjacent friends', () => {
@@ -73,5 +56,25 @@ describe('queenMovement', () => {
   it('never returns the origin itself', () => {
     const b = place(empty(), ORIGIN, WQ);
     expect(queenMovement(ORIGIN, b).map(key)).not.toContain(key(ORIGIN));
+  });
+
+  // --- Touching-hive rule regression tests (TDD: failing before the fix) ---
+
+  it('does not return destinations that would dangle the queen from the rest of the hive', () => {
+    // Queen at ORIGIN with a single friend at NE. If queen moves to SW, the
+    // friend at NE is no longer adjacent to anything — hive splits into two
+    // components. Such a destination must be rejected.
+    const b = place(place(empty(), ORIGIN, WQ), NE, WA);
+    const moves = queenMovement(ORIGIN, b);
+    expect(moves.map(key)).not.toContain(key(SW));
+    expect(moves.map(key)).not.toContain(key(W));
+  });
+
+  it('with one adjacent friend, only destinations adjacent to that friend (in transit) are valid', () => {
+    // Queen at ORIGIN, friend at E. After removing the queen, only NE and SE
+    // are adjacent to E. Other neighbors of ORIGIN would dangle.
+    const b = place(place(empty(), ORIGIN, WQ), E, WA);
+    const moves = new Set(queenMovement(ORIGIN, b).map(key));
+    expect(moves).toEqual(new Set([key(NE), key(SE)]));
   });
 });

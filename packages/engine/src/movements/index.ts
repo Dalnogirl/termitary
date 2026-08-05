@@ -1,14 +1,18 @@
 import type { Board } from '../board.js';
 import type { HexCoord } from '../hex.js';
 import type { PieceType } from '../piece.js';
+import { antMovement } from './ant.js';
 import { beetleMovement } from './beetle.js';
 import { grasshopperMovement } from './grasshopper.js';
 import { queenMovement } from './queen.js';
+import { spiderMovement } from './spider.js';
 
 export type MovementFn = (from: HexCoord, board: Board) => HexCoord[];
 
 export const movements = {
   queen: queenMovement,
-  beetle: beetleMovement,
+  ant: antMovement,
   grasshopper: grasshopperMovement,
-} satisfies Partial<Record<PieceType, MovementFn>>;
+  spider: spiderMovement,
+  beetle: beetleMovement,
+} satisfies Record<PieceType, MovementFn>;

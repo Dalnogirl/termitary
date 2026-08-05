@@ -47,17 +47,20 @@ describe('getValidMoves', () => {
     expect(getValidMoves(WQ, ORIGIN, b)).toEqual([]);
   });
 
-  it('returns [] for unimplemented piece types (graceful fallback)', () => {
-    // ant has no movement fn yet; even with valid pinning + connectivity, returns []
-    const b = place(place(empty(), ORIGIN, WA), E, WA);
-    expect(getValidMoves(WA, ORIGIN, b)).toEqual([]);
-  });
-
-  it('queen with a single neighbor: 5 of 6 axial cells are reachable', () => {
+  it('queen with one adjacent friend: only destinations touching the friend in transit', () => {
+    // Queen at ORIGIN, friend at E. After removing the queen, the only neighbors
+    // of ORIGIN still adjacent to the friend are NE (1,-1) and SE (0,1).
     const b = place(place(empty(), ORIGIN, WQ), E, WA);
     const moves = new Set(getValidMoves(WQ, ORIGIN, b).map(key));
     expect(moves.has(key(E))).toBe(false);
-    expect(moves.size).toBe(5);
+    expect(moves.size).toBe(2);
+  });
+
+  it('ant has movement now (not a fallback case)', () => {
+    // Replaces the prior "unimplemented piece" test — ant is now implemented.
+    // Smoke test that getValidMoves returns at least one ant move.
+    const b = place(place(empty(), ORIGIN, WA), E, { type: 'queen', color: 'white' });
+    expect(getValidMoves(WA, ORIGIN, b).length).toBeGreaterThan(0);
   });
 
   it('every returned move is among the 6 axial neighbors of from (queen invariant)', () => {

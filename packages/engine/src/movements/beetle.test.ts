@@ -13,9 +13,9 @@ const NE: HexCoord = { q: 1, r: -1 };
 const SE: HexCoord = { q: 0, r: 1 };
 
 describe('beetleMovement', () => {
-  it('alone on board: all 6 neighbors are reachable', () => {
+  it('returns [] when alone on the board (no hive to touch)', () => {
     const b = place(empty(), ORIGIN, WB);
-    expect(beetleMovement(ORIGIN, b)).toHaveLength(6);
+    expect(beetleMovement(ORIGIN, b)).toEqual([]);
   });
 
   it('climbs onto an adjacent friend (occupied target is allowed)', () => {
@@ -47,5 +47,19 @@ describe('beetleMovement', () => {
     // E is reachable (one gate empty); NE is reachable (climbing onto WA)
     expect(moves.map(key)).toContain(key(E));
     expect(moves.map(key)).toContain(key(NE));
+  });
+
+  // --- Touching-hive rule regression tests (TDD: failing before the fix) ---
+
+  it('does not return empty destinations that would dangle the beetle from the hive', () => {
+    // Beetle at ORIGIN, friend at NE. Beetle can climb onto NE (occupied —
+    // hive-touching trivially), or slide to E or NW (both touch NE in transit).
+    // It must NOT slide to W or SW — they're disconnected after removal.
+    const b = place(place(empty(), ORIGIN, WB), NE, WA);
+    const moves = beetleMovement(ORIGIN, b);
+    const moveKeys = new Set(moves.map(key));
+    expect(moveKeys.has(key({ q: -1, r: 0 }))).toBe(false); // W
+    expect(moveKeys.has(key({ q: -1, r: 1 }))).toBe(false); // SW
+    expect(moveKeys.has(key({ q: 0, r: 1 }))).toBe(false); // SE — not adjacent to NE either
   });
 });

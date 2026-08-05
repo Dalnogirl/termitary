@@ -8,8 +8,5 @@ export const getValidMoves = (piece: Piece, from: HexCoord, board: Board): HexCo
   const top = topPieceAt(board, from);
   if (!top || top.type !== piece.type || top.color !== piece.color) return [];
   if (!isConnectedWithout(board, from)) return [];
-  const fn = (movements as Partial<Record<typeof piece.type, (typeof movements)['queen']>>)[
-    piece.type
-  ];
-  return fn ? fn(from, board) : [];
+  return movements[piece.type](from, board);
 };
