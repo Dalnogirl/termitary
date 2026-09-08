@@ -104,13 +104,13 @@ describe('DrizzleRoomStore', () => {
     const { db, store } = setup();
     await store.create({
       ...createRoom('r1', { playerId: 'p1' }),
-      players: [{ playerId: 'p1' }, { playerId: 'p2' }],
+      players: { white: { playerId: 'p1' }, black: { playerId: 'p2' } },
     });
 
     db.db.delete(user).where(eq(user.id, 'p2')).run();
 
     const stored = await store.get('r1');
-    expect(stored?.players).toEqual([{ playerId: 'p1' }, undefined]);
+    expect(stored?.players).toEqual({ white: { playerId: 'p1' }, black: undefined });
     db.close();
   });
 

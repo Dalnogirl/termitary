@@ -9,7 +9,10 @@ const ident = (id: string): Identity => ({ playerId: id });
 
 describe('summarize', () => {
   it('counts an empty room as 0 players', () => {
-    const empty = { ...createRoom('r1', ident('alice')), players: [undefined, undefined] as const };
+    const empty = {
+      ...createRoom('r1', ident('alice')),
+      players: { white: undefined, black: undefined },
+    };
     expect(summarize(empty)).toEqual({ roomId: 'r1', playerCount: 0, status: 'in_progress' });
   });
 

@@ -3,9 +3,9 @@ import type { RoomStore } from '../domain/room-store.js';
 import type { Room } from '../domain/room.js';
 
 const countPlayers = (room: Room): 0 | 1 | 2 => {
-  const [w, b] = room.players;
-  if (w !== undefined && b !== undefined) return 2;
-  if (w !== undefined || b !== undefined) return 1;
+  const { white, black } = room.players;
+  if (white !== undefined && black !== undefined) return 2;
+  if (white !== undefined || black !== undefined) return 1;
   return 0;
 };
 

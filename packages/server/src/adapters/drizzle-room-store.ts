@@ -10,12 +10,12 @@ const seat = (userId: string | null) => (userId === null ? undefined : { playerI
 const toRoom = (row: RoomRow): Room => ({
   id: row.id,
   state: fromWire(WireGameStateSchema.parse(row.state)),
-  players: [seat(row.whiteUserId), seat(row.blackUserId)],
+  players: { white: seat(row.whiteUserId), black: seat(row.blackUserId) },
 });
 
 const mutableColumns = (room: Room) => ({
-  whiteUserId: room.players[0]?.playerId ?? null,
-  blackUserId: room.players[1]?.playerId ?? null,
+  whiteUserId: room.players.white?.playerId ?? null,
+  blackUserId: room.players.black?.playerId ?? null,
   status: room.state.status,
   state: toWire(room.state),
   stateVersion: CURRENT_STATE_VERSION,
