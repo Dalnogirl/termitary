@@ -3,7 +3,14 @@ import { dirname, isAbsolute, resolve } from 'node:path';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import * as schema from './schema.js';
+import * as authSchema from './auth-schema.js';
+import * as gameSchema from './schema.js';
+
+// Both halves of the database in one namespace: better-auth's generated
+// tables plus the hand-written game tables. `createAuth` gets `authSchema`
+// alone, since its adapter maps better-auth model names onto tables and has
+// no business seeing ours.
+const schema = { ...authSchema, ...gameSchema };
 
 export type Db = ReturnType<typeof drizzle<typeof schema>>;
 

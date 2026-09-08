@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "biome check src",
     "format": "biome format --write src",
-    "db:generate-schema": "better-auth generate --config src/adapters/auth/auth.config.ts --output src/adapters/db/schema.ts --y",
+    "db:generate-schema": "better-auth generate --config src/adapters/auth/auth.config.ts --output src/adapters/db/auth-schema.ts --y",
     "db:generate-migration": "drizzle-kit generate"
   },
   "dependencies": {
