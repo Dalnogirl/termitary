@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { RoomAlreadyExistsError, type RoomStore } from '../domain/room-store.js';
-import { createRoom } from '../domain/room.js';
+import { createRoom, seatPlayer } from '../domain/room.js';
 
 export type StoreHarness = {
   readonly store: RoomStore;
+  /** Moves the store's clock, so sweep cases do not wait in real time. */
+  setNow(at: Date): void;
   /** Seats are a foreign key in persisting stores; the id has to exist. */
   seedUser(id: string): Promise<void>;
   cleanup?(): void;
@@ -73,12 +75,49 @@ export const describeRoomStoreContract = (
         await expect(store.delete('nope')).resolves.toBeUndefined();
       }));
 
-    it('list returns all rooms', async () =>
+    it('list returns an overview per room', async () =>
       withStore(async ({ store }) => {
         await store.create(createRoom('r1', ident('p1')));
-        await store.create(createRoom('r2', ident('p2')));
-        const rooms = await store.list();
-        expect(rooms.map((r) => r.id).sort()).toEqual(['r1', 'r2']);
+        await store.create(seatPlayer(createRoom('r2', ident('p1')), ident('p2')));
+        const rooms = [...(await store.list())].sort((a, b) => a.id.localeCompare(b.id));
+        expect(rooms).toEqual([
+          { id: 'r1', players: { white: ident('p1'), black: undefined }, status: 'in_progress' },
+          { id: 'r2', players: { white: ident('p1'), black: ident('p2') }, status: 'in_progress' },
+        ]);
+      }));
+
+    it('sweeps a room with a free seat once it is older than the cutoff', async () =>
+      withStore(async ({ store, setNow }) => {
+        setNow(new Date(1000));
+        await store.create(createRoom('r1', ident('p1')));
+
+        expect(await store.deleteAbandonedBefore(new Date(1000))).toBe(0);
+        expect(await store.get('r1')).toBeDefined();
+
+        expect(await store.deleteAbandonedBefore(new Date(2000))).toBe(1);
+        expect(await store.get('r1')).toBeUndefined();
+      }));
+
+    it('never sweeps a full game in progress', async () =>
+      withStore(async ({ store, setNow }) => {
+        setNow(new Date(1000));
+        await store.create(seatPlayer(createRoom('r1', ident('p1')), ident('p2')));
+
+        expect(await store.deleteAbandonedBefore(new Date(9999))).toBe(0);
+        expect(await store.get('r1')).toBeDefined();
+      }));
+
+    it('a save resets the clock a sweep measures', async () =>
+      withStore(async ({ store, setNow }) => {
+        setNow(new Date(1000));
+        const room = createRoom('r1', ident('p1'));
+        await store.create(room);
+
+        setNow(new Date(5000));
+        await store.save(room);
+
+        expect(await store.deleteAbandonedBefore(new Date(4000))).toBe(0);
+        expect(await store.get('r1')).toBeDefined();
       }));
 
     it('list is empty before anything is created', async () =>

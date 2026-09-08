@@ -28,9 +28,13 @@ const placeAnt = (q: number, r: number) =>
 
 describeRoomStoreContract('DrizzleRoomStore', async () => {
   const db = createDb(':memory:');
+  let clock = new Date();
   return {
-    store: createDrizzleRoomStore(db.db),
+    store: createDrizzleRoomStore(db.db, () => clock),
     seedUser: async (id) => seedUser(db, id),
+    setNow: (at) => {
+      clock = at;
+    },
     cleanup: () => db.close(),
   };
 });
@@ -106,6 +110,23 @@ describe('DrizzleRoomStore', () => {
         .set({ state: { status: 'in_progress' } as never })
         .where(eq(roomsTable.id, 'r1'))
         .run();
+      await expect(store.get('r1')).rejects.toThrow();
+    }));
+
+  it('lists a room whose state cannot be parsed', async () =>
+    withStore(async ({ db, store }) => {
+      await store.create(createRoom('r1', { playerId: 'p1' }));
+      await store.create(createRoom('r2', { playerId: 'p2' }));
+      db.db
+        .update(roomsTable)
+        .set({ state: { status: 'in_progress' } as never })
+        .where(eq(roomsTable.id, 'r1'))
+        .run();
+
+      // The lobby projects columns and never touches `state`, so one bad row
+      // does not fail the listing for every user.
+      const listed = await store.list();
+      expect(listed.map((r) => r.id).sort()).toEqual(['r1', 'r2']);
       await expect(store.get('r1')).rejects.toThrow();
     }));
 

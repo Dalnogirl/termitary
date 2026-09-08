@@ -1,6 +1,6 @@
 import { WireGameStateSchema, fromWire, toWire } from '@hive/protocol';
-import { eq, sql } from 'drizzle-orm';
-import { RoomAlreadyExistsError, type RoomStore } from '../domain/room-store.js';
+import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
+import { RoomAlreadyExistsError, type RoomOverview, type RoomStore } from '../domain/room-store.js';
 import type { Room } from '../domain/room.js';
 import type { Db } from './db/client.js';
 import { CURRENT_STATE_VERSION, type RoomRow, rooms as roomsTable } from './db/schema.js';
@@ -72,5 +72,36 @@ export const createDrizzleRoomStore = (db: Db, now: () => Date = () => new Date(
     db.delete(roomsTable).where(eq(roomsTable.id, id)).run();
   },
 
-  list: async () => db.select().from(roomsTable).all().map(toRoom),
+  // Projected, not whole rooms: the lobby never parses a game, so one
+  // unreadable row cannot fail the listing for every user.
+  list: async (): Promise<readonly RoomOverview[]> =>
+    db
+      .select({
+        id: roomsTable.id,
+        whiteUserId: roomsTable.whiteUserId,
+        blackUserId: roomsTable.blackUserId,
+        status: roomsTable.status,
+      })
+      .from(roomsTable)
+      .all()
+      .map((row) => ({
+        id: row.id,
+        players: { white: seat(row.whiteUserId), black: seat(row.blackUserId) },
+        status: row.status,
+      })),
+
+  deleteAbandonedBefore: async (cutoff) =>
+    db
+      .delete(roomsTable)
+      .where(
+        and(
+          lt(roomsTable.updatedAt, cutoff),
+          or(
+            eq(roomsTable.status, 'finished'),
+            isNull(roomsTable.whiteUserId),
+            isNull(roomsTable.blackUserId),
+          ),
+        ),
+      )
+      .run().changes,
 });
