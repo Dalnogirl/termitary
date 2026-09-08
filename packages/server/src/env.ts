@@ -28,7 +28,5 @@ export const env = {
   // to the other. better-auth's origin check compares against this too.
   authBaseUrl: process.env.BETTER_AUTH_URL ?? `http://localhost:${port}`,
   webOrigin: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
-  // How often the abandoned-room sweep runs. Well under ABANDONED_ROOM_TTL_MS,
-  // so a room is removed within about an hour of passing the cutoff.
   roomSweepIntervalMs: Number(process.env.ROOM_SWEEP_INTERVAL_MS ?? 60 * 60 * 1000),
 } as const;
