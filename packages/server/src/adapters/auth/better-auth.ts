@@ -3,7 +3,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { emailOTP } from 'better-auth/plugins';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { env } from '../../env.js';
-import * as schema from '../db/schema.js';
+import * as authSchema from '../db/auth-schema.js';
 
 export type Auth = ReturnType<typeof createAuth>;
 
@@ -19,11 +19,11 @@ const defaultSendOtp: SendOtp = async ({ email, otp, type }) => {
 };
 
 export const createAuth = (
-  db: BetterSQLite3Database<typeof schema>,
+  db: BetterSQLite3Database<typeof authSchema>,
   opts: { sendOtp?: SendOtp } = {},
 ) =>
   betterAuth({
-    database: drizzleAdapter(db, { provider: 'sqlite', schema }),
+    database: drizzleAdapter(db, { provider: 'sqlite', schema: authSchema }),
     secret: env.authSecret,
     baseURL: env.authBaseUrl,
     // The web client is a separate origin from the API in dev, so its Origin
