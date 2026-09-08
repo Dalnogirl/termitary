@@ -37,8 +37,13 @@ const updateColumns = (room: Room, now: Date) => ({
   updatedAt: now,
 });
 
+// better-sqlite3 sets a stable `code`; the message text names the table and
+// would drift with the schema.
 const isPrimaryKeyViolation = (err: unknown): boolean =>
-  err instanceof Error && err.message.includes('UNIQUE constraint failed: rooms.id');
+  typeof err === 'object' &&
+  err !== null &&
+  'code' in err &&
+  err.code === 'SQLITE_CONSTRAINT_PRIMARYKEY';
 
 export const createDrizzleRoomStore = (db: Db, now: () => Date = () => new Date()): RoomStore => ({
   create: async (room) => {
