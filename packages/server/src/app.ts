@@ -13,9 +13,11 @@ import { createDrizzleRoomStore } from './adapters/drizzle-room-store.js';
 import { createInMemoryConnectionRegistry } from './adapters/in-memory-connection-registry.js';
 import type { Identity } from './domain/identity.js';
 import type { Ports } from './domain/ports.js';
+import type { RoomStore } from './domain/room-store.js';
 import { env } from './env.js';
 import { createRoom } from './usecases/create-room.js';
 import { listRooms } from './usecases/list-rooms.js';
+import { sweepAbandonedRooms } from './usecases/sweep-abandoned-rooms.js';
 import { handleConnection } from './ws/connection.js';
 import { type IdentityExtractor, createIdentityExtractor } from './ws/identity.js';
 
@@ -27,6 +29,9 @@ declare module 'fastify' {
 
 export type BuildAppOptions = {
   logger?: FastifyServerOptions['logger'];
+  // Set to 0 to build an app that never sweeps on its own, which is what a
+  // test wants when it drives sweepAbandonedRooms directly.
+  roomSweepIntervalMs?: number;
   // Test seam: callers may inject a pre-built db + auth (e.g. an in-memory
   // sqlite shared between asserts). Defaults wire from env.
   db?: DbHandle;
@@ -46,7 +51,14 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
 
   app.decorateRequest('identity', null);
 
+  const sweepTimer = startRoomSweep(
+    app,
+    rooms,
+    options.roomSweepIntervalMs ?? env.roomSweepIntervalMs,
+  );
+
   app.addHook('onClose', async () => {
+    if (sweepTimer !== undefined) clearInterval(sweepTimer);
     if (!options.db) dbHandle.close();
   });
 
@@ -73,6 +85,28 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
   });
 
   return app;
+};
+
+// Boot sweep plus an interval. The timer is unref'd so it never holds the
+// process open, and buildApp's onClose clears it. A failed sweep is logged
+// rather than thrown: cleanup must not take the server down.
+const startRoomSweep = (
+  app: FastifyInstance,
+  rooms: RoomStore,
+  intervalMs: number,
+): NodeJS.Timeout | undefined => {
+  if (intervalMs <= 0) return undefined;
+
+  const run = (): void => {
+    void sweepAbandonedRooms(rooms)
+      .then((removed) => {
+        if (removed > 0) app.log.info({ removed }, 'swept abandoned rooms');
+      })
+      .catch((err: unknown) => app.log.error({ err }, 'room sweep failed'));
+  };
+
+  run();
+  return setInterval(run, intervalMs).unref();
 };
 
 const gateIdentity =
