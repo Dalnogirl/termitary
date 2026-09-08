@@ -1,12 +1,15 @@
 import type { Room } from './room.js';
 
-// TODO(phase-8): once the DDB adapter lands, add optimistic concurrency to
-// avoid last-write-wins. Likely shape: a `version` field on Room and
-// `save(room, expectedVersion?)`. In-memory Phase 3 is single-writer per
-// playerId so the race window isn't reachable yet.
+// TODO: `save` is last-write-wins, and the race is application-level rather
+// than a storage-engine property. `makeMove` awaits `get`, validates, then
+// awaits `save`; two handlers for one room can both read before either writes.
+// The `rooms.version` column exists and increments, but nothing compares it.
+// Closing this needs a `WHERE version = ?` predicate, an expected version on
+// `save`, and conflict handling in the callers.
 export type RoomStore = {
   create(room: Room): Promise<void>;
   get(id: string): Promise<Room | undefined>;
+  /** Insert or replace: `save` on an unknown id writes it. */
   save(room: Room): Promise<void>;
   delete(id: string): Promise<void>;
   list(): Promise<readonly Room[]>;

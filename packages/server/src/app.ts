@@ -9,8 +9,8 @@ import Fastify, {
 import { type Auth, createAuth } from './adapters/auth/better-auth.js';
 import { registerAuth } from './adapters/auth/fastify.js';
 import { type DbHandle, createDb } from './adapters/db/client.js';
+import { createDrizzleRoomStore } from './adapters/drizzle-room-store.js';
 import { createInMemoryConnectionRegistry } from './adapters/in-memory-connection-registry.js';
-import { createInMemoryRoomStore } from './adapters/in-memory-room-store.js';
 import type { Identity } from './domain/identity.js';
 import type { Ports } from './domain/ports.js';
 import { env } from './env.js';
@@ -40,7 +40,7 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
   const auth = options.auth ?? createAuth(dbHandle.db);
   const extractIdentity = createIdentityExtractor(auth);
 
-  const rooms = createInMemoryRoomStore();
+  const rooms = createDrizzleRoomStore(dbHandle.db);
   const connections = createInMemoryConnectionRegistry();
   const ports: Ports = { rooms, connections };
 

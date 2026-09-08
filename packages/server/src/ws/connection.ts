@@ -49,21 +49,34 @@ export const handleConnection = ({
     });
   });
 
-  socket.on('close', async () => {
-    // Await the notification BEFORE unbind: unbind tears down the
-    // registry's playerRoom mapping, after which findRoomByPlayerId
-    // returns undefined. Disconnect ≠ leave — room state (seats) is
-    // untouched, so a reconnect lands in joinGame's re-attach branch.
-    // Awaiting (rather than fire-and-forget .finally) keeps unbind from
-    // racing with a fresh bind() for the same playerId — e.g. a reload
-    // that opens a new socket before the old close handler runs.
-    try {
-      await notifyOpponentOfDisconnect(playerId, ports);
-    } finally {
-      lifecycle.unbind(playerId);
-      req.log.info({ playerId }, 'ws client disconnected');
-    }
+  socket.on('close', () => {
+    void detachOnClose(playerId, ports, lifecycle, req);
   });
+};
+
+// Await the notification BEFORE unbind: unbind tears down the
+// registry's playerRoom mapping, after which findRoomByPlayerId
+// returns undefined. Disconnect ≠ leave — room state (seats) is
+// untouched, so a reconnect lands in joinGame's re-attach branch.
+// Awaiting (rather than fire-and-forget .finally) keeps unbind from
+// racing with a fresh bind() for the same playerId — e.g. a reload
+// that opens a new socket before the old close handler runs.
+// Never rejects: shutdown closes the room store while sockets are still
+// closing, and a rejected listener is an unhandled rejection.
+const detachOnClose = async (
+  playerId: string,
+  ports: Ports,
+  lifecycle: ConnectionLifecycle,
+  req: FastifyRequest,
+): Promise<void> => {
+  try {
+    await notifyOpponentOfDisconnect(playerId, ports);
+  } catch (err) {
+    req.log.error({ err, playerId }, 'disconnect notification failed');
+  } finally {
+    lifecycle.unbind(playerId);
+    req.log.info({ playerId }, 'ws client disconnected');
+  }
 };
 
 const notifyOpponentOfDisconnect = async (playerId: string, ports: Ports): Promise<void> => {

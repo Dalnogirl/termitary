@@ -17,9 +17,11 @@ export type TestApp = {
 // Reusable test bootstrap matching the S-4.1 smoke pattern:
 // in-memory sqlite + capture-array OTP sender + buildApp({ db, auth }).
 // Builds an unlistened app — test files own listen/close.
-export const createTestApp = async (): Promise<TestApp> => {
+// Pass `existing` to reopen a database a previous app wrote; the caller owns
+// closing it, since buildApp only closes a handle it created itself.
+export const createTestApp = async (existing?: DbHandle): Promise<TestApp> => {
   const otps: Array<{ email: string; otp: string }> = [];
-  const db = createDb(':memory:');
+  const db = existing ?? createDb(':memory:');
   const auth = createAuth(db.db, {
     sendOtp: async ({ email, otp }) => {
       otps.push({ email, otp });
