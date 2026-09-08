@@ -93,7 +93,10 @@ Konva is imported through deep paths (`konva/lib/Stage.js`) to keep the bundle d
 - Biome, not ESLint/Prettier: single quotes, semicolons, 100 columns, 2 spaces. Repo forces LF via `.gitattributes`. `packages/server/migrations` is ignored; drizzle-kit owns that output and biome would reformat it on every regeneration.
 - `strict` plus `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`. Indexed reads are `T | undefined`, and an optional property cannot be set to explicit `undefined`.
 - Free functions and plain object types by default. There are no classes outside the two `Error` subclasses.
-- Comments in this codebase explain why a non-obvious choice was made (await ordering, `Promise.allSettled`, unreachable branches). Match that; skip comments restating the code.
+- Comments are the last resort, not the first. When code needs explaining, first try to make the explanation unnecessary: extract a named function, rename the thing, or change the shape until the code says it. A comment that a rename would have covered is a missed refactor.
+  - Write one only for what code cannot state: a non-obvious *why*, surprising behaviour in something external (a library hook that skips a branch, an ordering a call depends on), or a deliberate deferral.
+  - Never restate the code, describe another implementation, or narrate what a test asserts.
+  - Keep them to a line or two. A paragraph above a function usually means the function wants splitting.
 
 ## State of the work
 

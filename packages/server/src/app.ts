@@ -29,8 +29,7 @@ declare module 'fastify' {
 
 export type BuildAppOptions = {
   logger?: FastifyServerOptions['logger'];
-  // Set to 0 to build an app that never sweeps on its own, which is what a
-  // test wants when it drives sweepAbandonedRooms directly.
+  /** 0 disables the periodic sweep. */
   roomSweepIntervalMs?: number;
   // Test seam: callers may inject a pre-built db + auth (e.g. an in-memory
   // sqlite shared between asserts). Defaults wire from env.
@@ -87,26 +86,23 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
   return app;
 };
 
-// Boot sweep plus an interval. The timer is unref'd so it never holds the
-// process open, and buildApp's onClose clears it. A failed sweep is logged
-// rather than thrown: cleanup must not take the server down.
+const sweepAndLog = (app: FastifyInstance, rooms: RoomStore): void => {
+  void sweepAbandonedRooms(rooms)
+    .then((removed) => {
+      if (removed > 0) app.log.info({ removed }, 'swept abandoned rooms');
+    })
+    .catch((err: unknown) => app.log.error({ err }, 'room sweep failed'));
+};
+
 const startRoomSweep = (
   app: FastifyInstance,
   rooms: RoomStore,
   intervalMs: number,
 ): NodeJS.Timeout | undefined => {
   if (intervalMs <= 0) return undefined;
-
-  const run = (): void => {
-    void sweepAbandonedRooms(rooms)
-      .then((removed) => {
-        if (removed > 0) app.log.info({ removed }, 'swept abandoned rooms');
-      })
-      .catch((err: unknown) => app.log.error({ err }, 'room sweep failed'));
-  };
-
-  run();
-  return setInterval(run, intervalMs).unref();
+  sweepAndLog(app, rooms);
+  // unref'd so the timer never holds the process open; onClose clears it.
+  return setInterval(() => sweepAndLog(app, rooms), intervalMs).unref();
 };
 
 const gateIdentity =
