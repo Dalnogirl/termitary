@@ -2,7 +2,9 @@ import { Navigate, RouterProvider, createBrowserRouter } from 'react-router';
 import { HotseatPage } from './routes/HotseatPage.js';
 import { LobbyPage } from './routes/LobbyPage.js';
 import { PlayPage } from './routes/PlayPage.js';
+import { RequireAuth } from './routes/RequireAuth.js';
 import { RootLayout } from './routes/RootLayout.js';
+import { SignInPage } from './routes/SignInPage.js';
 
 const router = createBrowserRouter([
   {
@@ -11,8 +13,14 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/hotseat" replace /> },
       { path: 'hotseat', Component: HotseatPage },
-      { path: 'lobby', Component: LobbyPage },
-      { path: 'play/:roomId', Component: PlayPage },
+      { path: 'signin', Component: SignInPage },
+      {
+        Component: RequireAuth,
+        children: [
+          { path: 'lobby', Component: LobbyPage },
+          { path: 'play/:roomId', Component: PlayPage },
+        ],
+      },
     ],
   },
 ]);

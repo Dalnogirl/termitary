@@ -23,5 +23,9 @@ export const env = {
   // buildApp({ db? }) shape stays.
   databaseUrl: process.env.DATABASE_URL ?? (nodeEnv === 'test' ? ':memory:' : 'data/hive.db'),
   authSecret: resolveAuthSecret(),
-  authBaseUrl: process.env.BETTER_AUTH_URL ?? `http://${host}:${port}`,
+  // Browser-facing origin, deliberately not `host`: we bind 127.0.0.1 but the
+  // web client hits localhost, and a session cookie set on one is never sent
+  // to the other. better-auth's origin check compares against this too.
+  authBaseUrl: process.env.BETTER_AUTH_URL ?? `http://localhost:${port}`,
+  webOrigin: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
 } as const;

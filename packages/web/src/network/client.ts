@@ -12,21 +12,15 @@ export type WsClient = {
 
 type Options = {
   readonly url: string;
-  readonly playerId?: string;
-};
-
-const buildUrl = (url: string, playerId: string | undefined): string => {
-  if (playerId === undefined || playerId.length === 0) return url;
-  const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}playerId=${encodeURIComponent(playerId)}`;
 };
 
 // Contract: handlers must be registered synchronously immediately after
 // createWsClient() returns. JS is single-threaded and the WebSocket 'open'
 // event is a task (not a microtask), so the caller's setup block completes
 // before any handler fires.
-export const createWsClient = ({ url, playerId }: Options): WsClient => {
-  const ws = new WebSocket(buildUrl(url, playerId));
+//
+export const createWsClient = ({ url }: Options): WsClient => {
+  const ws = new WebSocket(url);
   const handlers = new Map<MessageType, Set<(msg: ServerMessage) => void>>();
   const queue: ClientMessage[] = [];
   let closed = false;

@@ -50,9 +50,10 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
     if (!options.db) dbHandle.close();
   });
 
-  // Phase 3: permissive CORS so the local dev web client (any vite port)
-  // can hit /rooms. Lock down to an allowlist in Phase 6+.
-  await app.register(cors, { origin: true });
+  // origin must be an explicit value, not `true`: a reflected origin is
+  // incompatible with credentials, and the web client cannot send its session
+  // cookie without them. Phase 6 turns webOrigin into a deployed allowlist.
+  await app.register(cors, { origin: env.webOrigin, credentials: true });
   await app.register(websocket);
   await registerAuth(app, auth);
 
