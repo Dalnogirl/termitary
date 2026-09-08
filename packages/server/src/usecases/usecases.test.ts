@@ -85,7 +85,7 @@ describe('joinGame', () => {
     expect(alicePresence.opponent).toBe('connected');
 
     const stored = await ports.rooms.get(roomId);
-    expect(stored?.players[1]?.playerId).toBe('bob');
+    expect(stored?.players.black?.playerId).toBe('bob');
   });
 
   it('reports opponent=empty in gameJoined when joining a one-seat room alone', async () => {

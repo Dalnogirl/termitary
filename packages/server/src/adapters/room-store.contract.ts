@@ -47,7 +47,7 @@ export const describeRoomStoreContract = (
       withStore(async ({ store }) => {
         const original = createRoom('r1', ident('p1'));
         await store.create(original);
-        const updated = { ...original, players: [ident('p1'), ident('p2')] as const };
+        const updated = { ...original, players: { white: ident('p1'), black: ident('p2') } };
         await store.save(updated);
         expect(await store.get('r1')).toEqual(updated);
       }));
@@ -55,10 +55,10 @@ export const describeRoomStoreContract = (
     it('save clears an emptied seat', async () =>
       withStore(async ({ store }) => {
         const room = createRoom('r1', ident('p1'));
-        await store.create({ ...room, players: [ident('p1'), ident('p2')] });
-        await store.save({ ...room, players: [undefined, ident('p2')] });
+        await store.create({ ...room, players: { white: ident('p1'), black: ident('p2') } });
+        await store.save({ ...room, players: { white: undefined, black: ident('p2') } });
         const stored = await store.get('r1');
-        expect(stored?.players).toEqual([undefined, ident('p2')]);
+        expect(stored?.players).toEqual({ white: undefined, black: ident('p2') });
       }));
 
     it('delete removes rooms', async () =>

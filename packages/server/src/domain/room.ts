@@ -2,52 +2,43 @@ import { type GameState, createGame } from '@hive/engine';
 import type { Color } from '@hive/engine';
 import type { Identity } from './identity.js';
 
-// TODO(future-cleanup): consider Record<Color, Identity | undefined> instead of
-// a positional tuple — leaks the white=0/black=1 convention into seat/unseat.
+export type Seats = Readonly<Record<Color, Identity | undefined>>;
+
 export type Room = {
   readonly id: string;
   readonly state: GameState;
-  readonly players: readonly [Identity | undefined, Identity | undefined];
+  readonly players: Seats;
 };
 
-const colorIndex = (color: Color): 0 | 1 => (color === 'white' ? 0 : 1);
+// White is the first seat filled, which makes the room creator white.
+const SEAT_ORDER = ['white', 'black'] as const;
 
 export const createRoom = (id: string, creator: Identity): Room => ({
   id,
   state: createGame(),
-  players: [creator, undefined],
+  players: { white: creator, black: undefined },
 });
 
 export const isFull = (room: Room): boolean =>
-  room.players[0] !== undefined && room.players[1] !== undefined;
+  room.players.white !== undefined && room.players.black !== undefined;
 
-export const colorOf = (room: Room, playerId: string): Color | undefined => {
-  if (room.players[0]?.playerId === playerId) return 'white';
-  if (room.players[1]?.playerId === playerId) return 'black';
-  return undefined;
-};
+export const colorOf = (room: Room, playerId: string): Color | undefined =>
+  SEAT_ORDER.find((color) => room.players[color]?.playerId === playerId);
 
 export const otherPlayer = (room: Room, playerId: string): Identity | undefined => {
-  const [w, b] = room.players;
-  if (w?.playerId === playerId) return b;
-  if (b?.playerId === playerId) return w;
-  return undefined;
+  const color = colorOf(room, playerId);
+  return color === undefined ? undefined : room.players[color === 'white' ? 'black' : 'white'];
 };
 
 export const seatPlayer = (room: Room, joiner: Identity): Room => {
-  const [w, b] = room.players;
-  if (w === undefined) return { ...room, players: [joiner, b] };
-  if (b === undefined) return { ...room, players: [w, joiner] };
-  return room;
+  const free = SEAT_ORDER.find((color) => room.players[color] === undefined);
+  return free === undefined ? room : { ...room, players: { ...room.players, [free]: joiner } };
 };
 
-export const unseatPlayer = (room: Room, playerId: string): Room => ({
-  ...room,
-  players: [
-    room.players[0]?.playerId === playerId ? undefined : room.players[0],
-    room.players[1]?.playerId === playerId ? undefined : room.players[1],
-  ],
-});
+export const unseatPlayer = (room: Room, playerId: string): Room => {
+  const color = colorOf(room, playerId);
+  return color === undefined ? room : { ...room, players: { ...room.players, [color]: undefined } };
+};
 
 export const currentPlayerIdentity = (room: Room): Identity | undefined =>
-  room.state.status === 'finished' ? undefined : room.players[colorIndex(room.state.currentPlayer)];
+  room.state.status === 'finished' ? undefined : room.players[room.state.currentPlayer];

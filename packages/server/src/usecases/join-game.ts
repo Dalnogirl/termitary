@@ -79,7 +79,7 @@ export const joinGame = async (
   }
 
   const wireState = toWire(updated.state);
-  const opponent = updated.players[color === 'white' ? 1 : 0];
+  const opponent = otherPlayer(updated, identity.playerId);
   const opponentPresence = await presenceOf(connections, opponent?.playerId, updated.id);
   await connections.sendTo(identity.playerId, {
     type: 'gameJoined',

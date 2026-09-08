@@ -9,8 +9,8 @@ describe('createRoom use case', () => {
 
     const stored = await rooms.get(roomId);
     expect(stored).toBeDefined();
-    expect(stored?.players[0]?.playerId).toBe('alice');
-    expect(stored?.players[1]).toBeUndefined();
+    expect(stored?.players.white?.playerId).toBe('alice');
+    expect(stored?.players.black).toBeUndefined();
     expect(stored?.state.status).toBe('in_progress');
   });
 
