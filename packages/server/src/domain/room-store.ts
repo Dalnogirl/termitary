@@ -1,4 +1,14 @@
-import type { Room } from './room.js';
+import type { GameState } from '@hive/engine';
+import type { Room, Seats } from './room.js';
+
+// What the lobby needs. `list` returns this rather than whole rooms so the
+// lobby never deserializes a game, and one unreadable game cannot fail the
+// listing for everyone.
+export type RoomOverview = {
+  readonly id: string;
+  readonly players: Seats;
+  readonly status: GameState['status'];
+};
 
 // TODO: `save` is last-write-wins, and the race is application-level rather
 // than a storage-engine property. `makeMove` awaits `get`, validates, then
@@ -12,7 +22,14 @@ export type RoomStore = {
   /** Insert or replace: `save` on an unknown id writes it. */
   save(room: Room): Promise<void>;
   delete(id: string): Promise<void>;
-  list(): Promise<readonly Room[]>;
+  list(): Promise<readonly RoomOverview[]>;
+  /**
+   * Removes rooms last written before `cutoff` that nobody can be waiting in:
+   * finished games, and rooms with a free seat. A full game in progress is
+   * never swept, however old, because both players can still return to it.
+   * Returns the number of rooms removed.
+   */
+  deleteAbandonedBefore(cutoff: Date): Promise<number>;
 };
 
 export class RoomAlreadyExistsError extends Error {

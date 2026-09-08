@@ -2,22 +2,29 @@ import { applyMove, createGame, listValidMoves } from '@hive/engine';
 import { describe, expect, it } from 'vitest';
 import { createInMemoryRoomStore } from '../adapters/in-memory-room-store.js';
 import type { Identity } from '../domain/identity.js';
-import { createRoom, seatPlayer } from '../domain/room.js';
-import { listRooms, summarize } from './list-rooms.js';
+import type { RoomOverview } from '../domain/room-store.js';
+import { type Room, createRoom, seatPlayer } from '../domain/room.js';
+import { ABANDONED_ROOM_TTL_MS, listRooms, summarize } from './list-rooms.js';
 
 const ident = (id: string): Identity => ({ playerId: id });
 
+const overviewOf = (room: Room): RoomOverview => ({
+  id: room.id,
+  players: room.players,
+  status: room.state.status,
+});
+
 describe('summarize', () => {
   it('counts an empty room as 0 players', () => {
-    const empty = {
+    const empty = overviewOf({
       ...createRoom('r1', ident('alice')),
       players: { white: undefined, black: undefined },
-    };
+    });
     expect(summarize(empty)).toEqual({ roomId: 'r1', playerCount: 0, status: 'in_progress' });
   });
 
   it('counts a single-seated room as 1 player', () => {
-    expect(summarize(createRoom('r1', ident('alice')))).toEqual({
+    expect(summarize(overviewOf(createRoom('r1', ident('alice'))))).toEqual({
       roomId: 'r1',
       playerCount: 1,
       status: 'in_progress',
@@ -26,7 +33,11 @@ describe('summarize', () => {
 
   it('counts a fully-seated room as 2 players', () => {
     const full = seatPlayer(createRoom('r1', ident('alice')), ident('bob'));
-    expect(summarize(full)).toEqual({ roomId: 'r1', playerCount: 2, status: 'in_progress' });
+    expect(summarize(overviewOf(full))).toEqual({
+      roomId: 'r1',
+      playerCount: 2,
+      status: 'in_progress',
+    });
   });
 
   it('reflects finished game status', () => {
@@ -41,7 +52,7 @@ describe('summarize', () => {
         result: 'draw' as const,
       },
     };
-    expect(summarize(finished).status).toBe('finished');
+    expect(summarize(overviewOf(finished)).status).toBe('finished');
   });
 });
 
