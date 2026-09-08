@@ -1,7 +1,14 @@
 {
   "$schema": "https://biomejs.dev/schemas/1.9.0/schema.json",
   "files": {
-    "ignore": ["node_modules", "dist", "**/node_modules", "**/dist", "pnpm-lock.yaml"]
+    "ignore": [
+      "node_modules",
+      "dist",
+      "**/node_modules",
+      "**/dist",
+      "pnpm-lock.yaml",
+      "packages/server/migrations"
+    ]
   },
   "formatter": {
     "enabled": true,
