@@ -26,6 +26,10 @@ export const createAuth = (
     database: drizzleAdapter(db, { provider: 'sqlite', schema }),
     secret: env.authSecret,
     baseURL: env.authBaseUrl,
+    // The web client is a separate origin from the API in dev, so its Origin
+    // header matches neither baseURL nor the request host; better-auth rejects
+    // the sign-in POST outright without this.
+    trustedOrigins: [env.webOrigin],
     emailAndPassword: { enabled: false },
     plugins: [emailOTP({ sendVerificationOTP: opts.sendOtp ?? defaultSendOtp })],
   });
