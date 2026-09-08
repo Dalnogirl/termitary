@@ -4,7 +4,7 @@ import { createInMemoryRoomStore } from '../adapters/in-memory-room-store.js';
 import type { Identity } from '../domain/identity.js';
 import type { RoomOverview } from '../domain/room-store.js';
 import { type Room, createRoom, seatPlayer } from '../domain/room.js';
-import { ABANDONED_ROOM_TTL_MS, listRooms, summarize } from './list-rooms.js';
+import { listRooms, summarize } from './list-rooms.js';
 
 const ident = (id: string): Identity => ({ playerId: id });
 
@@ -57,6 +57,15 @@ describe('summarize', () => {
 });
 
 describe('listRooms', () => {
+  it('does not sweep: reading the lobby writes nothing', async () => {
+    let clock = new Date(0);
+    const store = createInMemoryRoomStore(() => clock);
+    await store.create(createRoom('r1', ident('alice')));
+
+    clock = new Date(30 * 24 * 60 * 60 * 1000);
+    expect(await listRooms(store)).toHaveLength(1);
+  });
+
   it('returns an empty array when no rooms exist', async () => {
     const store = createInMemoryRoomStore();
     expect(await listRooms(store)).toEqual([]);
