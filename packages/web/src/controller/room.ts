@@ -62,10 +62,17 @@ export const createRoomController = ({ roomId }: Options): RoomController => {
 
   const offError = client.on('error', (msg) => {
     if (msg.requestKind === 'makeMove') {
+      toast.error(msg.message);
+      gameStore.getState().setSelection(null);
       if (pendingSnapshot !== null) {
         gameStore.getState().applyGameState(pendingSnapshot);
         pendingSnapshot = null;
+        return;
       }
+      // A stateUpdated landed between the send and this rejection, so there is
+      // nothing to roll back to and the local board is of unknown provenance.
+      // Re-join for authoritative state rather than reconstruct it.
+      client.send({ type: 'joinGame', roomId });
       return;
     }
     store.setState({ status: 'error', errorMsg: msg.message });
@@ -97,6 +104,13 @@ export const createRoomController = ({ roomId }: Options): RoomController => {
       if (status === 'reconnecting') {
         toast('Reconnecting, moves are paused', { id: 'move-while-offline' });
       }
+      return;
+    }
+
+    if (pendingSnapshot !== null) {
+      // One snapshot, so a second optimistic move would overwrite the state the
+      // first one rolls back to. Unreachable while validMoves gates input —
+      // after your move it is the opponent's turn locally.
       return;
     }
 
