@@ -1,5 +1,5 @@
 import 'konva/lib/_CoreInternals.js';
-import { type Color, type HexCoord, type Piece, occupiedCells } from '@hive/engine';
+import { type Color, type HexCoord, type Piece, occupiedCells, topPieceAt } from '@hive/engine';
 import { Layer } from 'konva/lib/Layer.js';
 import { Stage } from 'konva/lib/Stage.js';
 import { Text } from 'konva/lib/shapes/Text.js';
@@ -63,6 +63,16 @@ const movableOrigins = (state: StoreState, myColor: Color | null): Set<string> =
   return out;
 };
 
+// The letter that would appear on a target cell if the pending move committed.
+// Drives the hover ghost, so the player sees what lands, not just where.
+const landingLetter = (state: StoreState): string | null => {
+  const sel = state.selection;
+  if (sel === null) return null;
+  if (sel.kind === 'hand') return pieceLetter(sel.piece);
+  const top = topPieceAt(state.game.board, sel.coord);
+  return top === undefined ? null : pieceLetter(top.type);
+};
+
 const targetsFor = (state: StoreState): HexCoord[] => {
   const sel = state.selection;
   if (sel?.kind === 'hand') {
@@ -112,6 +122,13 @@ export const createRenderer = (
   let pinching = false;
   let lastPinchDist = 0;
   let cancelPan: (() => void) | null = null;
+
+  // Pan owns the cursor while it is active; hover must not fight it for the
+  // grabbing state.
+  const setHoverCursor = (value: string): void => {
+    if (dragging || pinching) return;
+    container.style.cursor = value;
+  };
 
   const pointerXY = (evt: MouseEvent | TouchEvent): { x: number; y: number } | null => {
     if ('touches' in evt) {
@@ -276,6 +293,10 @@ export const createRenderer = (
       ...(stroke ? { stroke, strokeWidth } : {}),
     });
     poly.on('click tap', () => callbacks.onPieceClick(coord));
+    if (isSelected || isHinted) {
+      poly.on('mouseenter', () => setHoverCursor('pointer'));
+      poly.on('mouseleave', () => setHoverCursor(''));
+    }
     const text = new Text({
       x: p.x - HEX_SIZE,
       y: p.y - HEX_SIZE,
@@ -318,8 +339,65 @@ export const createRenderer = (
     }
   };
 
+  const drawTarget = (theme: CanvasTheme, coord: HexCoord, ghost: string | null): void => {
+    const p = axialToPixel(coord, HEX_SIZE);
+    const poly = createHexShape(p, TARGET_SIZE, TARGET_RADIUS, {
+      fill: theme.targetFill,
+      stroke: theme.targetStroke,
+      strokeWidth: 2,
+      dash: [6, 4],
+    });
+    poly.on('click tap', () => callbacks.onTargetClick(coord));
+
+    const ghostText =
+      ghost === null
+        ? null
+        : new Text({
+            x: p.x - HEX_SIZE,
+            y: p.y - HEX_SIZE,
+            width: HEX_SIZE * 2,
+            height: HEX_SIZE * 2,
+            text: ghost,
+            fontSize: HEX_SIZE * 0.78,
+            fontStyle: 'bold',
+            fill: theme.targetGhost,
+            align: 'center',
+            verticalAlign: 'middle',
+            listening: false,
+            visible: false,
+          });
+
+    // Konva has no CSS :hover, so both directions are manual and each has to
+    // repaint. Dashed and faint means "legal"; solid, filled and carrying the
+    // piece letter means "this is the cell a click commits to".
+    poly.on('mouseenter', () => {
+      poly.fill(theme.targetFillActive);
+      poly.stroke(theme.targetStrokeActive);
+      poly.strokeWidth(3);
+      poly.dash([]);
+      ghostText?.visible(true);
+      setHoverCursor('pointer');
+      layer.batchDraw();
+    });
+    poly.on('mouseleave', () => {
+      poly.fill(theme.targetFill);
+      poly.stroke(theme.targetStroke);
+      poly.strokeWidth(2);
+      poly.dash([6, 4]);
+      ghostText?.visible(false);
+      setHoverCursor('');
+      layer.batchDraw();
+    });
+
+    layer.add(poly);
+    if (ghostText !== null) layer.add(ghostText);
+  };
+
   const draw = (state: StoreState): void => {
     const theme = readTheme();
+    // destroyChildren removes the hovered node without firing mouseleave, so
+    // the pointer cursor would stick after a move commits.
+    setHoverCursor('');
     layer.destroyChildren();
     const movable = movableOrigins(state, options.myColor);
     const selectedCoord =
@@ -329,16 +407,9 @@ export const createRenderer = (
       drawPiece(theme, coord, stack, movable, selectedCoord);
     }
 
+    const ghost = landingLetter(state);
     for (const coord of targetsFor(state)) {
-      const p = axialToPixel(coord, HEX_SIZE);
-      const poly = createHexShape(p, TARGET_SIZE, TARGET_RADIUS, {
-        fill: theme.targetFill,
-        stroke: theme.targetStroke,
-        strokeWidth: 2,
-        dash: [6, 4],
-      });
-      poly.on('click tap', () => callbacks.onTargetClick(coord));
-      layer.add(poly);
+      drawTarget(theme, coord, ghost);
     }
 
     layer.draw();

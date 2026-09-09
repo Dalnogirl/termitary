@@ -13,6 +13,9 @@ export type CanvasTheme = {
   readonly hintStroke: string;
   readonly targetFill: string;
   readonly targetStroke: string;
+  readonly targetFillActive: string;
+  readonly targetStrokeActive: string;
+  readonly targetGhost: string;
 };
 
 export const readTheme = (): CanvasTheme => ({
@@ -23,6 +26,9 @@ export const readTheme = (): CanvasTheme => ({
   pieceStroke: cssVar('border', 'rgba(255,255,255,0.15)'),
   selectStroke: cssVar('foreground', '#fafafa'),
   hintStroke: cssVar('muted-foreground', '#b3b3b3'),
-  targetFill: 'rgba(250,250,250,0.05)',
-  targetStroke: cssVar('muted-foreground', '#b3b3b3'),
+  targetFill: cssVar('board-target-fill', 'rgb(255 255 255 / 10%)'),
+  targetStroke: cssVar('board-target-stroke', 'rgb(255 255 255 / 45%)'),
+  targetFillActive: cssVar('board-target-fill-active', 'rgb(255 255 255 / 28%)'),
+  targetStrokeActive: cssVar('board-target-stroke-active', 'rgb(255 255 255)'),
+  targetGhost: cssVar('board-target-ghost', 'rgb(255 255 255 / 60%)'),
 });
