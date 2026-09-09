@@ -4,9 +4,13 @@ type MessageType = ServerMessage['type'];
 type MessageOf<K extends MessageType> = Extract<ServerMessage, { type: K }>;
 type Handler<K extends MessageType> = (msg: MessageOf<K>) => void;
 
+/** 'closed' is terminal: either close() was called, or the retries ran out. */
+export type WsStatus = 'open' | 'reconnecting' | 'closed';
+
 export type WsClient = {
   readonly send: (msg: ClientMessage) => void;
   readonly on: <K extends MessageType>(type: K, handler: Handler<K>) => () => void;
+  readonly onStatusChange: (handler: (status: WsStatus) => void) => () => void;
   readonly close: () => void;
 };
 
@@ -14,29 +18,46 @@ type Options = {
   readonly url: string;
 };
 
+const RECONNECT_BASE_MS = 500;
+const RECONNECT_MAX_MS = 10_000;
+const RECONNECT_MAX_ATTEMPTS = 8;
+
 // Contract: handlers must be registered synchronously immediately after
 // createWsClient() returns. JS is single-threaded and the WebSocket 'open'
 // event is a task (not a microtask), so the caller's setup block completes
-// before any handler fires.
+// before any handler fires. This now covers onStatusChange too, which is
+// how the caller learns about the very first open.
 //
+// Message handlers outlive the socket: a reconnect swaps `activeSocket` and
+// leaves the registry alone, so callers bind once and never rebind.
 export const createWsClient = ({ url }: Options): WsClient => {
-  const ws = new WebSocket(url);
-  const handlers = new Map<MessageType, Set<(msg: ServerMessage) => void>>();
-  const queue: ClientMessage[] = [];
-  let closed = false;
+  const messageHandlers = new Map<MessageType, Set<(msg: ServerMessage) => void>>();
+  const statusHandlers = new Set<(status: WsStatus) => void>();
+  let activeSocket: WebSocket | undefined;
+  let closedByCaller = false;
+  let reconnectAttempts = 0;
+  let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
-  ws.addEventListener('open', () => {
-    if (closed || ws.readyState !== WebSocket.OPEN) return;
-    for (const msg of queue) ws.send(JSON.stringify(msg));
-    queue.length = 0;
-  });
+  const emitStatus = (status: WsStatus): void => {
+    // Copied: a handler is allowed to unsubscribe itself while it runs.
+    for (const handler of [...statusHandlers]) handler(status);
+  };
 
-  ws.addEventListener('close', () => {
-    closed = true;
-    queue.length = 0;
-  });
+  const scheduleReconnect = (): void => {
+    if (reconnectAttempts >= RECONNECT_MAX_ATTEMPTS) {
+      emitStatus('closed');
+      return;
+    }
+    const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** reconnectAttempts);
+    reconnectAttempts += 1;
+    emitStatus('reconnecting');
+    reconnectTimer = setTimeout(() => {
+      if (closedByCaller) return;
+      connect();
+    }, delay);
+  };
 
-  ws.addEventListener('message', (e: MessageEvent) => {
+  const handleMessage = (e: MessageEvent): void => {
     let parsed: unknown;
     try {
       parsed = JSON.parse(typeof e.data === 'string' ? e.data : String(e.data));
@@ -50,41 +71,71 @@ export const createWsClient = ({ url }: Options): WsClient => {
       return;
     }
     const msg = result.data;
-    const set = handlers.get(msg.type);
-    if (set === undefined) return;
-    for (const h of set) h(msg);
-  });
+    const subscribers = messageHandlers.get(msg.type);
+    if (subscribers === undefined) return;
+    for (const handler of subscribers) handler(msg);
+  };
+
+  const connect = (): void => {
+    const socket = new WebSocket(url);
+    activeSocket = socket;
+
+    // Listeners are never removed, so a socket we have already replaced still
+    // fires into this closure. Its events must neither reset the backoff
+    // ladder nor start a second one.
+    const isCurrent = (): boolean => !closedByCaller && socket === activeSocket;
+
+    socket.addEventListener('open', () => {
+      if (!isCurrent()) return;
+      reconnectAttempts = 0;
+      emitStatus('open');
+    });
+
+    socket.addEventListener('close', () => {
+      if (!isCurrent()) return;
+      scheduleReconnect();
+    });
+
+    socket.addEventListener('message', handleMessage);
+  };
 
   const send = (msg: ClientMessage): void => {
-    if (closed) return;
-    if (ws.readyState !== WebSocket.OPEN) {
-      queue.push(msg);
-      return;
-    }
-    ws.send(JSON.stringify(msg));
+    if (closedByCaller) return;
+    if (activeSocket?.readyState !== WebSocket.OPEN) return;
+    activeSocket.send(JSON.stringify(msg));
   };
 
   const on = <K extends MessageType>(type: K, handler: Handler<K>): (() => void) => {
-    let set = handlers.get(type);
-    if (set === undefined) {
-      set = new Set();
-      handlers.set(type, set);
+    let subscribers = messageHandlers.get(type);
+    if (subscribers === undefined) {
+      subscribers = new Set();
+      messageHandlers.set(type, subscribers);
     }
     // Typed handler is widened at storage; dispatch only invokes handlers
     // whose key matches msg.type, so the cast is sound.
     const widened = handler as (msg: ServerMessage) => void;
-    set.add(widened);
+    subscribers.add(widened);
     return () => {
-      set?.delete(widened);
+      subscribers?.delete(widened);
+    };
+  };
+
+  const onStatusChange = (handler: (status: WsStatus) => void): (() => void) => {
+    statusHandlers.add(handler);
+    return () => {
+      statusHandlers.delete(handler);
     };
   };
 
   const close = (): void => {
-    closed = true;
-    queue.length = 0;
-    handlers.clear();
-    ws.close();
+    closedByCaller = true;
+    if (reconnectTimer !== undefined) clearTimeout(reconnectTimer);
+    messageHandlers.clear();
+    statusHandlers.clear();
+    activeSocket?.close();
   };
 
-  return { send, on, close };
+  connect();
+
+  return { send, on, onStatusChange, close };
 };

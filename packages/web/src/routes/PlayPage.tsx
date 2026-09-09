@@ -15,6 +15,7 @@ import { useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
 import { InputProvider } from '../controller/InputProvider.js';
 import { RoomProvider } from '../controller/RoomContext.js';
+import type { RoomStatus } from '../controller/room.js';
 import { useRoomConnection } from '../controller/use-room-connection.js';
 import { useGameStore } from '../store/store.js';
 import { GameLayout } from './GameLayout.js';
@@ -37,6 +38,22 @@ const PresenceBadge = ({ opponent }: { opponent: OpponentPresence }) => (
     <span>{PRESENCE_LABEL[opponent]}</span>
   </span>
 );
+
+// A presenceUpdate can only arrive over the socket that is currently down, so
+// while reconnecting the last reading of the opponent is unverifiable. Report
+// our own connection rather than that stale reading.
+const ConnectionBadge = ({
+  status,
+  opponent,
+}: { status: RoomStatus; opponent: OpponentPresence }) =>
+  status === 'reconnecting' ? (
+    <span className="inline-flex items-center gap-1.5 text-amber-600">
+      <span className="inline-block size-2 animate-pulse rounded-full bg-amber-500" />
+      <span>Reconnecting…</span>
+    </span>
+  ) : (
+    <PresenceBadge opponent={opponent} />
+  );
 
 export const PlayPage = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -77,7 +94,7 @@ export const PlayPage = () => {
               <span>
                 Room <span className="font-mono">{roomId}</span> — share this URL to invite.
               </span>
-              <PresenceBadge opponent={room.opponent} />
+              <ConnectionBadge status={room.status} opponent={room.opponent} />
             </span>
             {!gameOver && (
               <Button variant="ghost" size="sm" onClick={() => setShowLeaveDialog(true)}>

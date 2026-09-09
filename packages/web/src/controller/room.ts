@@ -7,7 +7,7 @@ import { getWsUrl } from '../network/url.js';
 import { gameStore } from '../store/store.js';
 import type { Controller } from './port.js';
 
-export type RoomStatus = 'connecting' | 'in-room' | 'error';
+export type RoomStatus = 'connecting' | 'in-room' | 'reconnecting' | 'error';
 
 export type RoomState = {
   readonly status: RoomStatus;
@@ -71,9 +71,35 @@ export const createRoomController = ({ roomId }: Options): RoomController => {
     store.setState({ status: 'error', errorMsg: msg.message });
   });
 
-  client.send({ type: 'joinGame', roomId });
+  const offStatus = client.onStatusChange((status) => {
+    if (status === 'open') {
+      // Also the first open. On a reconnect the server takes joinGame's
+      // re-attach branch and answers with authoritative state, which the
+      // gameJoined handler above already applies.
+      client.send({ type: 'joinGame', roomId });
+      return;
+    }
+    if (status === 'reconnecting') {
+      // Optimistic application is only safe while a rejection can still come
+      // back, so drop the snapshot nothing will roll back to.
+      pendingSnapshot = null;
+      store.setState({ status: 'reconnecting' });
+      return;
+    }
+    store.setState({ status: 'error', errorMsg: 'Connection lost' });
+  });
 
   const commitMove = (move: Move): void => {
+    const { status } = store.getState();
+    if (status !== 'in-room') {
+      // The board still highlights valid moves here, so a silent no-op would
+      // read as the same dead board this status exists to expose.
+      if (status === 'reconnecting') {
+        toast('Reconnecting, moves are paused', { id: 'move-while-offline' });
+      }
+      return;
+    }
+
     const before = gameStore.getState();
     if (before.game.status !== 'in_progress') return;
 
@@ -102,6 +128,7 @@ export const createRoomController = ({ roomId }: Options): RoomController => {
     offStateUpdated();
     offPresenceUpdate();
     offError();
+    offStatus();
     client.close();
   };
 
