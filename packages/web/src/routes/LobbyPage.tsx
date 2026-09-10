@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { MyRoomSummaryDto, RoomSummaryDto } from '@hive/protocol';
 import { useQuery } from '@tanstack/react-query';
+import type * as React from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
@@ -10,11 +11,6 @@ import { fetchMyRooms, fetchRooms } from '../network/rooms-api.js';
 import { useCreateRoom } from '../network/use-create-room.js';
 
 type Tab = 'mine' | 'open';
-
-const TABS: readonly { readonly id: Tab; readonly label: string }[] = [
-  { id: 'mine', label: 'Your games' },
-  { id: 'open', label: 'Open games' },
-];
 
 const Row = ({
   roomId,
@@ -36,6 +32,31 @@ const Row = ({
       {action}
     </Button>
   </li>
+);
+
+const Listing = ({
+  isLoading,
+  error,
+  empty,
+  children,
+}: {
+  isLoading: boolean;
+  error: unknown;
+  empty: string;
+  children: readonly React.ReactNode[];
+}) => (
+  <div className="flex flex-col gap-3">
+    {isLoading && <p className="text-muted-foreground">Loading…</p>}
+    {error !== null && (
+      <p className="text-foreground">
+        Could not load games: {error instanceof Error ? error.message : 'unknown error'}
+      </p>
+    )}
+    {!isLoading && error === null && children.length === 0 && (
+      <p className="text-muted-foreground">{empty}</p>
+    )}
+    <ul className="flex flex-col gap-2 list-none p-0 m-0">{children}</ul>
+  </div>
 );
 
 const myRoomDetail = (room: MyRoomSummaryDto): string => {
@@ -63,34 +84,6 @@ export const LobbyPage = () => {
     });
   };
 
-  const rows = (): readonly React.ReactNode[] => {
-    if (tab === 'mine') {
-      return (mine.data ?? []).map((room: MyRoomSummaryDto) => (
-        <Row
-          key={room.roomId}
-          roomId={room.roomId}
-          detail={myRoomDetail(room)}
-          action={room.playerCount === 2 ? 'Reconnect' : 'Return'}
-          onOpen={() => openRoom(room.roomId)}
-        />
-      ));
-    }
-    return (open.data ?? []).map((room: RoomSummaryDto) => (
-      <Row
-        key={room.roomId}
-        roomId={room.roomId}
-        detail={`${room.playerCount}/2 players`}
-        action="Join"
-        onOpen={() => openRoom(room.roomId)}
-      />
-    ));
-  };
-
-  const emptyMessage =
-    tab === 'mine'
-      ? 'No games in progress. Browse open games or create one.'
-      : 'No open games. Create one to get started.';
-
   return (
     <div className="flex flex-col flex-1 min-h-0 p-6 gap-6 max-w-3xl mx-auto w-full">
       <div className="flex items-center justify-between">
@@ -100,27 +93,16 @@ export const LobbyPage = () => {
         </Button>
       </div>
 
-      <section className="flex flex-col gap-3">
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(value === 'open' ? 'open' : 'mine')}
+        className="gap-3"
+      >
         <div className="flex items-center justify-between">
-          <div role="tablist" className="flex gap-1">
-            {TABS.map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={tab === id}
-                onClick={() => setTab(id)}
-                className={cn(
-                  'rounded-md px-3 py-1.5 text-xs uppercase tracking-[0.15em]',
-                  tab === id
-                    ? 'bg-secondary text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <TabsList variant="line">
+            <TabsTrigger value="mine">Your games</TabsTrigger>
+            <TabsTrigger value="open">Open games</TabsTrigger>
+          </TabsList>
           <button
             type="button"
             className="text-xs text-muted-foreground hover:text-foreground"
@@ -130,19 +112,42 @@ export const LobbyPage = () => {
           </button>
         </div>
 
-        {active.isLoading && <p className="text-muted-foreground">Loading…</p>}
-        {active.error && (
-          <p className="text-foreground">
-            Could not load games:{' '}
-            {active.error instanceof Error ? active.error.message : 'unknown error'}
-          </p>
-        )}
-        {!active.isLoading && !active.error && rows().length === 0 && (
-          <p className="text-muted-foreground">{emptyMessage}</p>
-        )}
+        <TabsContent value="mine">
+          <Listing
+            isLoading={mine.isLoading}
+            error={mine.error}
+            empty="No games in progress. Browse open games or create one."
+          >
+            {(mine.data ?? []).map((room) => (
+              <Row
+                key={room.roomId}
+                roomId={room.roomId}
+                detail={myRoomDetail(room)}
+                action={room.playerCount === 2 ? 'Reconnect' : 'Return'}
+                onOpen={() => openRoom(room.roomId)}
+              />
+            ))}
+          </Listing>
+        </TabsContent>
 
-        <ul className="flex flex-col gap-2 list-none p-0 m-0">{rows()}</ul>
-      </section>
+        <TabsContent value="open">
+          <Listing
+            isLoading={open.isLoading}
+            error={open.error}
+            empty="No open games. Create one to get started."
+          >
+            {(open.data ?? []).map((room: RoomSummaryDto) => (
+              <Row
+                key={room.roomId}
+                roomId={room.roomId}
+                detail={`${room.playerCount}/2 players`}
+                action="Join"
+                onOpen={() => openRoom(room.roomId)}
+              />
+            ))}
+          </Listing>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
