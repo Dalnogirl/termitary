@@ -8,6 +8,7 @@ import {
   HEX_RADIUS,
   HEX_SIZE,
   PIECE_FONT,
+  TARGET_DASH,
   TARGET_RADIUS,
   TARGET_SIZE,
 } from './metrics.js';
@@ -74,11 +75,13 @@ const drawTarget = (ctx: CanvasRenderingContext2D, theme: CanvasTheme, cell: Clu
   traceHex(ctx, p, TARGET_SIZE, TARGET_RADIUS);
   ctx.fillStyle = theme.targetFill;
   ctx.fill();
-  ctx.setLineDash([6, 4]);
+  ctx.setLineDash([...TARGET_DASH.pattern]);
+  ctx.lineDashOffset = TARGET_DASH.offset;
   ctx.strokeStyle = theme.targetStroke;
   ctx.lineWidth = 2;
   ctx.stroke();
   ctx.setLineDash([]);
+  ctx.lineDashOffset = 0;
 };
 
 const bounds = (cells: readonly ClusterCell[]) => {

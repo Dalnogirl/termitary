@@ -11,6 +11,7 @@ import {
   HEX_DRAW_SIZE,
   HEX_RADIUS,
   HEX_SIZE,
+  TARGET_DASH,
   TARGET_RADIUS,
   TARGET_SIZE,
 } from './metrics.js';
@@ -347,7 +348,8 @@ export const createRenderer = (
       fill: theme.targetFill,
       stroke: theme.targetStroke,
       strokeWidth: 2,
-      dash: [6, 4],
+      dash: [...TARGET_DASH.pattern],
+      dashOffset: TARGET_DASH.offset,
     });
     poly.on('click tap', () => callbacks.onTargetClick(coord));
 
@@ -385,7 +387,7 @@ export const createRenderer = (
       poly.fill(theme.targetFill);
       poly.stroke(theme.targetStroke);
       poly.strokeWidth(2);
-      poly.dash([6, 4]);
+      poly.dash([...TARGET_DASH.pattern]);
       ghostText?.visible(false);
       setHoverCursor('');
       layer.batchDraw();
