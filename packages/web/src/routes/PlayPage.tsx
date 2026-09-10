@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import type { OpponentPresence } from '@hive/protocol';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
@@ -59,12 +60,16 @@ export const PlayPage = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const room = useRoomConnection(roomId);
+  const queryClient = useQueryClient();
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const gameStatus = useGameStore((s) => s.game.status);
 
   const handleConfirmLeave = (): void => {
     setShowLeaveDialog(false);
     room.leave();
+    // Leaving deletes the room for both players, so a cached lobby list would
+    // offer a Reconnect that dead-ends in `room not found`.
+    void queryClient.invalidateQueries({ queryKey: ['rooms'] });
     void navigate('/lobby');
   };
 

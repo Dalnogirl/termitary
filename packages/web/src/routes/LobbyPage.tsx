@@ -72,6 +72,14 @@ export const LobbyPage = () => {
   const open = useQuery({ queryKey: ['rooms'], queryFn: fetchRooms });
   const active = tab === 'mine' ? mine : open;
 
+  // Both queries stay mounted, so switching tabs is not a mount and refetches
+  // nothing on its own. Without this the tab you arrive at can be minutes old.
+  const showTab = (value: string): void => {
+    const next = value === 'open' ? 'open' : 'mine';
+    setTab(next);
+    void (next === 'open' ? open : mine).refetch();
+  };
+
   const createRoom = useCreateRoom();
   const openRoom = (roomId: string) => void navigate(`/play/${roomId}`);
 
@@ -93,11 +101,7 @@ export const LobbyPage = () => {
         </Button>
       </div>
 
-      <Tabs
-        value={tab}
-        onValueChange={(value) => setTab(value === 'open' ? 'open' : 'mine')}
-        className="gap-3"
-      >
+      <Tabs value={tab} onValueChange={showTab} className="gap-3">
         <div className="flex items-center justify-between">
           <TabsList variant="line">
             <TabsTrigger value="mine">Your games</TabsTrigger>
