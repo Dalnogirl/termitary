@@ -86,6 +86,10 @@
   --board-target-fill-active: rgb(0 0 0 / 22%);
   --board-target-stroke-active: rgb(0 0 0);
   --board-target-ghost: rgb(0 0 0 / 55%);
+  --glass-bg: oklch(1 0 0 / 62%);
+  --glass-border: oklch(0.145 0 0 / 10%);
+  --glass-highlight: oklch(1 0 0 / 85%);
+  --glass-shadow: oklch(0.145 0 0 / 18%);
 }
 
 .dark {
@@ -125,6 +129,10 @@
   --board-target-fill-active: rgb(255 255 255 / 28%);
   --board-target-stroke-active: rgb(255 255 255);
   --board-target-ghost: rgb(255 255 255 / 60%);
+  --glass-bg: oklch(0.28 0 0 / 48%);
+  --glass-border: oklch(1 0 0 / 14%);
+  --glass-highlight: oklch(1 0 0 / 12%);
+  --glass-shadow: oklch(0 0 0 / 45%);
 }
 
 @layer base {
@@ -137,5 +145,19 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+@layer components {
+  .glass-island {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow: inset 0 1px 0 0 var(--glass-highlight), 0 12px 32px -12px var(--glass-shadow), 0 2px
+      8px -4px var(--glass-shadow);
+    /* Safari repaints backdrop-filter per frame; promoting the layer keeps the
+       island from smearing while the board drags underneath it. */
+    will-change: backdrop-filter;
   }
 }
