@@ -1,20 +1,12 @@
-import { z } from 'zod';
+// REST bodies. Plain types, no zod: nothing untrusted crosses these. The
+// server has no REST request body to parse, and both sides import the same
+// declaration, so responses are checked at compile time.
+export type RoomSummaryDto = {
+  readonly roomId: string;
+  readonly playerCount: 0 | 1 | 2;
+  readonly status: 'in_progress' | 'finished';
+};
 
-export const RoomSummarySchema = z
-  .object({
-    roomId: z.string().min(1),
-    playerCount: z.union([z.literal(0), z.literal(1), z.literal(2)]),
-    status: z.enum(['in_progress', 'finished']),
-  })
-  .strict();
-export type RoomSummary = z.infer<typeof RoomSummarySchema>;
-
-export const RoomSummaryListSchema = z.array(RoomSummarySchema);
-export type RoomSummaryList = z.infer<typeof RoomSummaryListSchema>;
-
-export const CreateRoomResponseSchema = z
-  .object({
-    roomId: z.string().min(1),
-  })
-  .strict();
-export type CreateRoomResponse = z.infer<typeof CreateRoomResponseSchema>;
+export type CreateRoomResponseDto = {
+  readonly roomId: string;
+};
