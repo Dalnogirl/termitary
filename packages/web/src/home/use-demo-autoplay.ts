@@ -1,5 +1,5 @@
 import { applyMove } from '@hive/engine';
-import { type RefObject, useEffect } from 'react';
+import { useEffect } from 'react';
 import { gameStore } from '../store/store.js';
 import { createDemoPicker } from './demo-script.js';
 
@@ -11,16 +11,19 @@ const PLY_MS = 1400;
 
 const reducedMotion = (): boolean => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export const useDemoAutoplay = (surface: RefObject<HTMLElement | null>): void => {
+export const useDemoAutoplay = (): void => {
   useEffect(() => {
     const pick = createDemoPicker();
     gameStore.getState().reset();
 
+    let stepping = false;
     const step = (): boolean => {
       const { game, validMoves, applyGameState } = gameStore.getState();
       const move = pick(game, validMoves);
       if (move === undefined) return false;
+      stepping = true;
       applyGameState(applyMove(game, move));
+      stepping = false;
       return true;
     };
 
@@ -49,14 +52,17 @@ export const useDemoAutoplay = (surface: RefObject<HTMLElement | null>): void =>
 
     if (remaining > 0) timer = window.setTimeout(tick, PLY_MS);
 
-    // Touching the board is a takeover: a scripted move landing under the
-    // visitor's cursor would fight them for the piece they just picked up.
-    const el = surface.current;
-    el?.addEventListener('pointerdown', stop, { capture: true });
+    // Any store change we did not cause is the visitor picking up a piece, and
+    // a scripted move landing mid-selection would fight them for it. Panning
+    // and scrolling touch the board without touching the store, so they leave
+    // the demo running.
+    const unsubscribe = gameStore.subscribe(() => {
+      if (!stepping) stop();
+    });
 
     return () => {
       stop();
-      el?.removeEventListener('pointerdown', stop, { capture: true });
+      unsubscribe();
     };
-  }, [surface]);
+  }, []);
 };

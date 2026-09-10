@@ -100,11 +100,12 @@ const bounds = (cells: readonly ClusterCell[]) => {
 
 export const HexCluster = ({ cells }: { readonly cells: readonly ClusterCell[] }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const box = bounds(cells);
+  // bounds() spreads into Math.min, which is Infinity over an empty array.
+  const box = cells.length === 0 ? null : bounds(cells);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || box === null) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -121,17 +122,20 @@ export const HexCluster = ({ cells }: { readonly cells: readonly ClusterCell[] }
 
     paint();
 
-    // readTheme() samples CSS custom properties, so a palette or piece-theme
-    // swap only shows up on a repaint. The board repaints on every store
-    // change; a static cluster has to watch the class that carries the theme.
+    // Deferred: nothing toggles the root class yet. readTheme() samples CSS
+    // custom properties, and the board gets a repaint from every store change
+    // while a static cluster gets none, so whoever adds a theme switch would
+    // otherwise leave these stale.
     const observer = new MutationObserver(paint);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => observer.disconnect();
-  }, [cells, box.width, box.height, box.minX, box.minY]);
+  }, [cells, box]);
 
   // A black piece is filled with --card, so on a card it is invisible. The
   // board draws it against --background; the cluster carries that ground with
   // it rather than depending on wherever it is dropped.
+  if (box === null) return null;
+
   return (
     <div className="flex justify-center rounded-lg bg-background p-2">
       <canvas

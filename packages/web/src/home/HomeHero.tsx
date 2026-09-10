@@ -9,7 +9,7 @@ type Props = {
 };
 
 const HEIGHTS: Record<Props['height'], string> = {
-  partial: 'h-[min(70vh,560px)]',
+  partial: 'h-[min(70vh,560px)] shrink-0',
   full: 'flex-1 min-h-0',
 };
 
