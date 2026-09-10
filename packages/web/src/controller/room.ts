@@ -38,6 +38,11 @@ type Options = {
 // gameStore mutations (engine state) or local RoomState mutations
 // (connection status / seat color / surfaced errors). No React.
 export const createRoomController = ({ roomId }: Options): RoomController => {
+  // The board is a module-level singleton, so without this the room renders
+  // whatever the last view left in it (the home page demo, a hot-seat game)
+  // for the whole handshake, until gameJoined arrives.
+  gameStore.getState().reset();
+
   const store = createStore<RoomState>(() => INITIAL_ROOM_STATE);
   const client = createWsClient({ url: getWsUrl() });
 

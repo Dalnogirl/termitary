@@ -1,38 +1,16 @@
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { MyRoomSummaryDto, RoomSummaryDto } from '@hive/protocol';
+import type { RoomSummaryDto } from '@hive/protocol';
 import { useQuery } from '@tanstack/react-query';
 import type * as React from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
-import { relativeTime } from '../lib/relative-time.js';
 import { fetchMyRooms, fetchRooms } from '../network/rooms-api.js';
 import { useCreateRoom } from '../network/use-create-room.js';
+import { RoomRow, myRoomAction, myRoomDetail } from '../rooms/RoomRow.js';
 
 type Tab = 'mine' | 'open';
-
-const Row = ({
-  roomId,
-  detail,
-  action,
-  onOpen,
-}: {
-  roomId: string;
-  detail: string;
-  action: string;
-  onOpen: () => void;
-}) => (
-  <li className="flex items-center justify-between rounded-md border border-border bg-card px-4 py-3">
-    <div className="flex flex-col">
-      <span className="font-mono text-sm">{roomId}</span>
-      <span className="text-xs text-muted-foreground">{detail}</span>
-    </div>
-    <Button size="sm" variant="secondary" onClick={onOpen}>
-      {action}
-    </Button>
-  </li>
-);
 
 const Listing = ({
   isLoading,
@@ -58,11 +36,6 @@ const Listing = ({
     <ul className="flex flex-col gap-2 list-none p-0 m-0">{children}</ul>
   </div>
 );
-
-const myRoomDetail = (room: MyRoomSummaryDto): string => {
-  const opponent = room.playerCount === 2 ? 'Opponent seated' : 'Waiting for opponent';
-  return `Playing ${room.seat} · ${opponent} · ${relativeTime(room.updatedAt)}`;
-};
 
 export const LobbyPage = () => {
   const navigate = useNavigate();
@@ -123,11 +96,11 @@ export const LobbyPage = () => {
             empty="No games in progress. Browse open games or create one."
           >
             {(mine.data ?? []).map((room) => (
-              <Row
+              <RoomRow
                 key={room.roomId}
                 roomId={room.roomId}
                 detail={myRoomDetail(room)}
-                action={room.playerCount === 2 ? 'Reconnect' : 'Return'}
+                action={myRoomAction(room)}
                 onOpen={() => openRoom(room.roomId)}
               />
             ))}
@@ -141,7 +114,7 @@ export const LobbyPage = () => {
             empty="No open games. Create one to get started."
           >
             {(open.data ?? []).map((room: RoomSummaryDto) => (
-              <Row
+              <RoomRow
                 key={room.roomId}
                 roomId={room.roomId}
                 detail={`${room.playerCount}/2 players`}

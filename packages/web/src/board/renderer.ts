@@ -5,16 +5,19 @@ import { Stage } from 'konva/lib/Stage.js';
 import { Text } from 'konva/lib/shapes/Text.js';
 import type { StoreState } from '../store/store.js';
 import { axialToPixel, createHexShape } from './hex.js';
+import {
+  CHIP_RADIUS,
+  CHIP_SIZE,
+  HEX_DRAW_SIZE,
+  HEX_RADIUS,
+  HEX_SIZE,
+  TARGET_DASH,
+  TARGET_RADIUS,
+  TARGET_SIZE,
+} from './metrics.js';
 import { pieceFill, pieceLetter, pieceTextColor } from './pieces.js';
 import { type CanvasTheme, readTheme } from './theme.js';
 
-const HEX_SIZE = 40;
-const HEX_DRAW_SIZE = 38;
-const HEX_RADIUS = 7;
-const TARGET_SIZE = 36;
-const TARGET_RADIUS = 6;
-const CHIP_SIZE = 14;
-const CHIP_RADIUS = 3;
 const SCALE_MIN = 0.4;
 const SCALE_MAX = 3;
 const SCALE_FACTOR = 1.1;
@@ -345,7 +348,8 @@ export const createRenderer = (
       fill: theme.targetFill,
       stroke: theme.targetStroke,
       strokeWidth: 2,
-      dash: [6, 4],
+      dash: [...TARGET_DASH.pattern],
+      dashOffset: TARGET_DASH.offset,
     });
     poly.on('click tap', () => callbacks.onTargetClick(coord));
 
@@ -383,7 +387,7 @@ export const createRenderer = (
       poly.fill(theme.targetFill);
       poly.stroke(theme.targetStroke);
       poly.strokeWidth(2);
-      poly.dash([6, 4]);
+      poly.dash([...TARGET_DASH.pattern]);
       ghostText?.visible(false);
       setHoverCursor('');
       layer.batchDraw();
