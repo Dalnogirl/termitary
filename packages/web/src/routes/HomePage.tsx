@@ -10,7 +10,7 @@ export const HomePage = () => {
   if (isPending) return null;
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto">
+    <div className="flex flex-1 min-h-0 flex-col overflow-y-auto">
       {data ? <SignedInHome /> : <SignedOutHome />}
     </div>
   );

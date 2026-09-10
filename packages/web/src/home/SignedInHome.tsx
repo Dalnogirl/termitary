@@ -1,12 +1,16 @@
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { fetchMyRooms } from '../network/rooms-api.js';
 import { useCreateRoom } from '../network/use-create-room.js';
 import { RoomRow, myRoomAction, myRoomDetail } from '../rooms/RoomRow.js';
+import { HomeHero } from './HomeHero.js';
 
 const SHOWN = 3;
+
+const linkClass = 'text-muted-foreground hover:text-foreground no-underline';
 
 export const SignedInHome = () => {
   const navigate = useNavigate();
@@ -25,55 +29,57 @@ export const SignedInHome = () => {
   };
 
   const rooms = mine.data ?? [];
+  const settled = !mine.isLoading && mine.error === null;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Your games</h1>
-        <Button onClick={handleCreate} disabled={createRoom.isPending}>
-          {createRoom.isPending ? 'Creating…' : 'Create new game'}
-        </Button>
-      </div>
+    <HomeHero height="full">
+      <h1 className="text-3xl font-bold tracking-tight">Your games</h1>
 
-      {mine.isLoading && <p className="text-muted-foreground">Loading…</p>}
+      {mine.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
 
       {mine.error !== null && (
-        <p>
+        <p className="text-sm">
           Could not load your games:{' '}
           {mine.error instanceof Error ? mine.error.message : 'unknown error'}
         </p>
       )}
 
-      {!mine.isLoading && mine.error === null && rooms.length === 0 && (
-        <p className="text-muted-foreground">
-          Nothing in progress. Create a game, or take a seat in one from the{' '}
-          <Link to="/lobby" className="underline underline-offset-4">
-            lobby
-          </Link>
-          .
+      {settled && rooms.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          Nothing in progress. Start one and the board fills the screen. The game behind this panel
+          is live in the meantime, so click a piece if you want a move against yourself.
         </p>
       )}
 
-      <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {rooms.slice(0, SHOWN).map((room) => (
-          <RoomRow
-            key={room.roomId}
-            roomId={room.roomId}
-            detail={myRoomDetail(room)}
-            action={myRoomAction(room)}
-            onOpen={() => openRoom(room.roomId)}
-          />
-        ))}
-      </ul>
+      {rooms.length > 0 && (
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {rooms.slice(0, SHOWN).map((room) => (
+            <RoomRow
+              key={room.roomId}
+              roomId={room.roomId}
+              detail={myRoomDetail(room)}
+              action={myRoomAction(room)}
+              onOpen={() => openRoom(room.roomId)}
+            />
+          ))}
+        </ul>
+      )}
 
-      <div className="flex gap-4 text-sm">
-        <Link to="/lobby" className="text-muted-foreground hover:text-foreground">
-          {rooms.length > SHOWN ? `All ${rooms.length} games and open seats` : 'Open games'} →
-        </Link>
-        <Link to="/hotseat" className="text-muted-foreground hover:text-foreground">
-          Play someone next to you →
+      <div className="flex flex-wrap gap-2">
+        <Button size="lg" onClick={handleCreate} disabled={createRoom.isPending}>
+          {createRoom.isPending ? 'Creating…' : 'Create new game'}
+        </Button>
+        <Link
+          to="/hotseat"
+          className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'no-underline')}
+        >
+          Play on this device
         </Link>
       </div>
-    </div>
+
+      <Link to="/lobby" className={`${linkClass} text-xs`}>
+        {rooms.length > SHOWN ? `All ${rooms.length} of your games` : 'Open games'} and free seats →
+      </Link>
+    </HomeHero>
   );
 };

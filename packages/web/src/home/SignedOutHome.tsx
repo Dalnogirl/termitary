@@ -1,8 +1,8 @@
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router';
-import { DemoBoard } from './DemoBoard.js';
 import { type DiagramCell, HexDiagram } from './HexDiagram.js';
+import { HomeHero } from './HomeHero.js';
 
 const RULES: readonly {
   readonly title: string;
@@ -42,34 +42,27 @@ const RULES: readonly {
 
 export const SignedOutHome = () => (
   <>
-    <section className="relative h-[min(70vh,560px)] w-full overflow-hidden border-b border-border">
-      <DemoBoard />
-
-      <div className="pointer-events-none absolute inset-0 flex items-end p-4 md:items-center md:p-10">
-        <div className="glass-island pointer-events-auto flex max-w-md flex-col gap-4 rounded-2xl p-6">
-          <h1 className="text-4xl font-bold tracking-tight">Hive</h1>
-          <p className="text-lg text-foreground">
-            A board game with no board. Bring out your queen, then bury the other one under six
-            pieces.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Link to="/hotseat" className={cn(buttonVariants({ size: 'lg' }), 'no-underline')}>
-              Play on this device
-            </Link>
-            <Link
-              to="/lobby"
-              className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'no-underline')}
-            >
-              Play online
-            </Link>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            That board is a real game, mid-play. Click a piece and it's yours. Hot-seat needs no
-            account.
-          </p>
-        </div>
+    <HomeHero height="partial">
+      <h1 className="text-4xl font-bold tracking-tight">Hive</h1>
+      <p className="text-lg text-foreground">
+        A board game with no board. Bring out your queen, then bury the other one under six pieces.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Link to="/hotseat" className={cn(buttonVariants({ size: 'lg' }), 'no-underline')}>
+          Play on this device
+        </Link>
+        <Link
+          to="/lobby"
+          className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'no-underline')}
+        >
+          Play online
+        </Link>
       </div>
-    </section>
+      <p className="text-xs text-muted-foreground">
+        That board is a real game, mid-play. Click a piece and it's yours. Hot-seat needs no
+        account.
+      </p>
+    </HomeHero>
 
     <section className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6 md:p-10">
       <h2 className="text-2xl font-bold tracking-tight">Three rules and you're playing</h2>
