@@ -1,4 +1,5 @@
 import type { RoomSummaryDto } from '@hive/protocol';
+import type { Identity } from '../domain/identity.js';
 import type { RoomOverview, RoomStore } from '../domain/room-store.js';
 
 const countPlayers = (room: RoomOverview): 0 | 1 | 2 => {
@@ -14,7 +15,10 @@ export const summarize = (room: RoomOverview): RoomSummaryDto => ({
   status: room.status,
 });
 
-export const listRooms = async (rooms: RoomStore): Promise<readonly RoomSummaryDto[]> => {
-  const all = await rooms.list();
-  return all.map(summarize);
+export const listRooms = async (
+  identity: Identity,
+  rooms: RoomStore,
+): Promise<readonly RoomSummaryDto[]> => {
+  const open = await rooms.listOpenExcluding(identity.playerId);
+  return open.map(summarize);
 };

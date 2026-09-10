@@ -22,8 +22,11 @@ export const createRoom = (id: string, creator: Identity): Room => ({
 export const isFull = (room: Room): boolean =>
   room.players.white !== undefined && room.players.black !== undefined;
 
+export const seatOf = (players: Seats, playerId: string): Color | undefined =>
+  SEAT_ORDER.find((color) => players[color]?.playerId === playerId);
+
 export const colorOf = (room: Room, playerId: string): Color | undefined =>
-  SEAT_ORDER.find((color) => room.players[color]?.playerId === playerId);
+  seatOf(room.players, playerId);
 
 export const otherPlayer = (room: Room, playerId: string): Identity | undefined => {
   const color = colorOf(room, playerId);

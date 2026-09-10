@@ -10,3 +10,13 @@ export type RoomSummaryDto = {
 export type CreateRoomResponseDto = {
   readonly roomId: string;
 };
+
+// A room the caller holds a seat in. Every row is in progress and seated by
+// construction, so there is no `status` and `seat` is never null.
+export type MyRoomSummaryDto = {
+  readonly roomId: string;
+  readonly seat: 'white' | 'black';
+  readonly playerCount: 1 | 2;
+  /** Epoch milliseconds, rendered as a relative time. */
+  readonly updatedAt: number;
+};

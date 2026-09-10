@@ -125,7 +125,7 @@ describe('DrizzleRoomStore', () => {
 
       // The lobby projects columns and never touches `state`, so one bad row
       // does not fail the listing for every user.
-      const listed = await store.list();
+      const listed = await store.listOpenExcluding('nobody');
       expect(listed.map((r) => r.id).sort()).toEqual(['r1', 'r2']);
       await expect(store.get('r1')).rejects.toThrow();
     }));
