@@ -5,16 +5,18 @@ import { Stage } from 'konva/lib/Stage.js';
 import { Text } from 'konva/lib/shapes/Text.js';
 import type { StoreState } from '../store/store.js';
 import { axialToPixel, createHexShape } from './hex.js';
+import {
+  CHIP_RADIUS,
+  CHIP_SIZE,
+  HEX_DRAW_SIZE,
+  HEX_RADIUS,
+  HEX_SIZE,
+  TARGET_RADIUS,
+  TARGET_SIZE,
+} from './metrics.js';
 import { pieceFill, pieceLetter, pieceTextColor } from './pieces.js';
 import { type CanvasTheme, readTheme } from './theme.js';
 
-const HEX_SIZE = 40;
-const HEX_DRAW_SIZE = 38;
-const HEX_RADIUS = 7;
-const TARGET_SIZE = 36;
-const TARGET_RADIUS = 6;
-const CHIP_SIZE = 14;
-const CHIP_RADIUS = 3;
 const SCALE_MIN = 0.4;
 const SCALE_MAX = 3;
 const SCALE_FACTOR = 1.1;
