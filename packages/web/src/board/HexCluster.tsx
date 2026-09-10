@@ -126,11 +126,16 @@ export const HexCluster = ({ cells }: { readonly cells: readonly ClusterCell[] }
     return () => observer.disconnect();
   }, [cells, box.width, box.height, box.minX, box.minY]);
 
+  // A black piece is filled with --card, so on a card it is invisible. The
+  // board draws it against --background; the cluster carries that ground with
+  // it rather than depending on wherever it is dropped.
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ width: `${box.width}px`, height: `${box.height}px` }}
-      className="max-w-full"
-    />
+    <div className="flex justify-center rounded-lg bg-background p-2">
+      <canvas
+        ref={canvasRef}
+        style={{ width: `${box.width}px`, height: `${box.height}px` }}
+        className="max-w-full"
+      />
+    </div>
   );
 };
