@@ -1,4 +1,5 @@
-import { Navigate, RouterProvider, createBrowserRouter } from 'react-router';
+import { RouterProvider, createBrowserRouter } from 'react-router';
+import { HomePage } from './routes/HomePage.js';
 import { HotseatPage } from './routes/HotseatPage.js';
 import { LobbyPage } from './routes/LobbyPage.js';
 import { PlayPage } from './routes/PlayPage.js';
@@ -11,7 +12,7 @@ const router = createBrowserRouter([
     path: '/',
     Component: RootLayout,
     children: [
-      { index: true, element: <Navigate to="/hotseat" replace /> },
+      { index: true, Component: HomePage },
       { path: 'hotseat', Component: HotseatPage },
       { path: 'signin', Component: SignInPage },
       {
