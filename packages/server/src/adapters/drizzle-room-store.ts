@@ -1,5 +1,5 @@
 import { WireGameStateSchema, fromWire, toWire } from '@hive/protocol';
-import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import { RoomAlreadyExistsError, type RoomOverview, type RoomStore } from '../domain/room-store.js';
 import type { Room } from '../domain/room.js';
 import type { Db } from './db/client.js';
@@ -11,6 +11,23 @@ const toRoom = (row: RoomRow): Room => ({
   id: row.id,
   state: fromWire(WireGameStateSchema.parse(row.state)),
   players: { white: seat(row.whiteUserId), black: seat(row.blackUserId) },
+});
+
+const overviewColumns = {
+  id: roomsTable.id,
+  whiteUserId: roomsTable.whiteUserId,
+  blackUserId: roomsTable.blackUserId,
+  status: roomsTable.status,
+  updatedAt: roomsTable.updatedAt,
+};
+
+type OverviewRow = Pick<RoomRow, 'id' | 'whiteUserId' | 'blackUserId' | 'status' | 'updatedAt'>;
+
+const toOverview = (row: OverviewRow): RoomOverview => ({
+  id: row.id,
+  players: { white: seat(row.whiteUserId), black: seat(row.blackUserId) },
+  status: row.status,
+  updatedAt: row.updatedAt,
 });
 
 const mutableColumns = (room: Room) => ({
@@ -74,21 +91,37 @@ export const createDrizzleRoomStore = (db: Db, now: () => Date = () => new Date(
 
   // Projected, not whole rooms: the lobby never parses a game, so one
   // unreadable row cannot fail the listing for every user.
-  list: async (): Promise<readonly RoomOverview[]> =>
+  listSeatedBy: async (playerId): Promise<readonly RoomOverview[]> =>
     db
-      .select({
-        id: roomsTable.id,
-        whiteUserId: roomsTable.whiteUserId,
-        blackUserId: roomsTable.blackUserId,
-        status: roomsTable.status,
-      })
+      .select(overviewColumns)
       .from(roomsTable)
+      .where(
+        and(
+          eq(roomsTable.status, 'in_progress'),
+          or(eq(roomsTable.whiteUserId, playerId), eq(roomsTable.blackUserId, playerId)),
+        ),
+      )
+      .orderBy(desc(roomsTable.updatedAt))
       .all()
-      .map((row) => ({
-        id: row.id,
-        players: { white: seat(row.whiteUserId), black: seat(row.blackUserId) },
-        status: row.status,
-      })),
+      .map(toOverview),
+
+  listOpenExcluding: async (playerId): Promise<readonly RoomOverview[]> =>
+    db
+      .select(overviewColumns)
+      .from(roomsTable)
+      .where(
+        and(
+          eq(roomsTable.status, 'in_progress'),
+          or(isNull(roomsTable.whiteUserId), isNull(roomsTable.blackUserId)),
+          // `IS NOT`, not `ne()`: on an empty seat `white_user_id != ?` is
+          // NULL and drops the row, which is the open room we want to keep.
+          sql`${roomsTable.whiteUserId} IS NOT ${playerId}`,
+          sql`${roomsTable.blackUserId} IS NOT ${playerId}`,
+        ),
+      )
+      .orderBy(desc(roomsTable.createdAt))
+      .all()
+      .map(toOverview),
 
   deleteAbandonedBefore: async (cutoff) =>
     db

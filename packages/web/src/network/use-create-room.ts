@@ -1,5 +1,5 @@
 import type { CreateRoomResponseDto } from '@hive/protocol';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl } from './url.js';
 
 const createRoom = async (): Promise<CreateRoomResponseDto> => {
@@ -12,4 +12,13 @@ const createRoom = async (): Promise<CreateRoomResponseDto> => {
   return (await res.json()) as CreateRoomResponseDto;
 };
 
-export const useCreateRoom = () => useMutation({ mutationFn: createRoom });
+export const useCreateRoom = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createRoom,
+    // `['rooms']` prefix-matches `['rooms', 'mine']`, so one call covers both
+    // lobby tabs. Without it the 10s staleTime hides the new room from the
+    // tab it lands in.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['rooms'] }),
+  });
+};

@@ -16,6 +16,7 @@ import type { Ports } from './domain/ports.js';
 import type { RoomStore } from './domain/room-store.js';
 import { env } from './env.js';
 import { createRoom } from './usecases/create-room.js';
+import { listMyRooms } from './usecases/list-my-rooms.js';
 import { listRooms } from './usecases/list-rooms.js';
 import { sweepAbandonedRooms } from './usecases/sweep-abandoned-rooms.js';
 import { handleConnection } from './ws/connection.js';
@@ -71,7 +72,10 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
   const gate = gateIdentity(extractIdentity);
 
   app.get('/health', async () => ({ ok: true }));
-  app.get('/rooms', { preHandler: gate }, async () => listRooms(rooms));
+  app.get('/rooms', { preHandler: gate }, async (req) => listRooms(requireIdentity(req), rooms));
+  app.get('/rooms/mine', { preHandler: gate }, async (req) =>
+    listMyRooms(requireIdentity(req), rooms),
+  );
   app.post('/rooms', { preHandler: gate }, async (req) => createRoom(requireIdentity(req), rooms));
   app.get('/ws', { websocket: true, preValidation: gate }, (socket, req) => {
     handleConnection({

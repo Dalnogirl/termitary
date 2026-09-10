@@ -74,11 +74,13 @@ describe('room persistence across a restart', () => {
       // The session lives in the same file, so the old cookie still works.
       const listed = await second.ctx.app.inject({
         method: 'GET',
-        url: '/rooms',
+        url: '/rooms/mine',
         headers: { cookie },
       });
       expect(listed.statusCode).toBe(200);
-      expect(listed.json()).toEqual([{ roomId, playerCount: 1, status: 'in_progress' }]);
+      expect(listed.json()).toEqual([
+        { roomId, seat: 'white', playerCount: 1, updatedAt: expect.any(Number) },
+      ]);
 
       // The board, not just the summary: the move made before the restart is
       // still in the state the server hands back.

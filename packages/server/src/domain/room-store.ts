@@ -1,13 +1,14 @@
 import type { GameState } from '@hive/engine';
 import type { Room, Seats } from './room.js';
 
-// What the lobby needs. `list` returns this rather than whole rooms so the
-// lobby never deserializes a game, and one unreadable game cannot fail the
-// listing for everyone.
+// What the lobby needs. The listing queries return this rather than whole
+// rooms so the lobby never deserializes a game, and one unreadable game
+// cannot fail the listing for everyone.
 export type RoomOverview = {
   readonly id: string;
   readonly players: Seats;
   readonly status: GameState['status'];
+  readonly updatedAt: Date;
 };
 
 // TODO: `save` is last-write-wins, and the race is application-level rather
@@ -22,7 +23,14 @@ export type RoomStore = {
   /** Insert or replace: `save` on an unknown id writes it. */
   save(room: Room): Promise<void>;
   delete(id: string): Promise<void>;
-  list(): Promise<readonly RoomOverview[]>;
+  /**
+   * Games in progress the player holds a seat in, most recently played first.
+   * The predicate lives in the store for the same reason as
+   * `deleteAbandonedBefore`: callers never scan the whole table.
+   */
+  listSeatedBy(playerId: string): Promise<readonly RoomOverview[]>;
+  /** Games in progress with a free seat that the player is not already in. */
+  listOpenExcluding(playerId: string): Promise<readonly RoomOverview[]>;
   /**
    * Removes rooms last written before `cutoff` that nobody can be waiting in:
    * finished games, and rooms with a free seat. A full game in progress is
