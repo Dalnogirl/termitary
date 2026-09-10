@@ -5,10 +5,10 @@ import { History } from '../history/History.js';
 
 export const GameLayout = () => (
   <div className="flex flex-1 min-h-0">
-    <div className="flex flex-col flex-1 min-w-0">
-      <Hand color="black" />
+    <div className="relative flex-1 min-w-0">
       <BoardCanvas />
-      <Hand color="white" />
+      <Hand color="black" edge="top" />
+      <Hand color="white" edge="bottom" />
     </div>
     <History />
     <Modal />

@@ -9,18 +9,26 @@ import { useGameStore } from '../store/store.js';
 const PIECE_ORDER: readonly PieceType[] = ['queen', 'ant', 'beetle', 'spider', 'grasshopper'];
 const COLOR_LABEL: Record<Color, string> = { white: 'White', black: 'Black' };
 
-type Props = { readonly color: Color };
+type Props = {
+  readonly color: Color;
+  readonly edge: 'top' | 'bottom';
+};
+
+const edgeAnchor: Record<Props['edge'], string> = {
+  top: 'top-3 md:top-5',
+  bottom: 'bottom-3 md:bottom-5',
+};
 
 const slotBase =
-  'inline-flex flex-col items-center justify-center w-11 h-11 md:w-14 md:h-14 rounded-md font-bold transition-all ' +
+  'inline-flex flex-col items-center justify-center w-11 h-11 md:w-14 md:h-14 rounded-xl font-bold transition-all ' +
   'disabled:opacity-30 disabled:pointer-events-none cursor-pointer';
 
 const slotPalette: Record<Color, string> = {
-  white: 'bg-foreground text-background hover:bg-foreground/90',
-  black: 'bg-card text-foreground border border-border hover:bg-card/70',
+  white: 'bg-foreground text-background shadow-sm hover:bg-foreground/90',
+  black: 'bg-card text-foreground border border-border shadow-sm hover:bg-card/70',
 };
 
-export const Hand = ({ color }: Props) => {
+export const Hand = ({ color, edge }: Props) => {
   const game = useGameStore((s) => s.game);
   const validMoves = useGameStore((s) => s.validMoves);
   const selection = useGameStore((s) => s.selection);
@@ -50,8 +58,13 @@ export const Hand = ({ color }: Props) => {
   return (
     <div
       className={cn(
-        'flex items-center gap-2 md:gap-4 px-2 md:px-5 py-2 md:py-3 min-h-16 md:min-h-20 transition-colors border-y-2',
-        isActive ? 'border-foreground bg-muted' : 'border-transparent bg-background',
+        'glass-island absolute left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-1.5rem)]',
+        'flex items-center gap-2 md:gap-4 px-3 md:px-5 py-2 md:py-3 rounded-3xl',
+        'transition-[opacity,transform,box-shadow] duration-300',
+        edgeAnchor[edge],
+        isActive
+          ? 'opacity-100 ring-2 ring-foreground/70'
+          : 'opacity-70 scale-[0.97] hover:opacity-100',
       )}
     >
       <span
@@ -86,7 +99,7 @@ export const Hand = ({ color }: Props) => {
         })}
       </div>
       {passOnly && (
-        <Button onClick={handlePassClick} className="ml-auto" size="sm">
+        <Button onClick={handlePassClick} size="sm" className="shrink-0">
           <span className="md:hidden">Pass</span>
           <span className="hidden md:inline">Pass turn (no moves available)</span>
         </Button>

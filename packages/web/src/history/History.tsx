@@ -63,7 +63,7 @@ export const History = () => {
           type="button"
           onClick={() => setIsOpen(true)}
           aria-label="Open history"
-          className="md:hidden fixed bottom-4 right-4 z-30 w-12 h-12 rounded-full bg-card border border-border shadow-lg flex items-center justify-center text-foreground hover:bg-muted"
+          className="md:hidden fixed bottom-24 right-4 z-30 w-12 h-12 rounded-full glass-island flex items-center justify-center text-foreground"
         >
           <ListOrdered className="size-5" />
         </button>

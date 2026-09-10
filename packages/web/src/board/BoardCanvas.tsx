@@ -32,5 +32,5 @@ export const BoardCanvas = () => {
     };
   }, [handlers, myColor]);
 
-  return <div ref={containerRef} className="flex-1 relative overflow-hidden cursor-grab" />;
+  return <div ref={containerRef} className="absolute inset-0 overflow-hidden cursor-grab" />;
 };
