@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { CreateRoomResponse } from '@hive/protocol';
+import type { CreateRoomResponseDto } from '@hive/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { RoomStore } from '../domain/room-store.js';
 import { createRoom as buildRoom } from '../domain/room.js';
@@ -11,7 +11,7 @@ import { createRoom as buildRoom } from '../domain/room.js';
 export const createRoom = async (
   identity: Identity,
   rooms: RoomStore,
-): Promise<CreateRoomResponse> => {
+): Promise<CreateRoomResponseDto> => {
   const room = buildRoom(randomUUID(), identity);
   await rooms.create(room);
   return { roomId: room.id };
