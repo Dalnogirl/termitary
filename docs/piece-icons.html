@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hive piece icons — colour options</title>
+<style>
+  :root {
+    --bg: #252525;
+    --fg: #fafafa;
+    --card: #343434;
+    --muted: #b3b3b3;
+    --border: rgba(255, 255, 255, 0.12);
+  }
+  body.light {
+    --bg: #ffffff;
+    --fg: #252525;
+    --card: #ffffff;
+    --muted: #6b6b6b;
+    --border: rgba(0, 0, 0, 0.14);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 20px 80px;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: 0.02em; }
+  .lede { color: var(--muted); margin: 0 0 28px; max-width: 68ch; }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 32px; flex-wrap: wrap; align-items: center; }
+  .sep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
+  button {
+    font: inherit;
+    color: var(--fg);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  button[aria-pressed='true'] { background: var(--fg); color: var(--bg); }
+  section { border-top: 1px solid var(--border); padding: 24px 0 8px; }
+  h2 { font-size: 16px; margin: 0 0 2px; }
+  h2 .n { color: var(--muted); font-weight: 400; margin-right: 8px; }
+  .note { color: var(--muted); margin: 0 0 16px; max-width: 72ch; }
+  .rows { display: flex; flex-wrap: wrap; gap: 28px 36px; align-items: flex-start; }
+  .block { display: grid; gap: 6px; }
+  .caption { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; }
+  .tiles { display: flex; align-items: center; gap: 6px; }
+  .slot {
+    width: 56px; height: 56px; border-radius: 14px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px;
+  }
+  .slot.white { background: var(--fg); color: var(--bg); }
+  .slot.black { background: var(--card); color: var(--fg); border: 1px solid var(--border); }
+  .slot .count { font-size: 10px; opacity: 0.75; font-weight: 700; }
+  .names { display: flex; gap: 6px; color: var(--muted); font-size: 10px; }
+  .names span { width: 80px; text-align: center; }
+  table.metrics { border-collapse: collapse; font-size: 11px; color: var(--muted); margin-top: 10px; }
+  table.metrics th, table.metrics td { text-align: right; padding: 2px 8px 2px 0; font-variant-numeric: tabular-nums; }
+  table.metrics th:first-child, table.metrics td:first-child { text-align: left; }
+  table.metrics td.warn { color: var(--fg); font-weight: 700; }
+  svg { display: block; overflow: visible; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Piece icons: the three finalists</h1>
+  <p class="lede">
+    What survived the cull. Each row is the same five pieces (queen, ant, beetle, spider,
+    grasshopper) on a black tile and a white one, then repeated at covered-piece chip size and in a
+    hand slot, which is where options go to die. <strong>Ink</strong> switches the two hue-coded
+    sets between a per-tile pair and one tone used on both. <strong>Show guides</strong> draws each
+    glyph's ink box and the clear-space hex and prints the measurements, which is how the padding
+    was equalised rather than eyeballed. Everything is authored in one 100-unit box, so any of it
+    drops into the Konva board, the canvas clusters and the DOM hand unchanged.
+  </p>
+  <div class="toolbar">
+    <button id="theme" aria-pressed="false">Light theme</button>
+    <button id="chips" aria-pressed="true">Chip + hand rows</button>
+    <span class="sep"></span>
+    <button data-fit="raw">Raw boxes</button>
+    <button data-fit="hex">Fit to hex</button>
+    <button data-fit="ink">Equal ink</button>
+    <button id="guides" aria-pressed="false">Show guides</button>
+    <span class="sep"></span>
+    <button data-ink="pair" title="A light tone on dark tiles, a deep tone on light tiles">Fitted pair</button>
+    <button data-ink="one" title="The pastel on both tiles">One hue</button>
+    <button data-ink="mid" title="A single mid tone that clears both tiles">One hue, mid</button>
+  </div>
+  <div id="out"></div>
+</div>
+
+<script>
+const round = (v) => Math.round(v * 100) / 100;
+const BOX = 100;
+const TYPES = ['queen', 'ant', 'beetle', 'spider', 'grasshopper'];
+const COUNTS = { queen: 1, ant: 3, beetle: 2, spider: 2, grasshopper: 3 };
+const LETTERS = { queen: 'Q', ant: 'A', beetle: 'B', spider: 'S', grasshopper: 'G' };
+
+// ---------- primitives ----------
+const ellipse = (cx, cy, rx, ry, rot = 0) => {
+  const rad = (rot * Math.PI) / 180;
+  const dx = Math.cos(rad) * rx;
+  const dy = Math.sin(rad) * rx;
+  const arc = `a${round(rx)} ${round(ry)} ${round(rot)} 1 0`;
+  return `M${round(cx - dx)} ${round(cy - dy)}${arc} ${round(2 * dx)} ${round(2 * dy)}${arc} ${round(-2 * dx)} ${round(-2 * dy)}`;
+};
+const circle = (cx, cy, r) => ellipse(cx, cy, r, r);
+const line = (pts) => pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${round(x)} ${round(y)}`).join('');
+const mirrorPts = (pts) => pts.map(([x, y]) => [BOX - x, y]);
+
+const fill = (...ds) => ({ kind: 'fill', d: ds.join('') });
+const stroke = (width, ...ds) => ({ kind: 'stroke', width, d: ds.join('') });
+// Authored once on the left, mirrored to the right, so a bug stays symmetric
+// when one leg moves.
+const bothSides = (width, ...runs) =>
+  stroke(width, ...runs.flatMap((r) => [line(r), line(mirrorPts(r))]));
+
+const hexPath = (cx, cy, size, radius) => {
+  const pts = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 180) * (60 * i - 30);
+    pts.push([cx + size * Math.cos(a), cy + size * Math.sin(a)]);
+  }
+  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  const t = radius / (size * 0.866);
+  let d = '';
+  for (let i = 0; i < 6; i++) {
+    const prev = pts[(i + 5) % 6], c = pts[i], n = pts[(i + 1) % 6];
+    const inA = mid(prev, c), outA = mid(c, n);
+    const lead = [c[0] + (inA[0] - c[0]) * t, c[1] + (inA[1] - c[1]) * t];
+    const exit = [c[0] + (outA[0] - c[0]) * t, c[1] + (outA[1] - c[1]) * t];
+    d += `${i === 0 ? `M${round(inA[0])} ${round(inA[1])}` : ''}L${round(lead[0])} ${round(lead[1])}`;
+    d += `Q${round(c[0])} ${round(c[1])} ${round(exit[0])} ${round(exit[1])}`;
+    d += `L${round(outA[0])} ${round(outA[1])}`;
+  }
+  return d + 'Z';
+};
+
+// ---------- the chunky set ----------
+// Fewer, fatter parts than an anatomical drawing, built to survive 28px. The
+// walkers' legs bend once at a knee rather than running straight out, which is
+// most of what makes them read as legs instead of spokes; the bend is angled
+// forward on the front pairs and back on the rear, so the body has a facing. Two pieces break the top-down view on purpose. The
+// grasshopper is in profile, because seen from above its folded hind legs make a
+// wide V that reads as a second spider. The beetle carries short forward horns
+// that curl toward each other, while the ant's antennae are thin, straight and
+// sweep away from the body — that contrast is what keeps those two apart.
+const CHUNKY = {
+  queen: [
+    bothSides(5, [[46, 20], [38, 6]]),
+    fill(ellipse(74, 44, 8, 19, -20), ellipse(26, 44, 8, 19, 20)),
+    fill(ellipse(50, 68, 16, 21), ellipse(50, 38, 13, 14), ellipse(50, 18, 10, 9)),
+  ],
+  ant: [
+    bothSides(5, [[46, 18], [38, 5]]),
+    bothSides(5, [[42, 38], [22, 26], [16, 14]], [[41, 48], [18, 44], [12, 53]], [[42, 58], [22, 72], [16, 84]]),
+    fill(ellipse(50, 74, 15, 18), ellipse(50, 47, 10, 12), ellipse(50, 24, 11, 10)),
+  ],
+  beetle: [
+    bothSides(5, [[39, 44], [23, 35], [20, 22]], [[36, 59], [16, 56], [11, 64]], [[39, 74], [23, 82], [20, 90]]),
+    stroke(7, 'M41 28C32 20 34 10 45 8', 'M59 28C68 20 66 10 55 8'),
+    fill(ellipse(50, 64, 23, 24), ellipse(50, 34, 14, 10)),
+  ],
+  spider: [
+    bothSides(4.5, [[58, 34], [80, 16], [70, 7]], [[61, 42], [87, 30], [85, 17]], [[61, 52], [87, 64], [85, 77]], [[58, 60], [80, 78], [70, 87]]),
+    fill(ellipse(50, 64, 22, 24), ellipse(50, 36, 13, 13)),
+  ],
+  grasshopper: [
+    stroke(5.5, line([[34, 66], [28, 86]]), line([[48, 66], [44, 86]])),
+    stroke(6, line([[85, 26], [90, 64]]), line([[90, 64], [78, 80]])),
+    fill(ellipse(73, 42, 20, 7, -54)),
+    fill(ellipse(47, 56, 25, 13, -8)),
+    fill(circle(16, 58, 11)),
+    stroke(4.5, 'M10 48C15 28 36 20 54 22'),
+  ],
+};
+
+// ---------- palettes ----------
+// A: value is the piece — five hues on a deliberate luminance ladder — and the
+// player moves to a ring. Costs a ring, buys a set that still separates with the
+// colour taken away.
+const PALETTE_LADDER = {
+  queen: { light: '#ffe07a', dark: '#ffe07a' },
+  grasshopper: { light: '#a9cf5a', dark: '#a9cf5a' },
+  spider: { light: '#3f9d95', dark: '#3f9d95' },
+  ant: { light: '#c25a48', dark: '#c25a48' },
+  beetle: { light: '#3a2c5c', dark: '#3a2c5c' },
+};
+
+// B: ink for a mark drawn on a monochrome tile. Three tones per hue, because the
+// contrast has to hold on a near-white tile and a near-black one.
+const PALETTE_INK = {
+  queen: { light: '#ffd85e', dark: '#8a6404', mid: '#d3a12a' },
+  ant: { light: '#7ec8f0', dark: '#155b80', mid: '#3f9ad0' },
+  beetle: { light: '#b9a4ef', dark: '#4a3392', mid: '#8467d8' },
+  spider: { light: '#c08a55', dark: '#6b4423', mid: '#96693c' },
+  grasshopper: { light: '#b7e06a', dark: '#456213', mid: '#7fae35' },
+};
+
+// pair: a light tone for dark tiles and a deep one for light tiles, fitted per
+// tile. one: the pastel on both, whatever that costs on a white tile. mid: a
+// single tone chosen to clear both instead of favouring one.
+let INK = 'pair';
+const inkFor = (entry, onLight) =>
+  INK === 'one' ? entry.light : INK === 'mid' ? entry.mid : entry[onLight ? 'dark' : 'light'];
+
+// ---------- measurement ----------
+// Every glyph is authored in the same 100-unit box, but the ink inside it is a
+// different size per piece, and a pointy-top hex is narrower top-to-bottom than
+// side-to-side — so the gap to the tile edge varies unless it is measured.
+const NS = 'http://www.w3.org/2000/svg';
+const APOTHEM = Math.sqrt(3) / 2;
+const GUIDE_MARGIN = 9;
+
+const measureSvg = document.createElementNS(NS, 'svg');
+measureSvg.setAttribute('width', '200');
+measureSvg.setAttribute('height', '200');
+measureSvg.setAttribute('style', 'position:fixed;left:-9999px;top:0');
+document.body.appendChild(measureSvg);
+
+const inkBox = (shapes) => {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const sh of shapes) {
+    const path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', sh.d);
+    measureSvg.appendChild(path);
+    const b = path.getBBox();
+    measureSvg.removeChild(path);
+    const pad = sh.kind === 'stroke' ? sh.width / 2 : 0;
+    x0 = Math.min(x0, b.x - pad); y0 = Math.min(y0, b.y - pad);
+    x1 = Math.max(x1, b.x + b.width + pad); y1 = Math.max(y1, b.y + b.height + pad);
+  }
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+};
+
+// Share of the box the glyph actually inks. Two glyphs with the same bounding
+// box still look unequal if one is twice as heavy.
+const coverCanvas = document.createElement('canvas');
+coverCanvas.width = coverCanvas.height = 100;
+const coverCtx = coverCanvas.getContext('2d');
+const inkCoverage = (shapes) => {
+  coverCtx.clearRect(0, 0, 100, 100);
+  coverCtx.lineCap = 'round';
+  coverCtx.lineJoin = 'round';
+  coverCtx.fillStyle = '#000';
+  coverCtx.strokeStyle = '#000';
+  for (const sh of shapes) {
+    const path = new Path2D(sh.d);
+    if (sh.kind === 'stroke') {
+      coverCtx.lineWidth = sh.width;
+      coverCtx.stroke(path);
+    } else {
+      coverCtx.fill(path);
+    }
+  }
+  const data = coverCtx.getImageData(0, 0, 100, 100).data;
+  let n = 0;
+  for (let i = 3; i < data.length; i += 4) if (data[i] > 8) n++;
+  return n / 10000;
+};
+
+const METRICS = {};
+const metricsFor = (opt, type) => {
+  const key = `${opt.id}:${type}`;
+  if (!METRICS[key]) {
+    METRICS[key] = { box: inkBox(opt.glyphs[type]), cov: inkCoverage(opt.glyphs[type]) };
+  }
+  return METRICS[key];
+};
+const medianCoverage = (opt) => {
+  const vals = TYPES.map((t) => metricsFor(opt, t).cov).sort((a, b) => a - b);
+  return vals[Math.floor(vals.length / 2)];
+};
+
+let FIT = 'hex';
+let GUIDES = false;
+
+// Largest scale at which the ink box, centred in the tile, still keeps
+// GUIDE_MARGIN clear of all six hex edges.
+const hexFit = (box) => {
+  const hw = box.w / 2;
+  const hh = box.h / 2;
+  const room = (BOX / 2) * APOTHEM - GUIDE_MARGIN;
+  return room / Math.max(hw, 0.5 * hw + APOTHEM * hh);
+};
+
+const fitTransform = (opt, type) => {
+  if (FIT === 'raw' || !opt.glyphs) return '';
+  const { box, cov } = metricsFor(opt, type);
+  let k = hexFit(box);
+  if (FIT === 'ink') k = Math.min(k, k * Math.sqrt(medianCoverage(opt) / cov));
+  const cx = box.x + box.w / 2;
+  const cy = box.y + box.h / 2;
+  return `translate(${round(BOX / 2)} ${round(BOX / 2)}) scale(${round(k)}) translate(${round(-cx)} ${round(-cy)})`;
+};
+
+const guideSvg = (opt, type) => {
+  if (!GUIDES || !opt.glyphs) return '';
+  const { box } = metricsFor(opt, type);
+  return `<g opacity="0.9">
+    <path d="${hexPath(50, 50, 50 - GUIDE_MARGIN / APOTHEM, 2)}" fill="none" stroke="#e0574f" stroke-width="1" stroke-dasharray="4 3"/>
+    <rect x="${round(box.x)}" y="${round(box.y)}" width="${round(box.w)}" height="${round(box.h)}" fill="none" stroke="#4fa3e0" stroke-width="1"/>
+  </g>`;
+};
+
+// ---------- rendering ----------
+const shapeSvg = (shape, ink) =>
+  shape.kind === 'fill'
+    ? `<path d="${shape.d}" fill="${ink}"/>`
+    : `<path d="${shape.d}" fill="none" stroke="${ink}" stroke-width="${shape.width}" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+// The tile a piece sits on flips lightness with the theme (--fg is near-white in
+// dark, near-black in light), so the ink variant follows the tile, not the
+// player's name.
+const onLightTile = (color) =>
+  document.body.classList.contains('light') ? color !== 'white' : color === 'white';
+
+const glyphSvg = (opt, type, cx, cy, size, colors) => {
+  const ink = opt.palette ? inkFor(opt.palette[type], colors.onLight) : colors.fg;
+  if (opt.kind === 'text') {
+    return `<text x="${cx}" y="${cy}" fill="${ink}" font-size="${size}" font-weight="${opt.weight}" text-anchor="middle" dominant-baseline="central" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">${opt.text[type]}</text>`;
+  }
+  const s = size / BOX;
+  const inner = opt.glyphs[type].map((sh) => shapeSvg(sh, ink)).join('');
+  const fit = fitTransform(opt, type);
+  const body = fit ? `<g transform="${fit}">${inner}</g>` : inner;
+  return `<g transform="translate(${cx - size / 2} ${cy - size / 2}) scale(${s})">${body}${guideSvg(opt, type)}</g>`;
+};
+
+const hexTile = (opt, type, color, hexSize) => {
+  const w = Math.ceil(hexSize * 1.732) + 4;
+  const h = hexSize * 2 + 4;
+  const glyphSize =
+    opt.kind === 'text'
+      ? hexSize * opt.fontScale
+      : FIT === 'raw'
+        ? (hexSize / 38) * opt.size
+        : hexSize * 2;
+  const swatch = opt.kind === 'color' ? opt.palette[type] : null;
+  const tileFill = swatch
+    ? swatch[color === 'white' ? 'light' : 'dark']
+    : color === 'white'
+      ? 'var(--fg)'
+      : 'var(--card)';
+  const fg = color === 'white' ? 'var(--bg)' : 'var(--fg)';
+  const ring =
+    swatch && opt.ring
+      ? `<path d="${hexPath(w / 2, h / 2, hexSize * 0.8, hexSize * 0.14)}" fill="none" stroke="${color === 'white' ? '#ffffff' : '#12100f'}" stroke-width="${Math.max(2, hexSize * 0.15)}"/>`
+      : '';
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <path d="${hexPath(w / 2, h / 2, hexSize, hexSize * 0.18)}" fill="${tileFill}"/>
+    ${ring}
+    ${swatch ? '' : glyphSvg(opt, type, w / 2, h / 2, glyphSize, { fg, onLight: onLightTile(color) })}
+  </svg>`;
+};
+
+const handSlot = (opt, type, color, count) => {
+  if (opt.kind === 'color') {
+    const swatch = opt.palette[type];
+    const bg = swatch[color === 'white' ? 'light' : 'dark'];
+    const ringStyle = opt.ring
+      ? `box-shadow: inset 0 0 0 3px ${color === 'white' ? '#ffffff' : '#12100f'};`
+      : '';
+    const textInk = opt.ring
+      ? color === 'white' ? '#ffffff' : '#12100f'
+      : color === 'white' ? '#252525' : '#ffffff';
+    return `<div class="slot" style="background:${bg};color:${textInk};${ringStyle}"><span class="count">${count}</span></div>`;
+  }
+  return `<div class="slot ${color}">
+    <svg width="30" height="30" viewBox="0 0 30 30">${glyphSvg(opt, type, 15, 15, opt.kind === 'text' ? 20 : 26, { fg: 'currentColor', onLight: onLightTile(color) })}</svg>
+    <span class="count">${count}</span>
+  </div>`;
+};
+
+const block = (caption, html) =>
+  `<div class="block"><span class="caption">${caption}</span><div class="tiles">${html}</div></div>`;
+
+const metricsTable = (opt) => {
+  if (!GUIDES || !opt.glyphs) return '';
+  const med = medianCoverage(opt);
+  const rows = TYPES.map((t) => {
+    const { box, cov } = metricsFor(opt, t);
+    const off = Math.abs(cov / med - 1);
+    return `<tr>
+      <td>${t}</td>
+      <td>${box.w.toFixed(1)} × ${box.h.toFixed(1)}</td>
+      <td>${(box.w / box.h).toFixed(2)}</td>
+      <td class="${off > 0.2 ? 'warn' : ''}">${(cov * 100).toFixed(1)}%</td>
+      <td>${hexFit(box).toFixed(2)}×</td>
+    </tr>`;
+  }).join('');
+  return `<table class="metrics">
+    <tr><th>piece</th><th>ink box</th><th>aspect</th><th>ink</th><th>fit scale</th></tr>
+    ${rows}
+  </table>`;
+};
+
+const OPTIONS = [
+  {
+    id: 'colors-ladder',
+    name: 'Colour with a ring',
+    note: 'No mark at all: the tile fill is the piece and the ring is the player. The five hues sit on a deliberate luminance ladder, gold, lime, teal, brick, plum, light to dark, so they stay separable with the colour stripped out, which the desaturated row proves. Nothing is drawn, so the 28px chip is exactly as legible as the board tile, which no other option here can say. The costs: five hues have to be learned with no legend on the board, a mixed stack is louder than the monochrome board, and the ring is one more element competing with the selection and last-move highlights.',
+    kind: 'color',
+    palette: PALETTE_LADDER,
+    ring: true,
+  },
+  {
+    id: 'letters-colour',
+    name: 'Coloured letters',
+    note: 'The old control, hue-coded: tiles stay monochrome so the player is still read by value, and the letter carries the piece in both shape and colour. Redundant coding is the fastest thing to scan and the only option here that survives desaturation, a 28px chip and a colourblind player at once. The cost is that it is still letters — every objection to that stands, this only answers the scanning half of it.',
+    kind: 'text',
+    text: LETTERS,
+    weight: 700,
+    fontScale: 1.05,
+    palette: PALETTE_INK,
+  },
+  {
+    id: 'chunky-colour',
+    name: 'Chunky silhouette, coloured',
+    note: 'The fat silhouette says which bug, the colour says it again. That redundancy is the insurance: the jointed legs do survive 28px, but where two silhouettes are close a gold bug and a blue bug are still two different pieces. The beetle now has the short forward horns the physical tile gives it, curling toward each other; the ant keeps thin antennae sweeping away from the body, so those two never trade places. Ant, beetle and spider legs bend at a knee, which survives the 28px chip as a visible kink. No letters anywhere.',
+    kind: 'glyph',
+    glyphs: CHUNKY,
+    size: 52,
+    palette: PALETTE_INK,
+  },
+];
+
+const section = (opt, i) => `
+  <section data-id="${opt.id}">
+    <h2><span class="n">${String(i + 1).padStart(2, '0')}</span>${opt.name}</h2>
+    <p class="note">${opt.note}</p>
+    <div class="rows">
+      <div class="block">
+        <span class="caption">Board, 76px</span>
+        <div class="tiles">${TYPES.map((t) => hexTile(opt, t, 'black', 38)).join('')}</div>
+        <div class="tiles">${TYPES.map((t) => hexTile(opt, t, 'white', 38)).join('')}</div>
+        <div class="names">${TYPES.map((t) => `<span>${t}</span>`).join('')}</div>
+        ${
+          opt.kind === 'color'
+            ? `<span class="caption" style="margin-top:10px">Desaturated</span>
+               <div class="tiles" style="filter:grayscale(1)">${TYPES.map((t) => hexTile(opt, t, 'black', 38)).join('')}</div>
+               <div class="tiles" style="filter:grayscale(1)">${TYPES.map((t) => hexTile(opt, t, 'white', 38)).join('')}</div>`
+            : ''
+        }
+      </div>
+      <div class="small">
+        ${block('Chip, 28px', TYPES.map((t) => hexTile(opt, t, 'white', 14)).join(''))}
+        <div style="height:14px"></div>
+        ${block('Hand slot', TYPES.map((t) => handSlot(opt, t, 'white', COUNTS[t])).join(''))}
+      </div>
+    </div>
+    ${metricsTable(opt)}
+  </section>`;
+
+const params = new URLSearchParams(location.search);
+if (params.has('fit')) FIT = params.get('fit');
+if (params.has('ink')) INK = params.get('ink');
+if (params.has('guides')) GUIDES = true;
+if (params.has('light')) document.body.classList.add('light');
+
+const render = () => {
+  document.getElementById('out').innerHTML = OPTIONS.map(section).join('');
+  for (const b of document.querySelectorAll('[data-fit]')) {
+    b.setAttribute('aria-pressed', String(b.dataset.fit === FIT));
+  }
+  for (const b of document.querySelectorAll('[data-ink]')) {
+    b.setAttribute('aria-pressed', String(b.dataset.ink === INK));
+  }
+};
+render();
+
+for (const b of document.querySelectorAll('[data-fit]')) {
+  b.addEventListener('click', () => {
+    FIT = b.dataset.fit;
+    render();
+  });
+}
+for (const b of document.querySelectorAll('[data-ink]')) {
+  b.addEventListener('click', () => {
+    INK = b.dataset.ink;
+    render();
+  });
+}
+const themeBtn = document.getElementById('theme');
+themeBtn.setAttribute('aria-pressed', String(document.body.classList.contains('light')));
+themeBtn.textContent = document.body.classList.contains('light') ? 'Dark theme' : 'Light theme';
+themeBtn.addEventListener('click', () => {
+  const light = document.body.classList.toggle('light');
+  themeBtn.setAttribute('aria-pressed', String(light));
+  themeBtn.textContent = light ? 'Dark theme' : 'Light theme';
+  render(); // palette inks are picked from the tile's lightness
+});
+const guidesBtn = document.getElementById('guides');
+guidesBtn.addEventListener('click', () => {
+  GUIDES = !GUIDES;
+  guidesBtn.setAttribute('aria-pressed', String(GUIDES));
+  render();
+});
+const chipsBtn = document.getElementById('chips');
+chipsBtn.addEventListener('click', () => {
+  const on = chipsBtn.getAttribute('aria-pressed') !== 'true';
+  chipsBtn.setAttribute('aria-pressed', String(on));
+  for (const el of document.querySelectorAll('.small')) el.style.display = on ? '' : 'none';
+});
+</script>
+</body>
+</html>
