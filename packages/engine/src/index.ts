@@ -1,9 +1,10 @@
-export { type HexCoord, key, neighbors, parse, sharedNeighbors } from './hex.js';
-export { canSlide, isConnectedWithout } from './occupancy.js';
-export { type MovementFn, movements } from './movements/index.js';
-export { getValidMoves } from './validator.js';
-export { type GameResult, getResult, isQueenSurrounded } from './result.js';
-export { getValidPlacementCoords } from './placement.js';
+// The engine's public surface. Board mutators (`place`, `remove`) and the rule
+// predicates behind them stay unexported: `applyMove` validating by membership
+// in `listValidMoves` is only an invariant while nobody can build a board
+// around it. Internal callers import the relative module directly.
+export type { HexCoord } from './hex.js';
+export type { Color, Piece, PieceType } from './piece.js';
+export { type Board, occupiedCells, topPieceAt } from './board.js';
 export {
   type GameState,
   type Hand,
@@ -13,15 +14,3 @@ export {
   createGame,
   listValidMoves,
 } from './coordinator.js';
-export type { Color, Piece, PieceType } from './piece.js';
-export {
-  type Board,
-  empty,
-  fromCells,
-  isEmpty,
-  occupiedCells,
-  place,
-  remove,
-  stackAt,
-  topPieceAt,
-} from './board.js';
