@@ -10,9 +10,9 @@ import { createRoom as buildRoom } from '../domain/room.js';
 // branch handles the binding.
 export const createRoom = async (
   identity: Identity,
-  rooms: RoomStore,
+  roomStore: RoomStore,
 ): Promise<CreateRoomResponseDto> => {
   const room = buildRoom(randomUUID(), identity);
-  await rooms.create(room);
+  await roomStore.create(room);
   return { roomId: room.id };
 };
