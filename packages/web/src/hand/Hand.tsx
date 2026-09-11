@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { Color, PieceType } from '@hive/engine';
-import { pieceLetter } from '../board/pieces.js';
+import { PieceMark } from '../board/PieceMark.js';
 import { useInputHandlers } from '../controller/InputProvider.js';
 import { useRoomContext } from '../controller/RoomContext.js';
 import { useGameStore } from '../store/store.js';
@@ -24,8 +24,9 @@ const slotBase =
   'disabled:opacity-30 disabled:pointer-events-none cursor-pointer';
 
 const slotPalette: Record<Color, string> = {
-  white: 'bg-foreground text-background shadow-sm hover:bg-foreground/90',
-  black: 'bg-card text-foreground border border-border shadow-sm hover:bg-card/70',
+  white: 'bg-(--piece-white-fill) text-[#3a352b] shadow-sm hover:brightness-95',
+  black:
+    'bg-(--piece-black-fill) text-foreground border border-border shadow-sm hover:brightness-125',
 };
 
 export const Hand = ({ color, edge }: Props) => {
@@ -90,9 +91,12 @@ export const Hand = ({ color, edge }: Props) => {
                 isSelected && 'ring-2 ring-foreground ring-offset-2 ring-offset-background',
               )}
               disabled={!enabled}
+              // The glyph is decorative, so without this the slot announces as
+              // a bare count.
+              aria-label={`${type}, ${count} in hand`}
               onClick={() => onSlotClick(type)}
             >
-              <span className="text-lg leading-none">{pieceLetter(type)}</span>
+              <PieceMark type={type} color={color} size={26} />
               <span className="text-[10px] opacity-75 mt-0.5">{count}</span>
             </button>
           );

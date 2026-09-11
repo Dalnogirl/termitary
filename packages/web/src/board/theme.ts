@@ -15,12 +15,13 @@ export type CanvasTheme = {
   readonly targetStroke: string;
   readonly targetFillActive: string;
   readonly targetStrokeActive: string;
-  readonly targetGhost: string;
 };
 
 export const readTheme = (): CanvasTheme => ({
-  pieceWhiteFill: cssVar('foreground', '#fafafa'),
-  pieceBlackFill: cssVar('card', '#343434'),
+  // The two tile tones are the physical set's: ivory and near-black. They do not
+  // follow the theme, because the player they stand for does not.
+  pieceWhiteFill: cssVar('piece-white-fill', '#e9e2d2'),
+  pieceBlackFill: cssVar('piece-black-fill', '#343434'),
   pieceWhiteText: cssVar('background', '#252525'),
   pieceBlackText: cssVar('foreground', '#fafafa'),
   pieceStroke: cssVar('border', 'rgba(255,255,255,0.15)'),
@@ -30,5 +31,4 @@ export const readTheme = (): CanvasTheme => ({
   targetStroke: cssVar('board-target-stroke', 'rgb(255 255 255 / 45%)'),
   targetFillActive: cssVar('board-target-fill-active', 'rgb(255 255 255 / 28%)'),
   targetStrokeActive: cssVar('board-target-stroke-active', 'rgb(255 255 255)'),
-  targetGhost: cssVar('board-target-ghost', 'rgb(255 255 255 / 60%)'),
 });

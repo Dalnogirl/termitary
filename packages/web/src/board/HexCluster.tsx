@@ -1,5 +1,6 @@
 import type { HexCoord, Piece } from '@hive/engine';
 import { useEffect, useRef } from 'react';
+import { usePrefsStore } from '../store/prefs.js';
 import { axialToPixel, traceHex } from './hex.js';
 import {
   CHIP_RADIUS,
@@ -7,12 +8,12 @@ import {
   HEX_DRAW_SIZE,
   HEX_RADIUS,
   HEX_SIZE,
-  PIECE_FONT,
   TARGET_DASH,
   TARGET_RADIUS,
   TARGET_SIZE,
 } from './metrics.js';
-import { pieceFill, pieceLetter, pieceTextColor } from './pieces.js';
+import { type PieceSet, markFor } from './piece-sets.js';
+import { type PieceHue, pieceFill, pieceInk } from './pieces.js';
 import { type CanvasTheme, readTheme } from './theme.js';
 
 export type ClusterCell =
@@ -27,29 +28,59 @@ export type ClusterCell =
 
 const PAD = 6;
 
-const label = (
+const mark = (
   ctx: CanvasRenderingContext2D,
-  text: string,
+  set: PieceSet,
+  hue: PieceHue,
+  piece: Piece,
   x: number,
   y: number,
-  size: number,
-  fill: string,
+  hexSize: number,
 ): void => {
-  ctx.font = `bold ${size}px ${PIECE_FONT}`;
-  ctx.fillStyle = fill;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, x, y);
+  const ink = pieceInk(piece.type, piece.color, hue);
+  const m = markFor(set, piece.type, hexSize);
+  if (m.kind === 'text') {
+    ctx.font = `bold ${m.fontSize}px ${m.font}`;
+    ctx.fillStyle = ink;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(m.text, x, y + m.dy);
+    return;
+  }
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(m.scale, m.scale);
+  ctx.translate(-m.cx, -m.cy);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const shape of m.shapes) {
+    const path = new Path2D(shape.d);
+    if (shape.kind === 'fill') {
+      ctx.fillStyle = ink;
+      ctx.fill(path);
+    } else {
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = shape.width;
+      ctx.stroke(path);
+    }
+  }
+  ctx.restore();
 };
 
-const drawPiece = (ctx: CanvasRenderingContext2D, theme: CanvasTheme, cell: ClusterCell): void => {
+const drawPiece = (
+  ctx: CanvasRenderingContext2D,
+  set: PieceSet,
+  hue: PieceHue,
+  theme: CanvasTheme,
+  cell: ClusterCell,
+): void => {
   if (cell.kind !== 'piece') return;
   const p = axialToPixel(cell.at, HEX_SIZE);
 
   traceHex(ctx, p, HEX_DRAW_SIZE, HEX_RADIUS);
   ctx.fillStyle = pieceFill(cell.piece, theme);
   ctx.fill();
-  label(ctx, pieceLetter(cell.piece.type), p.x, p.y, HEX_SIZE, pieceTextColor(cell.piece, theme));
+  mark(ctx, set, hue, cell.piece, p.x, p.y, HEX_DRAW_SIZE);
 
   if (cell.covers === undefined) return;
   const chip = { x: p.x + HEX_SIZE * 0.55, y: p.y - HEX_SIZE * 0.65 };
@@ -59,14 +90,7 @@ const drawPiece = (ctx: CanvasRenderingContext2D, theme: CanvasTheme, cell: Clus
   ctx.strokeStyle = theme.pieceStroke;
   ctx.lineWidth = 1.5;
   ctx.stroke();
-  label(
-    ctx,
-    pieceLetter(cell.covers.type),
-    chip.x,
-    chip.y,
-    CHIP_SIZE,
-    pieceTextColor(cell.covers, theme),
-  );
+  mark(ctx, set, hue, cell.covers, chip.x, chip.y, CHIP_SIZE);
 };
 
 const drawTarget = (ctx: CanvasRenderingContext2D, theme: CanvasTheme, cell: ClusterCell): void => {
@@ -100,6 +124,8 @@ const bounds = (cells: readonly ClusterCell[]) => {
 
 export const HexCluster = ({ cells }: { readonly cells: readonly ClusterCell[] }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const pieceSet = usePrefsStore((s) => s.pieceSet);
+  const pieceHue = usePrefsStore((s) => s.pieceHue);
   // bounds() spreads into Math.min, which is Infinity over an empty array.
   const box = cells.length === 0 ? null : bounds(cells);
 
@@ -116,7 +142,7 @@ export const HexCluster = ({ cells }: { readonly cells: readonly ClusterCell[] }
       canvas.height = Math.ceil(box.height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, -box.minX * dpr, -box.minY * dpr);
       ctx.clearRect(box.minX, box.minY, box.width, box.height);
-      for (const cell of cells) drawPiece(ctx, theme, cell);
+      for (const cell of cells) drawPiece(ctx, pieceSet, pieceHue, theme, cell);
       for (const cell of cells) drawTarget(ctx, theme, cell);
     };
 
@@ -129,9 +155,10 @@ export const HexCluster = ({ cells }: { readonly cells: readonly ClusterCell[] }
     const observer = new MutationObserver(paint);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => observer.disconnect();
-  }, [cells, box]);
+  }, [cells, box, pieceSet, pieceHue]);
 
-  // A black piece is filled with --card, so on a card it is invisible. The
+  // A black piece is filled with the near-black tile tone, so on a card it is
+  // invisible. The
   // board draws it against --background; the cluster carries that ground with
   // it rather than depending on wherever it is dropped.
   if (box === null) return null;
