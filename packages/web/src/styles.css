@@ -81,11 +81,12 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --piece-white-fill: #e9e2d2;
+  --piece-black-fill: #343434;
   --board-target-fill: rgb(0 0 0 / 8%);
   --board-target-stroke: rgb(0 0 0 / 40%);
   --board-target-fill-active: rgb(0 0 0 / 22%);
   --board-target-stroke-active: rgb(0 0 0);
-  --board-target-ghost: rgb(0 0 0 / 55%);
   --glass-bg: oklch(1 0 0 / 62%);
   --glass-border: oklch(0.145 0 0 / 10%);
   --glass-highlight: oklch(1 0 0 / 85%);
@@ -124,11 +125,12 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --piece-white-fill: #e9e2d2;
+  --piece-black-fill: #343434;
   --board-target-fill: rgb(255 255 255 / 10%);
   --board-target-stroke: rgb(255 255 255 / 45%);
   --board-target-fill-active: rgb(255 255 255 / 28%);
   --board-target-stroke-active: rgb(255 255 255);
-  --board-target-ghost: rgb(255 255 255 / 60%);
   --glass-bg: oklch(0.28 0 0 / 48%);
   --glass-border: oklch(1 0 0 / 14%);
   --glass-highlight: oklch(1 0 0 / 12%);

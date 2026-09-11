@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { Toaster } from 'sonner';
 import { signOut, useSession } from '../network/auth-client.js';
+import { SettingsDialog } from '../settings/SettingsDialog.js';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(buttonVariants({ variant: isActive ? 'secondary' : 'ghost', size: 'sm' }), 'no-underline');
@@ -19,7 +20,7 @@ const SessionBadge = () => {
   };
 
   return (
-    <div className="ml-auto flex items-center gap-3">
+    <div className="flex items-center gap-3">
       <span className="text-xs text-muted-foreground">{data.user.email}</span>
       <Button variant="ghost" size="sm" onClick={() => void handleSignOut()}>
         Sign out
@@ -49,7 +50,10 @@ export const RootLayout = () => (
           </NavLink>
         </li>
       </ul>
-      <SessionBadge />
+      <div className="ml-auto flex items-center gap-2">
+        <SessionBadge />
+        <SettingsDialog />
+      </div>
     </nav>
     <main className="flex-1 flex flex-col min-h-0">
       <Outlet />

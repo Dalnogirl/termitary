@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useInputHandlers } from '../controller/InputProvider.js';
 import { useRoomContext } from '../controller/RoomContext.js';
+import { prefsStore } from '../store/prefs.js';
 import { gameStore } from '../store/store.js';
 import { createRenderer } from './renderer.js';
 
@@ -24,10 +25,12 @@ export const BoardCanvas = () => {
     );
 
     const unsubscribe = gameStore.subscribe((state) => renderer.draw(state));
+    const unsubscribePrefs = prefsStore.subscribe(() => renderer.draw(gameStore.getState()));
     renderer.draw(gameStore.getState());
 
     return () => {
       unsubscribe();
+      unsubscribePrefs();
       renderer.destroy();
     };
   }, [handlers, myColor]);
