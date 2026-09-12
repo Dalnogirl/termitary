@@ -5,8 +5,13 @@ import {
   createGame,
   listValidMoves,
 } from '@termitary/engine';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { gameStore, isLive } from './store.js';
+
+const toastError = vi.fn();
+vi.mock('sonner', () => ({
+  toast: Object.assign(vi.fn(), { error: (m: string) => toastError(m) }),
+}));
 
 const advance = (game: GameState, plies: number): GameState => {
   let cur = game;
@@ -23,6 +28,12 @@ const FOUR_PLIES = advance(createGame(), 4);
 describe('store view', () => {
   beforeEach(() => {
     gameStore.getState().reset();
+    toastError.mockClear();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('starts live, with the live game as the view by identity', () => {
@@ -116,5 +127,50 @@ describe('store view', () => {
     gameStore.getState().applyGameState(FOUR_PLIES);
     const last: Move | undefined = FOUR_PLIES.history.at(-1);
     expect(gameStore.getState().lastMove).toEqual(last);
+  });
+
+  // A history that was legal when it was stored and is not under the current
+  // rules: the same placement twice. The live board is untouched.
+  it('keeps the live board when the history will not replay', () => {
+    const firstMove = FOUR_PLIES.history[0];
+    if (firstMove === undefined) throw new Error('fixture has no moves');
+    const tampered: GameState = { ...FOUR_PLIES, history: [firstMove, firstMove] };
+
+    gameStore.getState().applyGameState(tampered);
+    gameStore.getState().setViewIndex(1);
+
+    const s = gameStore.getState();
+    expect(s.view).toBe(tampered);
+    expect(s.viewIndex).toBe(2);
+    expect(s.replayFailed).toBe(true);
+    expect(s.validMoves.length).toBeGreaterThan(0);
+    expect(toastError).toHaveBeenCalledOnce();
+    expect(console.error).toHaveBeenCalledOnce();
+  });
+
+  it('stops retrying a replay that already failed', () => {
+    const firstMove = FOUR_PLIES.history[0];
+    if (firstMove === undefined) throw new Error('fixture has no moves');
+    gameStore.getState().applyGameState({ ...FOUR_PLIES, history: [firstMove, firstMove] });
+
+    gameStore.getState().setViewIndex(1);
+    toastError.mockClear();
+    gameStore.getState().setViewIndex(0);
+
+    expect(gameStore.getState().viewIndex).toBe(2);
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it('clears the failure when a fresh game state arrives', () => {
+    const firstMove = FOUR_PLIES.history[0];
+    if (firstMove === undefined) throw new Error('fixture has no moves');
+    gameStore.getState().applyGameState({ ...FOUR_PLIES, history: [firstMove, firstMove] });
+    gameStore.getState().setViewIndex(1);
+
+    gameStore.getState().applyGameState(FOUR_PLIES);
+    gameStore.getState().setViewIndex(2);
+
+    expect(gameStore.getState().replayFailed).toBe(false);
+    expect(gameStore.getState().viewIndex).toBe(2);
   });
 });

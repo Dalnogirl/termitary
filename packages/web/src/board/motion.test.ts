@@ -9,6 +9,7 @@ const asStore = (game: GameState): StoreState => ({
   view: game,
   lastMove: game.history.at(-1) ?? null,
   frames: null,
+  replayFailed: false,
   validMoves: listValidMoves(game),
   selection: null,
 });
