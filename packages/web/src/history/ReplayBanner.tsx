@@ -1,6 +1,10 @@
 import { useGameStore } from '../store/store.js';
 
-export const ReplayBanner = () => {
+type Props = {
+  readonly returnLabel?: string;
+};
+
+export const ReplayBanner = ({ returnLabel = 'Back to live' }: Props) => {
   const viewIndex = useGameStore((s) => s.viewIndex);
   const moveCount = useGameStore((s) => s.liveGame.history.length);
   const returnToLive = useGameStore((s) => s.returnToLive);
@@ -17,7 +21,7 @@ export const ReplayBanner = () => {
         onClick={returnToLive}
         className="font-semibold text-foreground hover:underline"
       >
-        Back to live
+        {returnLabel}
       </button>
     </div>
   );

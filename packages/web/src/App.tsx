@@ -1,4 +1,6 @@
 import { RouterProvider, createBrowserRouter } from 'react-router';
+import { ArchivedGamePage } from './routes/ArchivedGamePage.js';
+import { ArchivedGamesPage } from './routes/ArchivedGamesPage.js';
 import { HomePage } from './routes/HomePage.js';
 import { HotseatPage } from './routes/HotseatPage.js';
 import { LobbyPage } from './routes/LobbyPage.js';
@@ -22,6 +24,8 @@ const router = createBrowserRouter([
         children: [
           { path: 'lobby', Component: LobbyPage },
           { path: 'play/:roomId', Component: PlayPage },
+          { path: 'archived-games', Component: ArchivedGamesPage },
+          { path: 'archived-games/:gameId', Component: ArchivedGamePage },
         ],
       },
     ],
