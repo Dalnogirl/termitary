@@ -2,6 +2,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { Toaster } from 'sonner';
+import { Logo } from '../brand/Logo.js';
 import { signOut, useSession } from '../network/auth-client.js';
 import { SettingsDialog } from '../settings/SettingsDialog.js';
 
@@ -32,11 +33,8 @@ const SessionBadge = () => {
 export const RootLayout = () => (
   <div className="flex h-dvh w-dvw flex-col bg-background text-foreground overflow-hidden">
     <nav className="flex items-center gap-6 border-b border-border bg-background px-5 py-3">
-      <NavLink
-        to="/"
-        className="text-base font-bold tracking-[0.2em] uppercase no-underline text-foreground"
-      >
-        Termitary
+      <NavLink to="/" className="no-underline text-foreground">
+        <Logo size="nav" />
       </NavLink>
       <ul className="flex items-center gap-2 list-none p-0 m-0">
         <li>
