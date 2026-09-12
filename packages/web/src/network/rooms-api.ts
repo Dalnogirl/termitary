@@ -12,3 +12,11 @@ export const fetchMyRooms = async (): Promise<readonly MyRoomSummaryDto[]> => {
   if (!res.ok) throw new Error(`GET /rooms/mine returned ${res.status}`);
   return (await res.json()) as readonly MyRoomSummaryDto[];
 };
+
+export const cancelRoom = async (roomId: string): Promise<void> => {
+  const res = await fetch(`${getApiUrl()}/rooms/${roomId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error(`DELETE /rooms/${roomId} returned ${res.status}`);
+};

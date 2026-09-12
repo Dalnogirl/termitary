@@ -25,7 +25,7 @@ export const INITIAL_ROOM_STATE: RoomState = {
 
 export type RoomController = Controller & {
   readonly store: StoreApi<RoomState>;
-  readonly leave: () => void;
+  readonly resign: () => void;
   readonly dispose: () => void;
 };
 
@@ -138,8 +138,17 @@ export const createRoomController = ({ roomId }: Options): RoomController => {
     client.send({ type: 'makeMove', roomId, move: toWireMove(move) });
   };
 
-  const leave = (): void => {
-    client.send({ type: 'leaveGame', roomId });
+  const resign = (): void => {
+    const { status } = store.getState();
+    if (status !== 'in-room') {
+      // Same reason commitMove refuses: the send would be dropped on the
+      // floor and a closed dialog would read as a resignation that happened.
+      if (status === 'reconnecting') {
+        toast('Reconnecting, resign is paused', { id: 'resign-while-offline' });
+      }
+      return;
+    }
+    client.send({ type: 'resign', roomId });
   };
 
   const dispose = (): void => {
@@ -151,5 +160,5 @@ export const createRoomController = ({ roomId }: Options): RoomController => {
     client.close();
   };
 
-  return { store, commitMove, leave, dispose };
+  return { store, commitMove, resign, dispose };
 };

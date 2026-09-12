@@ -54,6 +54,7 @@ export const WireMoveSchema = z.discriminatedUnion('kind', [
 export type WireMove = z.infer<typeof WireMoveSchema>;
 
 const WireFinishedResultSchema = z.enum(['white-wins', 'black-wins', 'draw']);
+const WireEndReasonSchema = z.enum(['queen-surrounded', 'resignation']);
 
 const inProgressShape = {
   status: z.literal('in_progress'),
@@ -67,6 +68,7 @@ const inProgressShape = {
 const finishedShape = {
   status: z.literal('finished'),
   result: WireFinishedResultSchema,
+  endReason: WireEndReasonSchema,
   board: WireBoardSchema,
   hands: WireHandsSchema,
   currentPlayer: WireColorSchema,
@@ -111,7 +113,7 @@ export const toWire = (state: GameState): WireGameState => {
     history: state.history.map(toWireMove),
   };
   if (state.status === 'finished') {
-    return { status: 'finished', result: state.result, ...common };
+    return { status: 'finished', result: state.result, endReason: state.endReason, ...common };
   }
   return { status: 'in_progress', ...common };
 };
@@ -128,7 +130,7 @@ export const fromWire = (wire: WireGameState): GameState => {
     history: wire.history.map(fromWireMove),
   };
   if (wire.status === 'finished') {
-    return { status: 'finished', result: wire.result, ...common };
+    return { status: 'finished', result: wire.result, endReason: wire.endReason, ...common };
   }
   return { status: 'in_progress', ...common };
 };

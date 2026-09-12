@@ -112,6 +112,31 @@ describe('createRoomController', () => {
     expect(gameStore.getState().liveGame).toBe(afterFirst);
   });
 
+  it('sends resign and takes the finished state from the server', () => {
+    const controller = setup();
+    sent.length = 0;
+
+    controller.resign();
+    expect(sent).toEqual([{ type: 'resign', roomId: 'r1' }]);
+
+    deliver({
+      type: 'stateUpdated',
+      roomId: 'r1',
+      state: {
+        ...toWire(createGame()),
+        status: 'finished',
+        result: 'black-wins',
+        endReason: 'resignation',
+      },
+    });
+
+    const game = gameStore.getState().liveGame;
+    expect(game.status).toBe('finished');
+    if (game.status !== 'finished') throw new Error('unreachable');
+    expect(game.endReason).toBe('resignation');
+    expect(controller.store.getState().status).toBe('in-room');
+  });
+
   it('keeps taking the fatal path for errors that are not move rejections', () => {
     const controller = setup();
 

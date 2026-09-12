@@ -7,14 +7,14 @@ import { user } from './auth-schema.js';
 
 // Bump when `state` changes shape. WireGameStateSchema is strict, so old rows
 // stop parsing; this is what a read-time upgrade would branch on.
-export const CURRENT_STATE_VERSION = 1;
+export const CURRENT_STATE_VERSION = 2;
 
 export const rooms = sqliteTable(
   'rooms',
   {
     id: text('id').primaryKey(),
-    // Null is an empty seat, which is also what leaveGame produces, so deleting
-    // an account unseats the player and leaves the opponent's game intact.
+    // Null is an empty seat, so deleting an account unseats the player and
+    // leaves the opponent's game intact.
     whiteUserId: text('white_user_id').references(() => user.id, { onDelete: 'set null' }),
     blackUserId: text('black_user_id').references(() => user.id, { onDelete: 'set null' }),
     // Denormalized from state.status so the lobby list doesn't parse every game.

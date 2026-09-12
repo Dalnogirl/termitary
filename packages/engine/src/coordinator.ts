@@ -14,6 +14,8 @@ export type Move =
 
 type FinishedResult = Exclude<GameResult, 'ongoing'>;
 
+export type EndReason = 'queen-surrounded' | 'resignation';
+
 export type GameState =
   | {
       readonly status: 'in_progress';
@@ -26,6 +28,7 @@ export type GameState =
   | {
       readonly status: 'finished';
       readonly result: FinishedResult;
+      readonly endReason: EndReason;
       readonly board: Board;
       readonly hands: Record<Color, Hand>;
       readonly currentPlayer: Color;
@@ -156,6 +159,7 @@ export const applyMove = (state: GameState, move: Move): GameState => {
     return {
       status: 'finished',
       result,
+      endReason: 'queen-surrounded',
       board: newBoard,
       hands: newHands,
       currentPlayer: nextPlayer,
@@ -171,5 +175,21 @@ export const applyMove = (state: GameState, move: Move): GameState => {
     currentPlayer: nextPlayer,
     turnNumbers: newTurnNumbers,
     history: newHistory,
+  };
+};
+
+export const resign = (state: GameState, color: Color): GameState => {
+  if (state.status === 'finished') {
+    throw new IllegalMoveError('Game is already finished');
+  }
+  return {
+    status: 'finished',
+    result: color === 'white' ? 'black-wins' : 'white-wins',
+    endReason: 'resignation',
+    board: state.board,
+    hands: state.hands,
+    currentPlayer: state.currentPlayer,
+    turnNumbers: state.turnNumbers,
+    history: state.history,
   };
 };

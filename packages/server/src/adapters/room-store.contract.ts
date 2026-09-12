@@ -14,7 +14,7 @@ export type StoreHarness = {
 const ident = (id: string) => ({ playerId: id });
 
 // Playing to a real queen surround here would say nothing about the store.
-const FINISHED = { status: 'finished', result: 'draw' } as const;
+const FINISHED = { status: 'finished', result: 'draw', endReason: 'queen-surrounded' } as const;
 
 // Anything asserted here belongs to the port, not to an implementation.
 export const describeRoomStoreContract = (

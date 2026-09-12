@@ -9,7 +9,7 @@ import {
 
 export type RoomConnection = RoomState & {
   readonly controller: RoomController | null;
-  readonly leave: () => void;
+  readonly resign: () => void;
 };
 
 // Reads as INITIAL_ROOM_STATE forever; used by useStore on first render
@@ -46,6 +46,6 @@ export const useRoomConnection = (roomId: string | undefined): RoomConnection =>
     errorMsg,
     opponent,
     controller,
-    leave: () => controller?.leave(),
+    resign: () => controller?.resign(),
   };
 };

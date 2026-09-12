@@ -1,7 +1,7 @@
 import type { ClientMessage } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
-import { joinGame, leaveGame, makeMove } from '../usecases/index.js';
+import { joinGame, makeMove, resign } from '../usecases/index.js';
 
 export const dispatchClientMessage = (
   identity: Identity,
@@ -13,8 +13,8 @@ export const dispatchClientMessage = (
       return joinGame(identity, msg, ports);
     case 'makeMove':
       return makeMove(identity, msg, ports);
-    case 'leaveGame':
-      return leaveGame(identity, msg, ports);
+    case 'resign':
+      return resign(identity, msg, ports);
     default: {
       const _exhaustive: never = msg;
       throw new Error(`unhandled client message: ${JSON.stringify(_exhaustive)}`);

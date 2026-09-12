@@ -35,7 +35,7 @@ describe('ws integration', () => {
     ctx.db.close();
   });
 
-  it('drives a full create → join → move → leave flow between two clients', async () => {
+  it('drives a full create → join → move → resign flow between two clients', async () => {
     // Create over REST, the way the real client does (no WS until the join).
     const roomId = await createRoomViaRest(alice.cookie);
 
@@ -81,12 +81,16 @@ describe('ws integration', () => {
     expect(fromWire(aliceAfterMove.state).currentPlayer).toBe('black');
     expect(fromWire(bobAfterMove.state).history.length).toBe(1);
 
-    aliceWs.send({ type: 'leaveGame', roomId });
-    const opponentLeft = expectKind(
-      await bobWs.next((m) => m.type === 'error' && m.message === 'opponent left'),
-      'error',
-    );
-    expect(opponentLeft.message).toBe('opponent left');
+    aliceWs.send({ type: 'resign', roomId });
+    for (const ws of [aliceWs, bobWs]) {
+      const finished = expectKind(
+        await ws.next((m) => m.type === 'stateUpdated' && m.state.status === 'finished'),
+        'stateUpdated',
+      );
+      if (finished.state.status !== 'finished') throw new Error('unreachable');
+      expect(finished.state.result).toBe('black-wins');
+      expect(finished.state.endReason).toBe('resignation');
+    }
 
     await aliceWs.close();
     await bobWs.close();

@@ -7,10 +7,11 @@ import { createInMemoryRoomStore } from '../adapters/in-memory-room-store.js';
 import type { Sender } from '../domain/connection-registry.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
+import { cancelRoom } from './cancel-room.js';
 import { createRoom } from './create-room.js';
 import { joinGame } from './join-game.js';
-import { leaveGame } from './leave-game.js';
 import { makeMove } from './make-move.js';
+import { resign } from './resign.js';
 
 const ident = (id: string): Identity => ({ playerId: id });
 
@@ -250,39 +251,106 @@ describe('makeMove', () => {
   });
 });
 
-describe('leaveGame', () => {
-  it('notifies the opponent and deletes the room', async () => {
+describe('resign', () => {
+  it('finishes the game for both players and keeps the room', async () => {
     const { ports, connect } = setup();
-    connect('alice');
+    const alice = connect('alice');
     const bob = connect('bob');
     const roomId = await provisionRoom(ports, 'alice');
     await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
-    await leaveGame(ident('alice'), { type: 'leaveGame', roomId }, ports);
+    await resign(ident('alice'), { type: 'resign', roomId }, ports);
 
-    const bobMsg = lastOf(bob);
-    expect(bobMsg.type).toBe('error');
-    if (bobMsg.type !== 'error') throw new Error('unreachable');
-    expect(bobMsg.message).toBe('opponent left');
+    for (const inbox of [alice, bob]) {
+      const msg = lastOf(inbox);
+      expect(msg.type).toBe('stateUpdated');
+      if (msg.type !== 'stateUpdated') throw new Error('unreachable');
+      expect(msg.state.status).toBe('finished');
+      if (msg.state.status !== 'finished') throw new Error('unreachable');
+      expect(msg.state.result).toBe('black-wins');
+      expect(msg.state.endReason).toBe('resignation');
+    }
+
+    const room = await ports.rooms.get(roomId);
+    expect(room?.state.status).toBe('finished');
+  });
+
+  it('answers a second resignation with the finished state, not an error', async () => {
+    const { ports, connect } = setup();
+    const alice = connect('alice');
+    const roomId = await provisionRoom(ports, 'alice');
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+
+    await resign(ident('alice'), { type: 'resign', roomId }, ports);
+    await resign(ident('alice'), { type: 'resign', roomId }, ports);
+
+    const msg = lastOf(alice);
+    expect(msg.type).toBe('stateUpdated');
+    if (msg.type !== 'stateUpdated') throw new Error('unreachable');
+    expect(msg.state.status).toBe('finished');
+  });
+
+  it('refuses to award a win to an empty seat', async () => {
+    const { ports, connect } = setup();
+    const alice = connect('alice');
+    const roomId = await provisionRoom(ports, 'alice');
+
+    await resign(ident('alice'), { type: 'resign', roomId }, ports);
+
+    const msg = lastOf(alice);
+    expect(msg.type).toBe('error');
+    if (msg.type !== 'error') throw new Error('unreachable');
+    expect(msg.message).toBe('no opponent to resign to');
+    expect((await ports.rooms.get(roomId))?.state.status).toBe('in_progress');
+  });
+
+  it('errors on unknown rooms and when the caller is not seated', async () => {
+    const { ports, connect } = setup();
+    const alice = connect('alice');
+    const eve = connect('eve');
+    const roomId = await provisionRoom(ports, 'alice');
+
+    await resign(ident('alice'), { type: 'resign', roomId: 'nope' }, ports);
+    const aliceMsg = lastOf(alice);
+    expect(aliceMsg.type).toBe('error');
+    if (aliceMsg.type !== 'error') throw new Error('unreachable');
+    expect(aliceMsg.message).toBe('room not found');
+
+    await resign(ident('eve'), { type: 'resign', roomId }, ports);
+    const eveMsg = lastOf(eve);
+    expect(eveMsg.type).toBe('error');
+    if (eveMsg.type !== 'error') throw new Error('unreachable');
+    expect(eveMsg.message).toBe('not in room');
+  });
+});
+
+describe('cancelRoom', () => {
+  it('deletes a room nobody joined', async () => {
+    const { ports, connect } = setup();
+    connect('alice');
+    const roomId = await provisionRoom(ports, 'alice');
+
+    expect(await cancelRoom(ident('alice'), roomId, ports.rooms)).toBe('cancelled');
     expect(await ports.rooms.get(roomId)).toBeUndefined();
   });
 
-  it('is silent on unknown rooms (idempotent leave)', async () => {
-    const { ports, connect } = setup();
-    const alice = connect('alice');
-    await leaveGame(ident('alice'), { type: 'leaveGame', roomId: 'nope' }, ports);
-    expect(alice.messages).toEqual([]);
-  });
-
-  it('errors when the caller is not seated in the room', async () => {
+  it('refuses once an opponent is seated', async () => {
     const { ports, connect } = setup();
     connect('alice');
-    const eve = connect('eve');
+    connect('bob');
     const roomId = await provisionRoom(ports, 'alice');
-    await leaveGame(ident('eve'), { type: 'leaveGame', roomId }, ports);
-    const msg = lastOf(eve);
-    expect(msg.type).toBe('error');
-    if (msg.type !== 'error') throw new Error('unreachable');
-    expect(msg.message).toBe('not in room');
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+
+    expect(await cancelRoom(ident('alice'), roomId, ports.rooms)).toBe('forbidden');
+    expect(await ports.rooms.get(roomId)).toBeDefined();
+  });
+
+  it('refuses a caller with no seat, and reports an unknown room', async () => {
+    const { ports, connect } = setup();
+    connect('alice');
+    const roomId = await provisionRoom(ports, 'alice');
+
+    expect(await cancelRoom(ident('eve'), roomId, ports.rooms)).toBe('forbidden');
+    expect(await cancelRoom(ident('alice'), 'nope', ports.rooms)).toBe('not-found');
   });
 });
