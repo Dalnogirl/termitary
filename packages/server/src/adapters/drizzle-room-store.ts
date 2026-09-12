@@ -1,4 +1,4 @@
-import { WireGameStateSchema, fromWire, toWire } from '@hive/protocol';
+import { WireGameStateSchema, fromWire, toWire } from '@termitary/protocol';
 import { and, desc, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import { RoomAlreadyExistsError, type RoomOverview, type RoomStore } from '../domain/room-store.js';
 import type { Room } from '../domain/room.js';

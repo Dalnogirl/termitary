@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { RoomSummaryDto } from '@hive/protocol';
 import { useQuery } from '@tanstack/react-query';
+import type { RoomSummaryDto } from '@termitary/protocol';
 import type * as React from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';

@@ -1,4 +1,4 @@
-import type { PieceType } from '@hive/engine';
+import type { PieceType } from '@termitary/engine';
 import { type GlyphShape, glyphPlacement, glyphShapes } from './glyphs.js';
 import { PIECE_FONT } from './metrics.js';
 import { pieceLetter } from './pieces.js';

@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { applyMove, createGame } from '@hive/engine';
+import { applyMove, createGame } from '@termitary/engine';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import type { RoomStore } from '../domain/room-store.js';
@@ -144,7 +144,7 @@ describe('DrizzleRoomStore', () => {
     }));
 
   it('survives closing and reopening the database file', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'hive-room-store-'));
+    const dir = mkdtempSync(join(tmpdir(), 'termitary-room-store-'));
     try {
       const path = join(dir, 'test.db');
       const room = { ...createRoom('r1', { playerId: 'p1' }), state: placeAnt(0, 0) };

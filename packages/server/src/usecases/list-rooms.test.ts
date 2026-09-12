@@ -1,4 +1,4 @@
-import { applyMove, createGame, listValidMoves } from '@hive/engine';
+import { applyMove, createGame, listValidMoves } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import { createInMemoryRoomStore } from '../adapters/in-memory-room-store.js';
 import type { Identity } from '../domain/identity.js';

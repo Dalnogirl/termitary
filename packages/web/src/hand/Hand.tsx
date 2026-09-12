@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { Color, PieceType } from '@hive/engine';
+import type { Color, PieceType } from '@termitary/engine';
 import { PieceMark } from '../board/PieceMark.js';
 import { useInputHandlers } from '../controller/InputProvider.js';
 import { useRoomContext } from '../controller/RoomContext.js';

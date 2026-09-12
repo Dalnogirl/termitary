@@ -1,4 +1,4 @@
-import type { WireGameState } from '@hive/protocol';
+import type { WireGameState } from '@termitary/protocol';
 import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { user } from './auth-schema.js';
 

@@ -21,7 +21,7 @@ export const env = {
   // to Postgres (SQLite/PG dialect drift = same class of bug as DB mocks).
   // Phase 6 replaces with testcontainers-pg / pglite via a vitest setup file;
   // buildApp({ db? }) shape stays.
-  databaseUrl: process.env.DATABASE_URL ?? (nodeEnv === 'test' ? ':memory:' : 'data/hive.db'),
+  databaseUrl: process.env.DATABASE_URL ?? (nodeEnv === 'test' ? ':memory:' : 'data/termitary.db'),
   authSecret: resolveAuthSecret(),
   // Browser-facing origin, deliberately not `host`: we bind 127.0.0.1 but the
   // web client hits localhost, and a session cookie set on one is never sent

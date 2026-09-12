@@ -8,7 +8,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import type { Color, PieceType } from '@hive/engine';
+import type { Color, PieceType } from '@termitary/engine';
 import { SettingsIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { PieceMark } from '../board/PieceMark.js';

@@ -1,4 +1,4 @@
-import type { ClientLeaveGame } from '@hive/protocol';
+import type { ClientLeaveGame } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { colorOf, otherPlayer } from '../domain/room.js';

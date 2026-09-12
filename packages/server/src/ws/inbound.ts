@@ -1,4 +1,4 @@
-import { type ClientMessage, ClientMessageSchema } from '@hive/protocol';
+import { type ClientMessage, ClientMessageSchema } from '@termitary/protocol';
 
 export type InboundParse =
   | { readonly ok: true; readonly message: ClientMessage }

@@ -1,4 +1,4 @@
-import type { ClientMessage, ServerMessage } from '@hive/protocol';
+import type { ClientMessage, ServerMessage } from '@termitary/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type WsStatus, createWsClient } from './client.js';
 

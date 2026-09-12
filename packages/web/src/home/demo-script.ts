@@ -1,4 +1,4 @@
-import type { GameState, Move } from '@hive/engine';
+import type { GameState, Move } from '@termitary/engine';
 
 // Seeded, not random: every visitor sees the same opening, and a sequence that
 // looks bad is fixed by changing the seed rather than re-rolled at runtime.

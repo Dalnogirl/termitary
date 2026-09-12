@@ -1,4 +1,4 @@
-import type { ServerMessage } from '@hive/protocol';
+import type { ServerMessage } from '@termitary/protocol';
 import type { FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
 import type { ConnectionLifecycle } from '../domain/connection-registry.js';

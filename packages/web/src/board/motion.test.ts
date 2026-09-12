@@ -1,4 +1,4 @@
-import { type GameState, applyMove, createGame, listValidMoves } from '@hive/engine';
+import { type GameState, applyMove, createGame, listValidMoves } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import type { StoreState } from '../store/store.js';
 import { appendedMove } from './motion.js';

@@ -1,4 +1,4 @@
-import { type ClientMessage, type ServerMessage, ServerMessageSchema } from '@hive/protocol';
+import { type ClientMessage, type ServerMessage, ServerMessageSchema } from '@termitary/protocol';
 
 type MessageType = ServerMessage['type'];
 type MessageOf<K extends MessageType> = Extract<ServerMessage, { type: K }>;

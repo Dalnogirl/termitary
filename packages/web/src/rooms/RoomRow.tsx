@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import type { MyRoomSummaryDto } from '@hive/protocol';
+import type { MyRoomSummaryDto } from '@termitary/protocol';
 import { relativeTime } from '../lib/relative-time.js';
 
 export const RoomRow = ({

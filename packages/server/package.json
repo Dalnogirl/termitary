@@ -1,5 +1,5 @@
 {
-  "name": "@hive/server",
+  "name": "@termitary/server",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -17,8 +17,8 @@
   "dependencies": {
     "@fastify/cors": "^10.0.0",
     "@fastify/websocket": "^11.0.0",
-    "@hive/engine": "workspace:*",
-    "@hive/protocol": "workspace:*",
+    "@termitary/engine": "workspace:*",
+    "@termitary/protocol": "workspace:*",
     "better-auth": "^1.6.11",
     "better-sqlite3": "^12.10.0",
     "drizzle-orm": "^0.45.2",

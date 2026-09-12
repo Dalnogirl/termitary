@@ -1,5 +1,5 @@
-import { type Color, type GameState, type Move, applyMove } from '@hive/engine';
-import { type OpponentPresence, fromWire, toWireMove } from '@hive/protocol';
+import { type Color, type GameState, type Move, applyMove } from '@termitary/engine';
+import { type OpponentPresence, fromWire, toWireMove } from '@termitary/protocol';
 import { toast } from 'sonner';
 import { type StoreApi, createStore } from 'zustand';
 import { createWsClient } from '../network/client.js';

@@ -1,4 +1,4 @@
-import { createGame } from '@hive/engine';
+import { createGame } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import { type Relocation, createFlightPath, liftPlanner, placeScaleAt } from './flight.js';
 import { axialToPixel } from './hex.js';

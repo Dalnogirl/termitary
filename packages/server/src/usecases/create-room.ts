@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { CreateRoomResponseDto } from '@hive/protocol';
+import type { CreateRoomResponseDto } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { RoomStore } from '../domain/room-store.js';
 import { createRoom as buildRoom } from '../domain/room.js';

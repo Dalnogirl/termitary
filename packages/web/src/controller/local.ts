@@ -1,4 +1,4 @@
-import { IllegalMoveError, type Move, applyMove } from '@hive/engine';
+import { IllegalMoveError, type Move, applyMove } from '@termitary/engine';
 import { toast } from 'sonner';
 import { gameStore } from '../store/store.js';
 import type { Controller } from './port.js';

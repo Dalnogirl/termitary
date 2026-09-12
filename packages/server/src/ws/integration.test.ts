@@ -1,5 +1,5 @@
-import { listValidMoves } from '@hive/engine';
-import { type ServerMessage, fromWire, toWireMove } from '@hive/protocol';
+import { listValidMoves } from '@termitary/engine';
+import { type ServerMessage, fromWire, toWireMove } from '@termitary/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 import { type TestApp, createTestApp } from '../testing/auth-helper.js';

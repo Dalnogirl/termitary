@@ -6,7 +6,7 @@ import {
   type PieceType,
   applyMove,
   createGame,
-} from '@hive/engine';
+} from '@termitary/engine';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { gameStore } from '../store/store.js';
 import { createInputHandlers } from './input.js';

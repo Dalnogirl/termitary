@@ -1,4 +1,4 @@
-import type { Board, Move } from '@hive/engine';
+import type { Board, Move } from '@termitary/engine';
 import { type Pixel, axialToPixel } from './hex.js';
 import { HEX_SIZE } from './metrics.js';
 

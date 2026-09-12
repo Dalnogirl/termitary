@@ -1,4 +1,4 @@
-import type { ClientMessage } from '@hive/protocol';
+import type { ClientMessage } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { joinGame, leaveGame, makeMove } from '../usecases/index.js';

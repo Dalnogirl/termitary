@@ -1,4 +1,4 @@
-import { applyMove, createGame, listValidMoves } from '@hive/engine';
+import { applyMove, createGame, listValidMoves } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import { ClientMessageSchema } from './client-messages.js';
 import { ServerMessageSchema } from './server-messages.js';

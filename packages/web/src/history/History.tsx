@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import type { HexCoord, Move, PieceType } from '@hive/engine';
+import type { HexCoord, Move, PieceType } from '@termitary/engine';
 import { ChevronLeft, ChevronRight, ListOrdered } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/store.js';
