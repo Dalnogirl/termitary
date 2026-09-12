@@ -37,3 +37,39 @@ export const rooms = sqliteTable(
 );
 
 export type RoomRow = typeof rooms.$inferSelect;
+
+// Rooms are wiped within a day, so their version column never has to mean
+// anything. These rows are permanent and WireGameStateSchema is strict, so a
+// change to GameState invalidates every row already written; the answer then
+// is one migration that rewrites the table, not read-time upgraders.
+export const CURRENT_ARCHIVE_STATE_VERSION = 2;
+
+export const archivedGames = sqliteTable(
+  'archived_games',
+  {
+    // The room id. A room is archived once and then deleted, so the ids never
+    // collide and a re-archive is an insert that does nothing.
+    id: text('id').primaryKey(),
+    whiteUserId: text('white_user_id').references(() => user.id, { onDelete: 'set null' }),
+    blackUserId: text('black_user_id').references(() => user.id, { onDelete: 'set null' }),
+    // Snapshotted, because a deleted account takes its name with it and the
+    // FK above goes null. The FKs stay for joins that want the current name.
+    whiteName: text('white_name'),
+    blackName: text('black_name'),
+    result: text('result', { enum: ['white-wins', 'black-wins', 'draw'] }).notNull(),
+    endReason: text('end_reason', { enum: ['queen-surrounded', 'resignation'] }).notNull(),
+    state: text('state', { mode: 'json' }).$type<WireGameState>().notNull(),
+    stateVersion: integer('state_version').notNull(),
+    moveCount: integer('move_count').notNull(),
+    startedAt: integer('started_at', { mode: 'timestamp_ms' }).notNull(),
+    finishedAt: integer('finished_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  // Two indexes rather than a composite, for the reason the seat indexes on
+  // `rooms` already carry: a listing reads one seat column at a time.
+  (table) => [
+    index('archived_games_white_idx').on(table.whiteUserId, table.finishedAt),
+    index('archived_games_black_idx').on(table.blackUserId, table.finishedAt),
+  ],
+);
+
+export type ArchivedGameRow = typeof archivedGames.$inferSelect;

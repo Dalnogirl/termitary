@@ -63,14 +63,18 @@ Coverage is high and includes a randomized fuzzer (`src/e2e.test.ts`). Rule chan
 
 Hexagonal layering, and the seams are load-bearing because the adapters get swapped for AWS ones later (#50):
 
-- `domain/` — `Room` (seats as a positional `[white, black]` tuple), `Identity`, and the `RoomStore` / `ConnectionRegistry` port types.
-- `adapters/` — in-memory implementations of both ports, plus better-auth, Drizzle, and the session extractor.
+- `domain/` — `Room` (seats as a positional `[white, black]` tuple), `Identity`, and the `RoomStore` / `ConnectionRegistry` / `ArchivedGameStore` / `UserStore` port types.
+- `adapters/` — Drizzle implementations of `RoomStore`, `ArchivedGameStore` and `UserStore`, an in-memory `ConnectionRegistry`, plus better-auth and the session extractor. None of the three data ports has a fake: a test that wants them calls `createTestStores()` from `src/testing/stores.ts`, which builds all three over one in-memory database and seeds the `user` rows the seat foreign keys need.
 - `usecases/` — one file per action (`joinGame`, `makeMove`, `leaveGame`, `createRoom`, `listRooms`), each taking `(identity, msg, ports)` and pushing results through `connections.sendTo`.
 - `ws/` — socket lifecycle, zod parsing of inbound frames, and a dispatcher switching on `msg.type` with a `never` exhaustiveness check.
 
 Auth: `/rooms` and `/ws` are gated on a better-auth session cookie. `ws/identity.ts` is the only place the server knows better-auth exists; everything downstream sees `(req) => Promise<Identity | null>`. Sign-in is email OTP, and in dev the OTP is printed to the server console rather than emailed.
 
 Seat and presence are separate concepts. A socket close notifies the opponent of `disconnected` but leaves seats intact, so a reconnect lands in `joinGame`'s re-attach branch. Only `leaveGame` unseats.
+
+`Room` carries its own `createdAt` and `updatedAt`: `createRoom(id, creator, now)` stamps them and `touch(room, now)` moves `updatedAt`, and the stores write both as given rather than stamping a clock of their own. A save that forgets `touch` freezes the room in the lobby ordering and leaves it exposed to the sweep.
+
+A finished game is archived the moment it ends, by `makeMove` and `resign`, with the sweep as the backstop: it archives each finished room before deleting it, and leaves the room alone if the archive throws. `deleteAbandonedBefore` therefore covers only rooms with a free seat — a finished room never leaves except through `listFinishedBefore`, so none is dropped unarchived.
 
 Tests use `createTestApp()` from `src/testing/auth-helper.ts`: in-memory SQLite, captured OTPs, and a `signIn(email)` returning a usable cookie. Use `app.inject` for REST; `ws/integration.test.ts` shows the WebSocket pattern.
 

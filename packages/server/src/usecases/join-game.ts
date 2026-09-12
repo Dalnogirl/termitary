@@ -3,7 +3,7 @@ import { toWire } from '@termitary/protocol';
 import type { ConnectionRegistry } from '../domain/connection-registry.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
-import { colorOf, isFull, otherPlayer, seatPlayer } from '../domain/room.js';
+import { colorOf, isFull, otherPlayer, seatPlayer, touch } from '../domain/room.js';
 import { sendError } from './send-error.js';
 
 // Computes the snapshot presence of `opponentId` for inclusion in
@@ -69,7 +69,7 @@ export const joinGame = async (
     return;
   }
 
-  const updated = seatPlayer(room, identity);
+  const updated = touch(seatPlayer(room, identity), new Date());
   await rooms.save(updated);
   await connections.joinRoom(identity.playerId, updated.id);
 

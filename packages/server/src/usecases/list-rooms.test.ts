@@ -1,12 +1,14 @@
 import { applyMove, createGame, listValidMoves } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
-import { createInMemoryRoomStore } from '../adapters/in-memory-room-store.js';
 import type { Identity } from '../domain/identity.js';
 import type { RoomOverview } from '../domain/room-store.js';
 import { type Room, createRoom, seatPlayer } from '../domain/room.js';
+import { createTestStores } from '../testing/stores.js';
 import { listRooms, summarize } from './list-rooms.js';
 
 const ident = (id: string): Identity => ({ playerId: id });
+const NOW = new Date(1234);
+const PLAYERS = ['alice', 'bob', 'carol', 'alice-secret'];
 
 const overviewOf = (room: Room): RoomOverview => ({
   id: room.id,
@@ -18,14 +20,14 @@ const overviewOf = (room: Room): RoomOverview => ({
 describe('summarize', () => {
   it('counts an empty room as 0 players', () => {
     const empty = overviewOf({
-      ...createRoom('r1', ident('alice')),
+      ...createRoom('r1', ident('alice'), NOW),
       players: { white: undefined, black: undefined },
     });
     expect(summarize(empty)).toEqual({ roomId: 'r1', playerCount: 0, status: 'in_progress' });
   });
 
   it('counts a single-seated room as 1 player', () => {
-    expect(summarize(overviewOf(createRoom('r1', ident('alice'))))).toEqual({
+    expect(summarize(overviewOf(createRoom('r1', ident('alice'), NOW)))).toEqual({
       roomId: 'r1',
       playerCount: 1,
       status: 'in_progress',
@@ -33,7 +35,7 @@ describe('summarize', () => {
   });
 
   it('counts a fully-seated room as 2 players', () => {
-    const full = seatPlayer(createRoom('r1', ident('alice')), ident('bob'));
+    const full = seatPlayer(createRoom('r1', ident('alice'), NOW), ident('bob'));
     expect(summarize(overviewOf(full))).toEqual({
       roomId: 'r1',
       playerCount: 2,
@@ -42,7 +44,7 @@ describe('summarize', () => {
   });
 
   it('reflects finished game status', () => {
-    const base = createRoom('r1', ident('alice'));
+    const base = createRoom('r1', ident('alice'), NOW);
     // Hand-craft a finished state — exhaustively playing to a queen-surround
     // here is overkill. We mutate via the type.
     const finished = {
@@ -60,23 +62,21 @@ describe('summarize', () => {
 
 describe('listRooms', () => {
   it('does not sweep: reading the lobby writes nothing', async () => {
-    let clock = new Date(0);
-    const store = createInMemoryRoomStore(() => clock);
-    await store.create(createRoom('r1', ident('alice')));
+    const { rooms: store } = createTestStores(PLAYERS);
+    await store.create(createRoom('r1', ident('alice'), new Date(0)));
 
-    clock = new Date(30 * 24 * 60 * 60 * 1000);
     expect(await listRooms(ident('bob'), store)).toHaveLength(1);
   });
 
   it('returns an empty array when no rooms exist', async () => {
-    const store = createInMemoryRoomStore();
+    const { rooms: store } = createTestStores(PLAYERS);
     expect(await listRooms(ident('bob'), store)).toEqual([]);
   });
 
   it('returns a summary per open room', async () => {
-    const store = createInMemoryRoomStore();
-    await store.create(createRoom('r1', ident('alice')));
-    await store.create(createRoom('r2', ident('carol')));
+    const { rooms: store } = createTestStores(PLAYERS);
+    await store.create(createRoom('r1', ident('alice'), NOW));
+    await store.create(createRoom('r2', ident('carol'), NOW));
     const result = await listRooms(ident('bob'), store);
     expect(result.map((r) => ({ roomId: r.roomId, playerCount: r.playerCount }))).toEqual(
       expect.arrayContaining([
@@ -88,30 +88,30 @@ describe('listRooms', () => {
   });
 
   it('omits rooms the caller is already seated in', async () => {
-    const store = createInMemoryRoomStore();
-    await store.create(createRoom('mine', ident('alice')));
-    await store.create(createRoom('theirs', ident('bob')));
+    const { rooms: store } = createTestStores(PLAYERS);
+    await store.create(createRoom('mine', ident('alice'), NOW));
+    await store.create(createRoom('theirs', ident('bob'), NOW));
     expect((await listRooms(ident('alice'), store)).map((r) => r.roomId)).toEqual(['theirs']);
   });
 
   it('omits full rooms', async () => {
-    const store = createInMemoryRoomStore();
-    await store.create(seatPlayer(createRoom('r1', ident('alice')), ident('bob')));
+    const { rooms: store } = createTestStores(PLAYERS);
+    await store.create(seatPlayer(createRoom('r1', ident('alice'), NOW), ident('bob')));
     expect(await listRooms(ident('carol'), store)).toEqual([]);
   });
 
   it('does not expose playerIds', async () => {
-    const store = createInMemoryRoomStore();
-    await store.create(createRoom('r1', ident('alice-secret')));
+    const { rooms: store } = createTestStores(PLAYERS);
+    await store.create(createRoom('r1', ident('alice-secret'), NOW));
     const result = await listRooms(ident('bob'), store);
     expect(JSON.stringify(result)).not.toContain('alice-secret');
   });
 
   it('summary status follows the game state', async () => {
-    const store = createInMemoryRoomStore();
-    await store.create(createRoom('r1', ident('alice')));
+    const { rooms: store } = createTestStores(PLAYERS);
+    await store.create(createRoom('r1', ident('alice'), NOW));
     // Advance one engine move to confirm the wrapper passes through cleanly.
-    const r2 = createRoom('r2', ident('alice'));
+    const r2 = createRoom('r2', ident('alice'), NOW);
     const firstMove = listValidMoves(r2.state)[0];
     if (!firstMove) throw new Error('no first move');
     await store.create({ ...r2, state: applyMove(r2.state, firstMove) });

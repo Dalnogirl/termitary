@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createInMemoryRoomStore } from '../adapters/in-memory-room-store.js';
+import { createTestStores } from '../testing/stores.js';
 import { createRoom } from './create-room.js';
 
 describe('createRoom use case', () => {
   it('creates a room, seats the caller as white, returns the id', async () => {
-    const rooms = createInMemoryRoomStore();
+    const { rooms } = createTestStores(['alice']);
     const { roomId } = await createRoom({ playerId: 'alice' }, rooms);
 
     const stored = await rooms.get(roomId);
@@ -15,7 +15,7 @@ describe('createRoom use case', () => {
   });
 
   it('returns a distinct roomId on each invocation', async () => {
-    const rooms = createInMemoryRoomStore();
+    const { rooms } = createTestStores(['alice']);
     const a = await createRoom({ playerId: 'alice' }, rooms);
     const b = await createRoom({ playerId: 'alice' }, rooms);
     expect(a.roomId).not.toBe(b.roomId);
@@ -25,7 +25,7 @@ describe('createRoom use case', () => {
     // Implicit assertion: createRoom takes only `rooms`, not `Ports`. If a
     // future change re-introduces a connections dependency, this test will
     // fail to compile.
-    const rooms = createInMemoryRoomStore();
+    const { rooms } = createTestStores(['alice']);
     await createRoom({ playerId: 'alice' }, rooms);
   });
 });
