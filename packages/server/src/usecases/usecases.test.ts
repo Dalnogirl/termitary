@@ -461,7 +461,7 @@ describe('archiving a finished game', () => {
 
     await resign(ident('alice'), { type: 'resign', roomId }, ports);
 
-    expect(await ports.archive.listForPlayer('bob')).toMatchObject([
+    expect(await ports.archive.listForPlayer('bob', { limit: 10 })).toMatchObject([
       {
         id: roomId,
         result: 'black-wins',

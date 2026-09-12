@@ -81,7 +81,7 @@ describe('DrizzleArchivedGameStore', () => {
 
       db.db.delete(user).where(eq(user.id, 'p2')).run();
 
-      expect((await archive.listForPlayer('p1')).map((g) => g.id)).toEqual(['r1']);
-      expect(await archive.listForPlayer('p2')).toEqual([]);
+      expect((await archive.listForPlayer('p1', { limit: 10 })).map((g) => g.id)).toEqual(['r1']);
+      expect(await archive.listForPlayer('p2', { limit: 10 })).toEqual([]);
     }));
 });

@@ -18,6 +18,8 @@ import type { Ports } from './domain/ports.js';
 import { env } from './env.js';
 import { type CancelRoomResult, cancelRoom } from './usecases/cancel-room.js';
 import { createRoom } from './usecases/create-room.js';
+import { getArchivedGame } from './usecases/get-archived-game.js';
+import { ArchivedGamesQuerySchema, listArchivedGames } from './usecases/list-archived-games.js';
 import { listMyRooms } from './usecases/list-my-rooms.js';
 import { listRooms } from './usecases/list-rooms.js';
 import { type SweepPorts, sweepAbandonedRooms } from './usecases/sweep-abandoned-rooms.js';
@@ -85,6 +87,20 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
     const outcome = await cancelRoom(requireIdentity(req), req.params.id, rooms);
     return reply.code(CANCEL_ROOM_STATUS[outcome]).send();
   });
+  app.get('/archived-games', { preHandler: gate }, async (req, reply) => {
+    const query = ArchivedGamesQuerySchema.safeParse(req.query);
+    if (!query.success) return reply.code(400).send({ error: 'invalid query' });
+    return listArchivedGames(requireIdentity(req), query.data, archive);
+  });
+  app.get<{ Params: { id: string } }>(
+    '/archived-games/:id',
+    { preHandler: gate },
+    async (req, reply) => {
+      const game = await getArchivedGame(requireIdentity(req), req.params.id, archive);
+      if (game === undefined) return reply.code(404).send({ error: 'not-found' });
+      return game;
+    },
+  );
   app.get('/ws', { websocket: true, preValidation: gate }, (socket, req) => {
     handleConnection({
       socket,
