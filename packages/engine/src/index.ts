@@ -14,3 +14,4 @@ export {
   createGame,
   listValidMoves,
 } from './coordinator.js';
+export { replayFrames } from './replay.js';
