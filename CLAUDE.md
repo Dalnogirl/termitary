@@ -13,7 +13,7 @@ pnpm dev:server                # game server only (tsx watch, :3001)
 pnpm lint                      # biome check across the repo
 pnpm format                    # biome format --write
 pnpm typecheck                 # tsc --noEmit in every package
-pnpm test                      # vitest run in engine/protocol/server (web has no test script)
+pnpm test                      # vitest run in every package
 ```
 
 Single test file or case:
@@ -86,6 +86,8 @@ The `Controller` port (`controller/port.ts`) is a single `commitMove(move)`. `cr
 `myColor === null` means hot-seat, so this client plays both sides. When set, `input.ts` and the renderer gate interaction and highlighting to that color on that color's turn.
 
 Konva is imported through deep paths (`konva/lib/Stage.js`) to keep the bundle down. Keep that style rather than importing the `konva` barrel.
+
+`brand/mound.ts` is the only place the logo geometry exists. It reads the board's own lattice and corner ratio, so the mark and a board tile round identically. `public/icon.svg` is a checked-in copy of what `brand/icon.svg.ts` emits, because a favicon cannot be a component; `brand/icon.test.ts` fails when the two drift, and the fix is to rewrite the file from `ICON_SVG`.
 
 ## Conventions
 
