@@ -131,6 +131,18 @@ const PieceHueSection = () => {
           <PreviewRow color="black" set={pieceSet} hue="per-tile" />
         </span>
       </Option>
+      <Option
+        group="piece-hue"
+        name="No colour"
+        note="Every piece in its tile's own contrast tone."
+        selected={pieceHue === 'mono'}
+        onSelect={() => setPieceHue('mono')}
+      >
+        <span className="grid gap-1.5">
+          <PreviewRow color="white" set={pieceSet} hue="mono" />
+          <PreviewRow color="black" set={pieceSet} hue="mono" />
+        </span>
+      </Option>
     </fieldset>
   );
 };

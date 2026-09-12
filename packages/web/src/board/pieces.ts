@@ -1,13 +1,13 @@
 import type { Color, Piece, PieceType } from '@termitary/engine';
 import type { CanvasTheme } from './theme.js';
 
-/** Whether one tone serves both players, or each tile tone gets its own. */
-export type PieceHue = 'shared' | 'per-tile';
+/** Whether one tone serves both players, each tile tone gets its own, or the palette is dropped. */
+export type PieceHue = 'shared' | 'per-tile' | 'mono';
 
-export const PIECE_HUES: readonly PieceHue[] = ['shared', 'per-tile'];
+export const PIECE_HUES: readonly PieceHue[] = ['shared', 'per-tile', 'mono'];
 
 export const isPieceHue = (value: unknown): value is PieceHue =>
-  value === 'shared' || value === 'per-tile';
+  PIECE_HUES.includes(value as PieceHue);
 
 const LETTERS: Record<PieceType, string> = {
   queen: 'Q',
@@ -30,15 +30,35 @@ const PIECE_INK: Record<PieceType, { readonly light: string; readonly dark: stri
 
 export const pieceLetter = (type: PieceType): string => LETTERS[type];
 
+/** The two tile tones, from a sampled theme on canvas or as `var()` in the DOM. */
+export type TileTones = Pick<CanvasTheme, 'pieceWhiteFill' | 'pieceBlackFill'>;
+
+export const CSS_TILE_TONES: TileTones = {
+  pieceWhiteFill: 'var(--piece-white-fill)',
+  pieceBlackFill: 'var(--piece-black-fill)',
+};
+
 export const pieceFill = (piece: Piece, theme: CanvasTheme): string =>
   piece.color === 'white' ? theme.pieceWhiteFill : theme.pieceBlackFill;
 
 // 'shared' keeps one tone per piece across both players, so a piece is the same
 // colour wherever it appears. 'per-tile' trades that for contrast: the deep tone
 // on white's near-white tile, the light one on black's.
-export const pieceInk = (type: PieceType, color: Color, hue: PieceHue): string =>
-  PIECE_INK[type][hue === 'shared' || color === 'black' ? 'light' : 'dark'];
+// 'mono' drops the palette for the other player's tile tone, so the whole board
+// is the two tones the tiles already are.
+export const pieceInk = (
+  type: PieceType,
+  color: Color,
+  hue: PieceHue,
+  tones: TileTones,
+): string => {
+  if (hue === 'mono') {
+    return color === 'white' ? tones.pieceBlackFill : tones.pieceWhiteFill;
+  }
+  return PIECE_INK[type][hue === 'shared' || color === 'black' ? 'light' : 'dark'];
+};
 
 // The landing ghost is drawn on the board ground rather than on a tile, which is
 // always the dark end.
-export const pieceGhostInk = (type: PieceType): string => PIECE_INK[type].light;
+export const pieceGhostInk = (type: PieceType, hue: PieceHue, tones: TileTones): string =>
+  hue === 'mono' ? tones.pieceWhiteFill : PIECE_INK[type].light;

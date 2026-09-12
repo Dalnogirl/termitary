@@ -97,10 +97,14 @@ const tileNode = (
     }),
   );
   group.add(
-    markNode(markFor(skin.set, piece.type, size), pieceInk(piece.type, piece.color, skin.hue), {
-      x: 0,
-      y: 0,
-    }),
+    markNode(
+      markFor(skin.set, piece.type, size),
+      pieceInk(piece.type, piece.color, skin.hue, skin.theme),
+      {
+        x: 0,
+        y: 0,
+      },
+    ),
   );
   return group;
 };
@@ -129,7 +133,13 @@ export const chipTile = (skin: Skin, piece: Piece): Group => {
  */
 export const ghostNode = (skin: Skin, type: PieceType): Group => {
   const ghost = new Group({ opacity: GHOST_OPACITY, visible: false, listening: false });
-  ghost.add(markNode(markFor(skin.set, type, TARGET_SIZE), pieceGhostInk(type), ORIGIN));
+  ghost.add(
+    markNode(
+      markFor(skin.set, type, TARGET_SIZE),
+      pieceGhostInk(type, skin.hue, skin.theme),
+      ORIGIN,
+    ),
+  );
   return ghost;
 };
 
