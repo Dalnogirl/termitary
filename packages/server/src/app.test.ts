@@ -71,6 +71,54 @@ describe('REST routes', () => {
     });
   });
 
+  describe('DELETE /rooms/:id', () => {
+    const createRoom = async (cookie: string): Promise<string> => {
+      const res = await ctx.app.inject({ method: 'POST', url: '/rooms', headers: { cookie } });
+      return (res.json() as { roomId: string }).roomId;
+    };
+
+    it('cancels a room the caller is alone in', async () => {
+      const { cookie } = await ctx.signIn('alice@test.dev');
+      const roomId = await createRoom(cookie);
+
+      const res = await ctx.app.inject({
+        method: 'DELETE',
+        url: `/rooms/${roomId}`,
+        headers: { cookie },
+      });
+      expect(res.statusCode).toBe(204);
+
+      const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
+      expect(mine.json()).toEqual([]);
+    });
+
+    it('returns 403 for someone with no seat in the room', async () => {
+      const { cookie } = await ctx.signIn('alice@test.dev');
+      const roomId = await createRoom(cookie);
+      const eve = await ctx.signIn('eve@test.dev');
+
+      const res = await ctx.app.inject({
+        method: 'DELETE',
+        url: `/rooms/${roomId}`,
+        headers: { cookie: eve.cookie },
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('returns 404 for an unknown room and 401 without an auth cookie', async () => {
+      const { cookie } = await ctx.signIn('alice@test.dev');
+      const missing = await ctx.app.inject({
+        method: 'DELETE',
+        url: '/rooms/nope',
+        headers: { cookie },
+      });
+      expect(missing.statusCode).toBe(404);
+
+      const anon = await ctx.app.inject({ method: 'DELETE', url: '/rooms/nope' });
+      expect(anon.statusCode).toBe(401);
+    });
+  });
+
   describe('GET /rooms', () => {
     it('returns 401 without an auth cookie', async () => {
       const res = await ctx.app.inject({ method: 'GET', url: '/rooms' });

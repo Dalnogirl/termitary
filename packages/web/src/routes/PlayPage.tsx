@@ -18,6 +18,7 @@ import { InputProvider } from '../controller/InputProvider.js';
 import { RoomProvider } from '../controller/RoomContext.js';
 import type { RoomStatus } from '../controller/room.js';
 import { useRoomConnection } from '../controller/use-room-connection.js';
+import { cancelRoom } from '../network/rooms-api.js';
 import { useGameStore } from '../store/store.js';
 import { GameLayout } from './GameLayout.js';
 
@@ -61,16 +62,30 @@ export const PlayPage = () => {
   const navigate = useNavigate();
   const room = useRoomConnection(roomId);
   const queryClient = useQueryClient();
-  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [showQuitDialog, setShowQuitDialog] = useState(false);
   const gameStatus = useGameStore((s) => s.liveGame.status);
 
-  const handleConfirmLeave = (): void => {
-    setShowLeaveDialog(false);
-    room.leave();
-    // Leaving deletes the room for both players, so a cached lobby list would
-    // offer a Reconnect that dead-ends in `room not found`.
-    void queryClient.invalidateQueries({ queryKey: ['rooms'] });
-    void navigate('/lobby');
+  // Nobody has taken the other seat, so there is no game to lose: the room is
+  // cancelled outright rather than resigned. Presence only means that once the
+  // handshake has answered; before it, 'empty' is just the initial reading.
+  const alone = room.status === 'in-room' && room.opponent === 'empty';
+
+  const handleConfirmQuit = (): void => {
+    setShowQuitDialog(false);
+    if (roomId === undefined) return;
+    if (!alone) {
+      // The room survives a resignation, so this stays on the finished board.
+      room.resign();
+      return;
+    }
+    void cancelRoom(roomId)
+      .then(() => {
+        void queryClient.invalidateQueries({ queryKey: ['rooms'] });
+        void navigate('/lobby');
+      })
+      .catch((err: unknown) => {
+        toast.error(err instanceof Error ? err.message : 'Could not cancel the game');
+      });
   };
 
   useEffect(() => {
@@ -102,26 +117,33 @@ export const PlayPage = () => {
               <ConnectionBadge status={room.status} opponent={room.opponent} />
             </span>
             {!gameOver && (
-              <Button variant="ghost" size="sm" onClick={() => setShowLeaveDialog(true)}>
-                Leave game
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={room.status !== 'in-room'}
+                onClick={() => setShowQuitDialog(true)}
+              >
+                {alone ? 'Cancel game' : 'Resign'}
               </Button>
             )}
           </div>
           <GameLayout />
         </div>
-        <AlertDialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
+        <AlertDialog open={showQuitDialog} onOpenChange={setShowQuitDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Leave game?</AlertDialogTitle>
+              <AlertDialogTitle>{alone ? 'Cancel game?' : 'Resign?'}</AlertDialogTitle>
               <AlertDialogDescription>
-                Leaving forfeits the match — the room will close and your opponent will be notified.
-                To take a break and come back later, just navigate away; you can re-open this URL to
-                rejoin.
+                {alone
+                  ? 'Nobody has joined yet, so the room is closed and nothing is recorded.'
+                  : 'Resigning loses the game. The final position stays here for both of you to look at. To take a break instead, navigate away and re-open this URL to come back.'}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmLeave}>Leave game</AlertDialogAction>
+              <AlertDialogCancel>Keep playing</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmQuit}>
+                {alone ? 'Cancel game' : 'Resign'}
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

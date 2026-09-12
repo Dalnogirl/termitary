@@ -6,6 +6,7 @@ export type { HexCoord } from './hex.js';
 export type { Color, Piece, PieceType } from './piece.js';
 export { type Board, occupiedCells, topPieceAt } from './board.js';
 export {
+  type EndReason,
   type GameState,
   type Hand,
   type Move,
@@ -13,5 +14,6 @@ export {
   applyMove,
   createGame,
   listValidMoves,
+  resign,
 } from './coordinator.js';
 export { replayFrames } from './replay.js';

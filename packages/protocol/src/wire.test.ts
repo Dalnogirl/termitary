@@ -1,4 +1,4 @@
-import { applyMove, createGame, listValidMoves } from '@termitary/engine';
+import { applyMove, createGame, listValidMoves, resign } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import { ClientMessageSchema } from './client-messages.js';
 import { ServerMessageSchema } from './server-messages.js';
@@ -50,6 +50,25 @@ describe('wire serialization', () => {
     }
   });
 
+  it('round-trips a resigned game with its end reason', () => {
+    const state = resign(playN(6), 'white');
+    const reparsed = WireGameStateSchema.parse(JSON.parse(JSON.stringify(toWire(state))));
+    const restored = fromWire(reparsed);
+
+    expect(restored.status).toBe('finished');
+    if (restored.status === 'finished') {
+      expect(restored.result).toBe('black-wins');
+      expect(restored.endReason).toBe('resignation');
+    }
+  });
+
+  it('rejects a finished state with no end reason', () => {
+    const finished = toWire(resign(playN(6), 'white'));
+    if (finished.status !== 'finished') throw new Error('unreachable');
+    const { endReason: _dropped, ...missing } = finished;
+    expect(WireGameStateSchema.safeParse(missing).success).toBe(false);
+  });
+
   it('rejects board entries with extra fields via strict piece schema', () => {
     const bad = {
       status: 'in_progress',
@@ -75,7 +94,7 @@ describe('message schemas', () => {
         roomId: 'r1',
         move: { kind: 'place', piece: { type: 'queen', color: 'white' }, to: { q: 0, r: 0 } },
       },
-      { type: 'leaveGame', roomId: 'r1' },
+      { type: 'resign', roomId: 'r1' },
     ];
     for (const s of samples) {
       expect(ClientMessageSchema.safeParse(s).success).toBe(true);
@@ -103,7 +122,7 @@ describe('message schemas', () => {
   it('rejects presenceUpdate with non-event opponent values', () => {
     // 'empty' is a snapshot-only state (only present on gameJoined); a
     // presenceUpdate carrying it would imply a vacate-but-room-still-alive
-    // transition, which leaveGame does not produce.
+    // transition, which nothing in the protocol produces.
     expect(
       ServerMessageSchema.safeParse({ type: 'presenceUpdate', roomId: 'r1', opponent: 'empty' })
         .success,

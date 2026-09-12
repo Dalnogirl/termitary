@@ -198,7 +198,12 @@ describe('createInputHandlers', () => {
     });
 
     it('ignores every action once the game is finished', () => {
-      load({ ...bothQueensDown(), status: 'finished', result: 'draw' });
+      load({
+        ...bothQueensDown(),
+        status: 'finished',
+        result: 'draw',
+        endReason: 'queen-surrounded',
+      });
       gameStore.getState().setSelection({ kind: 'board', coord: WHITE_QUEEN });
       const handlers = createInputHandlers(controller, 'white');
 

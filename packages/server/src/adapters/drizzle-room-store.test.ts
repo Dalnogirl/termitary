@@ -8,7 +8,7 @@ import type { RoomStore } from '../domain/room-store.js';
 import { createRoom } from '../domain/room.js';
 import { user } from './db/auth-schema.js';
 import { type DbHandle, createDb } from './db/client.js';
-import { rooms as roomsTable } from './db/schema.js';
+import { CURRENT_STATE_VERSION, rooms as roomsTable } from './db/schema.js';
 import { createDrizzleRoomStore } from './drizzle-room-store.js';
 import { describeRoomStoreContract } from './room-store.contract.js';
 
@@ -99,7 +99,7 @@ describe('DrizzleRoomStore', () => {
   it('stamps the current state payload version', async () =>
     withStore(async ({ db, store }) => {
       await store.create(createRoom('r1', { playerId: 'p1' }));
-      expect(rowOf(db, 'r1')?.stateVersion).toBe(1);
+      expect(rowOf(db, 'r1')?.stateVersion).toBe(CURRENT_STATE_VERSION);
     }));
 
   it('rejects a state payload it cannot parse', async () =>

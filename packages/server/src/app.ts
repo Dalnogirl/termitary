@@ -15,6 +15,7 @@ import type { Identity } from './domain/identity.js';
 import type { Ports } from './domain/ports.js';
 import type { RoomStore } from './domain/room-store.js';
 import { env } from './env.js';
+import { type CancelRoomResult, cancelRoom } from './usecases/cancel-room.js';
 import { createRoom } from './usecases/create-room.js';
 import { listMyRooms } from './usecases/list-my-rooms.js';
 import { listRooms } from './usecases/list-rooms.js';
@@ -77,6 +78,10 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
     listMyRooms(requireIdentity(req), rooms),
   );
   app.post('/rooms', { preHandler: gate }, async (req) => createRoom(requireIdentity(req), rooms));
+  app.delete<{ Params: { id: string } }>('/rooms/:id', { preHandler: gate }, async (req, reply) => {
+    const outcome = await cancelRoom(requireIdentity(req), req.params.id, rooms);
+    return reply.code(CANCEL_ROOM_STATUS[outcome]).send();
+  });
   app.get('/ws', { websocket: true, preValidation: gate }, (socket, req) => {
     handleConnection({
       socket,
@@ -88,6 +93,12 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
   });
 
   return app;
+};
+
+const CANCEL_ROOM_STATUS: Record<CancelRoomResult, number> = {
+  cancelled: 204,
+  'not-found': 404,
+  forbidden: 403,
 };
 
 const sweepAndLog = (app: FastifyInstance, rooms: RoomStore): void => {

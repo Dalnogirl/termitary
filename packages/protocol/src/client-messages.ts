@@ -15,15 +15,15 @@ export const ClientMakeMoveSchema = z
   .strict();
 export type ClientMakeMove = z.infer<typeof ClientMakeMoveSchema>;
 
-export const ClientLeaveGameSchema = z
-  .object({ type: z.literal('leaveGame'), roomId: z.string().min(1) })
+export const ClientResignSchema = z
+  .object({ type: z.literal('resign'), roomId: z.string().min(1) })
   .strict();
-export type ClientLeaveGame = z.infer<typeof ClientLeaveGameSchema>;
+export type ClientResign = z.infer<typeof ClientResignSchema>;
 
 export const ClientMessageSchema = z.discriminatedUnion('type', [
   ClientJoinGameSchema,
   ClientMakeMoveSchema,
-  ClientLeaveGameSchema,
+  ClientResignSchema,
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 

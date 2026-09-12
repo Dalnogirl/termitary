@@ -7,6 +7,7 @@ import {
   applyMove,
   createGame,
   listValidMoves,
+  resign,
 } from './coordinator.js';
 import { type HexCoord, key } from './hex.js';
 import type { Piece } from './piece.js';
@@ -148,6 +149,7 @@ describe('applyMove: finished state rejects further moves', () => {
     const finished: GameState = {
       status: 'finished',
       result: 'black-wins',
+      endReason: 'queen-surrounded',
       board: fromCells([]),
       hands: {
         white: { queen: 0, ant: 3, beetle: 2, spider: 2, grasshopper: 3 },
@@ -199,7 +201,53 @@ describe('applyMove: transitions to finished when a queen becomes surrounded', (
     expect(after.status).toBe('finished');
     if (after.status === 'finished') {
       expect(after.result).toBe('black-wins');
+      expect(after.endReason).toBe('queen-surrounded');
     }
+  });
+});
+
+describe('resign', () => {
+  it('hands the win to the opponent', () => {
+    let s: GameState = createGame();
+    s = placeMove(s, WA, ORIGIN);
+    s = placeMove(s, BA, E);
+
+    const after = resign(s, 'white');
+
+    expect(after.status).toBe('finished');
+    if (after.status === 'finished') {
+      expect(after.result).toBe('black-wins');
+      expect(after.endReason).toBe('resignation');
+    }
+  });
+
+  it('works when it is not the resigning player turn', () => {
+    let s: GameState = createGame();
+    s = placeMove(s, WA, ORIGIN);
+    expect(s.status === 'in_progress' && s.currentPlayer).toBe('black');
+
+    const after = resign(s, 'white');
+
+    expect(after.status === 'finished' && after.result).toBe('black-wins');
+  });
+
+  it('leaves the board and history untouched', () => {
+    let s: GameState = createGame();
+    s = placeMove(s, WA, ORIGIN);
+    s = placeMove(s, BA, E);
+
+    const after = resign(s, 'black');
+
+    expect(after.board).toBe(s.board);
+    expect(after.history).toEqual(s.history);
+  });
+
+  it('rejects a finished game', () => {
+    let s: GameState = createGame();
+    s = placeMove(s, WA, ORIGIN);
+    const finished = resign(s, 'white');
+
+    expect(() => resign(finished, 'black')).toThrow(IllegalMoveError);
   });
 });
 

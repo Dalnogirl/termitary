@@ -51,6 +51,7 @@ describe('summarize', () => {
         ...createGame(),
         status: 'finished' as const,
         result: 'draw' as const,
+        endReason: 'queen-surrounded' as const,
       },
     };
     expect(summarize(overviewOf(finished)).status).toBe('finished');
