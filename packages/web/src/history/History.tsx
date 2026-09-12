@@ -32,7 +32,7 @@ const initialOpen = (): boolean =>
   typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
 
 export const History = () => {
-  const history = useGameStore((s) => s.game.history);
+  const history = useGameStore((s) => s.liveGame.history);
   const [isOpen, setIsOpen] = useState(initialOpen);
   const closeRef = useRef<HTMLButtonElement>(null);
 

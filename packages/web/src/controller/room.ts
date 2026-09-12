@@ -120,11 +120,11 @@ export const createRoomController = ({ roomId }: Options): RoomController => {
     }
 
     const before = gameStore.getState();
-    if (before.game.status !== 'in_progress') return;
+    if (before.liveGame.status !== 'in_progress') return;
 
-    pendingSnapshot = before.game;
+    pendingSnapshot = before.liveGame;
     try {
-      before.applyGameState(applyMove(before.game, move));
+      before.applyGameState(applyMove(before.liveGame, move));
     } catch (e) {
       // Local engine rejected the move. UI filters by validMoves so this
       // is unreachable in normal play. Abort the round-trip rather than

@@ -1,5 +1,5 @@
 import type { Color, HexCoord, Move } from '@hive/engine';
-import { gameStore } from '../store/store.js';
+import { gameStore, isLive } from '../store/store.js';
 import type { Controller } from './port.js';
 
 export type InputHandlers = {
@@ -18,14 +18,19 @@ const sameCoord = (a: HexCoord, b: HexCoord): boolean => a.q === b.q && a.r === 
 const canInteract = (myColor: Color | null, currentPlayer: Color): boolean =>
   myColor === null || myColor === currentPlayer;
 
+// Stepping back through the history makes the board a read-only picture of an
+// earlier position. validMoves is empty off-live, so every handler below would
+// bail on its own lookup, but the rule belongs in one place.
+
 export const createInputHandlers = (
   controller: Controller,
   myColor: Color | null,
 ): InputHandlers => {
   const handleBoardPieceClick = (coord: HexCoord): void => {
     const state = gameStore.getState();
-    if (state.game.status !== 'in_progress') return;
-    if (!canInteract(myColor, state.game.currentPlayer)) return;
+    if (!isLive(state)) return;
+    if (state.view.status !== 'in_progress') return;
+    if (!canInteract(myColor, state.view.currentPlayer)) return;
 
     const cur = state.selection;
     if (cur?.kind === 'board' && sameCoord(cur.coord, coord)) {
@@ -47,8 +52,9 @@ export const createInputHandlers = (
 
   const handlePassClick = (): void => {
     const state = gameStore.getState();
-    if (state.game.status !== 'in_progress') return;
-    if (!canInteract(myColor, state.game.currentPlayer)) return;
+    if (!isLive(state)) return;
+    if (state.view.status !== 'in_progress') return;
+    if (!canInteract(myColor, state.view.currentPlayer)) return;
     const passMove = state.validMoves.find((m) => m.kind === 'pass');
     if (!passMove || state.validMoves.length !== 1) return;
     controller.commitMove(passMove);
@@ -56,14 +62,15 @@ export const createInputHandlers = (
 
   const handleTargetClick = (coord: HexCoord): void => {
     const state = gameStore.getState();
-    if (state.game.status !== 'in_progress') return;
-    if (!canInteract(myColor, state.game.currentPlayer)) return;
+    if (!isLive(state)) return;
+    if (state.view.status !== 'in_progress') return;
+    if (!canInteract(myColor, state.view.currentPlayer)) return;
     const sel = state.selection;
     if (!sel) return;
 
     let move: Move | undefined;
     if (sel.kind === 'hand') {
-      const player = state.game.currentPlayer;
+      const player = state.view.currentPlayer;
       move = state.validMoves.find(
         (m) =>
           m.kind === 'place' &&

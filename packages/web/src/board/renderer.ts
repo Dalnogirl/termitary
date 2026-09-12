@@ -63,8 +63,8 @@ const movableOrigins = (state: StoreState, myColor: Color | null): Set<string> =
   // handlers apply the same gate, so this is a presentation-mirror of intent.
   if (
     myColor !== null &&
-    state.game.status === 'in_progress' &&
-    state.game.currentPlayer !== myColor
+    state.view.status === 'in_progress' &&
+    state.view.currentPlayer !== myColor
   ) {
     return out;
   }
@@ -80,7 +80,7 @@ const landingPiece = (state: StoreState): PieceType | null => {
   const sel = state.selection;
   if (sel === null) return null;
   if (sel.kind === 'hand') return sel.piece;
-  const top = topPieceAt(state.game.board, sel.coord);
+  const top = topPieceAt(state.view.board, sel.coord);
   return top === undefined ? null : top.type;
 };
 
@@ -106,7 +106,7 @@ const targetsFor = (state: StoreState): HexCoord[] => {
 // Length alone, to match the trigger in planMotion: a flight is keyed to a
 // history of a given depth, not to its contents.
 const historyMoved = (before: StoreState | null, after: StoreState): boolean =>
-  before !== null && before.game.history.length !== after.game.history.length;
+  before !== null && before.view.history.length !== after.view.history.length;
 
 const readSkin = (): Skin => {
   const { pieceSet, pieceHue } = prefsStore.getState();
@@ -192,7 +192,7 @@ export const createRenderer = (
       state.selection?.kind === 'board' ? coordKey(state.selection.coord) : null;
     const arriving = motion.arrivingAt();
 
-    for (const [coord, stack] of occupiedCells(state.game.board)) {
+    for (const [coord, stack] of occupiedCells(state.view.board)) {
       // The piece the overlay is carrying is already on the board in state, so
       // the destination cell has to give it up until it lands. A beetle in
       // flight leaves the piece it climbed onto showing.
@@ -234,7 +234,7 @@ export const createRenderer = (
       motion.stop();
     }
     if (next !== null) {
-      const piece = topPieceAt(state.game.board, next.coord);
+      const piece = topPieceAt(state.view.board, next.coord);
       if (piece !== undefined) motion.start(next, pieceTile(readSkin(), piece, null));
     }
     paint(state);

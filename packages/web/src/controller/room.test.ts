@@ -44,7 +44,7 @@ const deliver = (msg: ServerMessage): void => {
 };
 
 const firstMove = (): Move => {
-  const move = listValidMoves(gameStore.getState().game)[0];
+  const move = listValidMoves(gameStore.getState().liveGame)[0];
   if (move === undefined) throw new Error('no valid moves');
   return move;
 };
@@ -74,15 +74,15 @@ describe('createRoomController', () => {
 
   it('surfaces the reason a server-rejected move rolled back', () => {
     const controller = setup();
-    const before = gameStore.getState().game;
+    const before = gameStore.getState().liveGame;
 
     controller.commitMove(firstMove());
-    expect(gameStore.getState().game).not.toBe(before);
+    expect(gameStore.getState().liveGame).not.toBe(before);
 
     deliver({ type: 'error', message: 'not your turn', requestKind: 'makeMove' });
 
     expect(toastError).toHaveBeenCalledWith('not your turn');
-    expect(gameStore.getState().game).toBe(before);
+    expect(gameStore.getState().liveGame).toBe(before);
     expect(gameStore.getState().selection).toBeNull();
   });
 
@@ -103,13 +103,13 @@ describe('createRoomController', () => {
   it('drops a second move while one is still unanswered', () => {
     const controller = setup();
     controller.commitMove(firstMove());
-    const afterFirst = gameStore.getState().game;
+    const afterFirst = gameStore.getState().liveGame;
     sent.length = 0;
 
     controller.commitMove(firstMove());
 
     expect(sent).toEqual([]);
-    expect(gameStore.getState().game).toBe(afterFirst);
+    expect(gameStore.getState().liveGame).toBe(afterFirst);
   });
 
   it('keeps taking the fatal path for errors that are not move rejections', () => {

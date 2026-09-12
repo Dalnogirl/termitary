@@ -18,7 +18,7 @@ const RESULT_TEXT: Record<FinishedResult, { title: string; subtitle: string }> =
 };
 
 export const Modal = () => {
-  const game = useGameStore((s) => s.game);
+  const game = useGameStore((s) => s.liveGame);
   const reset = useGameStore((s) => s.reset);
   if (game.status !== 'finished') return null;
 

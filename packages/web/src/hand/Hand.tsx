@@ -30,7 +30,7 @@ const slotPalette: Record<Color, string> = {
 };
 
 export const Hand = ({ color, edge }: Props) => {
-  const game = useGameStore((s) => s.game);
+  const game = useGameStore((s) => s.view);
   const validMoves = useGameStore((s) => s.validMoves);
   const selection = useGameStore((s) => s.selection);
   const setSelection = useGameStore((s) => s.setSelection);
