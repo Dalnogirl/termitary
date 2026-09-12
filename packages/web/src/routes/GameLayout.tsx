@@ -5,7 +5,13 @@ import { History } from '../history/History.js';
 import { ReplayBanner } from '../history/ReplayBanner.js';
 import { useHistoryKeys } from '../history/use-history-keys.js';
 
-export const GameLayout = () => {
+type Props = {
+  /** Off when the result is already the reason you opened the page. */
+  readonly showGameOver?: boolean;
+  readonly returnLabel?: string;
+};
+
+export const GameLayout = ({ showGameOver = true, returnLabel }: Props) => {
   useHistoryKeys();
 
   return (
@@ -14,10 +20,10 @@ export const GameLayout = () => {
         <BoardCanvas />
         <Hand color="black" edge="top" />
         <Hand color="white" edge="bottom" />
-        <ReplayBanner />
+        <ReplayBanner {...(returnLabel === undefined ? {} : { returnLabel })} />
       </div>
       <History />
-      <Modal />
+      {showGameOver && <Modal />}
     </div>
   );
 };

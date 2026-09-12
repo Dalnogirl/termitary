@@ -47,6 +47,11 @@ export const RootLayout = () => (
             Play online
           </NavLink>
         </li>
+        <li>
+          <NavLink to="/archived-games" className={navLinkClass}>
+            Past games
+          </NavLink>
+        </li>
       </ul>
       <div className="ml-auto flex items-center gap-2">
         <SessionBadge />

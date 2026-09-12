@@ -77,9 +77,15 @@ export const SignedInHome = () => {
         </Link>
       </div>
 
-      <Link to="/lobby" className={`${linkClass} text-xs`}>
-        {rooms.length > SHOWN ? `All ${rooms.length} of your games` : 'Open games'} and free seats →
-      </Link>
+      <div className="flex flex-wrap items-center gap-4">
+        <Link to="/lobby" className={`${linkClass} text-xs`}>
+          {rooms.length > SHOWN ? `All ${rooms.length} of your games` : 'Open games'} and free seats
+          →
+        </Link>
+        <Link to="/archived-games" className={`${linkClass} text-xs`}>
+          Past games →
+        </Link>
+      </div>
     </HomeHero>
   );
 };
