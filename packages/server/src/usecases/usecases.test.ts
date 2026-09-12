@@ -4,6 +4,7 @@ import { fromWire, toWireMove } from '@hive/protocol';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createInMemoryConnectionRegistry } from '../adapters/in-memory-connection-registry.js';
 import { createInMemoryRoomStore } from '../adapters/in-memory-room-store.js';
+import type { Sender } from '../domain/connection-registry.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { createRoom } from './create-room.js';
@@ -22,16 +23,20 @@ const setup = () => {
     connections,
   };
   const inboxes = new Map<string, Inbox>();
+  const senders = new Map<string, Sender>();
   const connect = (playerId: string): Inbox => {
     const inbox: Inbox = { messages: [] };
     inboxes.set(playerId, inbox);
-    connections.bind(playerId, async (msg) => {
+    const sender: Sender = async (msg) => {
       inbox.messages.push(msg);
-    });
+    };
+    senders.set(playerId, sender);
+    connections.bind(playerId, sender);
     return inbox;
   };
   const disconnect = (playerId: string): void => {
-    connections.unbind(playerId);
+    const sender = senders.get(playerId);
+    if (sender !== undefined) connections.unbind(playerId, sender);
   };
   return { ports, connect, disconnect, inboxes };
 };

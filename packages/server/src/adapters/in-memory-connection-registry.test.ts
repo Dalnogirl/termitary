@@ -73,10 +73,25 @@ describe('InMemoryConnectionRegistry', () => {
     const a = recorder();
     reg.bind('a', a.send);
     await reg.joinRoom('a', 'r1');
-    reg.unbind('a');
+    reg.unbind('a', a.send);
     await reg.broadcast('r1', sample);
     await reg.sendTo('a', sample);
     expect(a.messages).toEqual([]);
+  });
+
+  it('keeps the live socket when a superseded one unbinds', async () => {
+    const reg = createInMemoryConnectionRegistry();
+    const stale = recorder();
+    const fresh = recorder();
+    reg.bind('a', stale.send);
+    reg.bind('a', fresh.send);
+    await reg.joinRoom('a', 'r1');
+    reg.unbind('a', stale.send);
+    expect(reg.isBound('a', fresh.send)).toBe(true);
+    await reg.sendTo('a', sample);
+    await reg.broadcast('r1', sample);
+    expect(fresh.messages).toEqual([sample, sample]);
+    expect(stale.messages).toEqual([]);
   });
 
   it('findRoomByPlayerId reflects current binding', async () => {

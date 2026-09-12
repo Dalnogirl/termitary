@@ -16,5 +16,9 @@ export type ConnectionRegistry = {
 
 export type ConnectionLifecycle = {
   bind(playerId: string, sender: Sender): void;
-  unbind(playerId: string): void;
+  // Both take the sender the caller bound, not just the player: a reload can
+  // open the replacement socket before the old one's close handler runs, and
+  // the superseded socket must not answer for, or tear down, the live one.
+  isBound(playerId: string, sender: Sender): boolean;
+  unbind(playerId: string, sender: Sender): void;
 };
