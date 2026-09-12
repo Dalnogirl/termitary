@@ -18,11 +18,11 @@ export const useDemoAutoplay = (): void => {
 
     let stepping = false;
     const step = (): boolean => {
-      const { game, validMoves, applyGameState } = gameStore.getState();
-      const move = pick(game, validMoves);
+      const { liveGame, validMoves, applyGameState } = gameStore.getState();
+      const move = pick(liveGame, validMoves);
       if (move === undefined) return false;
       stepping = true;
-      applyGameState(applyMove(game, move));
+      applyGameState(applyMove(liveGame, move));
       stepping = false;
       return true;
     };

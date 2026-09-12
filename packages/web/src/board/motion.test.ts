@@ -4,7 +4,11 @@ import type { StoreState } from '../store/store.js';
 import { appendedMove } from './motion.js';
 
 const asStore = (game: GameState): StoreState => ({
-  game,
+  liveGame: game,
+  viewIndex: game.history.length,
+  view: game,
+  lastMove: game.history.at(-1) ?? null,
+  frames: null,
   validMoves: listValidMoves(game),
   selection: null,
 });

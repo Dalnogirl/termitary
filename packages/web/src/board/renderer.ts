@@ -1,6 +1,7 @@
 import {
   type Color,
   type HexCoord,
+  type Move,
   type Piece,
   type PieceType,
   occupiedCells,
@@ -63,8 +64,8 @@ const movableOrigins = (state: StoreState, myColor: Color | null): Set<string> =
   // handlers apply the same gate, so this is a presentation-mirror of intent.
   if (
     myColor !== null &&
-    state.game.status === 'in_progress' &&
-    state.game.currentPlayer !== myColor
+    state.view.status === 'in_progress' &&
+    state.view.currentPlayer !== myColor
   ) {
     return out;
   }
@@ -80,7 +81,7 @@ const landingPiece = (state: StoreState): PieceType | null => {
   const sel = state.selection;
   if (sel === null) return null;
   if (sel.kind === 'hand') return sel.piece;
-  const top = topPieceAt(state.game.board, sel.coord);
+  const top = topPieceAt(state.view.board, sel.coord);
   return top === undefined ? null : top.type;
 };
 
@@ -106,18 +107,29 @@ const targetsFor = (state: StoreState): HexCoord[] => {
 // Length alone, to match the trigger in planMotion: a flight is keyed to a
 // history of a given depth, not to its contents.
 const historyMoved = (before: StoreState | null, after: StoreState): boolean =>
-  before !== null && before.game.history.length !== after.game.history.length;
+  before !== null && before.view.history.length !== after.view.history.length;
 
 const readSkin = (): Skin => {
   const { pieceSet, pieceHue } = prefsStore.getState();
   return { theme: readTheme(), set: pieceSet, hue: pieceHue };
 };
 
-const outlineFor = (skin: Skin, selected: boolean, hinted: boolean): Outline | null => {
+const outlineFor = (
+  skin: Skin,
+  selected: boolean,
+  hinted: boolean,
+  lastMoved: boolean,
+): Outline | null => {
   if (selected) return { stroke: skin.theme.selectStroke, strokeWidth: 3 };
   if (hinted) return { stroke: skin.theme.hintStroke, strokeWidth: 2 };
+  if (lastMoved) return { stroke: skin.theme.lastMoveStroke, strokeWidth: 2 };
   return null;
 };
+
+// Where the move that produced this position put its piece. Stepping through
+// the history is otherwise a slideshow of near-identical boards.
+const landedAt = (move: Move | null): HexCoord | null =>
+  move === null || move.kind === 'pass' ? null : move.to;
 
 export const createRenderer = (
   container: HTMLDivElement,
@@ -138,17 +150,19 @@ export const createRenderer = (
     stack: readonly Piece[],
     movable: Set<string>,
     selectedCoord: string | null,
+    lastMoveCoord: string | null,
     hoverable: boolean,
   ): void => {
     const top = stack[stack.length - 1];
     if (!top) return;
     const p = axialToPixel(coord, HEX_SIZE);
     const key = coordKey(coord);
-    const outline = outlineFor(skin, key === selectedCoord, movable.has(key));
+    const movableHere = movable.has(key);
+    const outline = outlineFor(skin, key === selectedCoord, movableHere, key === lastMoveCoord);
     const tile = pieceTile(skin, top, outline);
     tile.position(p);
     tile.on('click tap', () => callbacks.onPieceClick(coord));
-    if (hoverable && outline !== null) {
+    if (hoverable && movableHere) {
       tile.on('mouseenter', () => setHoverCursor('pointer'));
       tile.on('mouseleave', () => setHoverCursor(''));
     }
@@ -190,15 +204,17 @@ export const createRenderer = (
     const movable = movableOrigins(state, options.myColor);
     const selectedCoord =
       state.selection?.kind === 'board' ? coordKey(state.selection.coord) : null;
+    const lastMove = landedAt(state.lastMove);
+    const lastMoveCoord = lastMove === null ? null : coordKey(lastMove);
     const arriving = motion.arrivingAt();
 
-    for (const [coord, stack] of occupiedCells(state.game.board)) {
+    for (const [coord, stack] of occupiedCells(state.view.board)) {
       // The piece the overlay is carrying is already on the board in state, so
       // the destination cell has to give it up until it lands. A beetle in
       // flight leaves the piece it climbed onto showing.
       const settled = arriving !== null && sameCoord(coord, arriving) ? stack.slice(0, -1) : stack;
       if (settled.length === 0) continue;
-      drawCell(skin, coord, settled, movable, selectedCoord, arriving === null);
+      drawCell(skin, coord, settled, movable, selectedCoord, lastMoveCoord, arriving === null);
     }
 
     // No targets mid-flight: committing to a cell the arriving piece may be
@@ -234,7 +250,7 @@ export const createRenderer = (
       motion.stop();
     }
     if (next !== null) {
-      const piece = topPieceAt(state.game.board, next.coord);
+      const piece = topPieceAt(state.view.board, next.coord);
       if (piece !== undefined) motion.start(next, pieceTile(readSkin(), piece, null));
     }
     paint(state);

@@ -87,6 +87,7 @@
   --board-target-stroke: rgb(0 0 0 / 40%);
   --board-target-fill-active: rgb(0 0 0 / 22%);
   --board-target-stroke-active: rgb(0 0 0);
+  --board-last-move-stroke: oklch(0.62 0.16 55);
   --glass-bg: oklch(1 0 0 / 62%);
   --glass-border: oklch(0.145 0 0 / 10%);
   --glass-highlight: oklch(1 0 0 / 85%);
@@ -131,6 +132,7 @@
   --board-target-stroke: rgb(255 255 255 / 45%);
   --board-target-fill-active: rgb(255 255 255 / 28%);
   --board-target-stroke-active: rgb(255 255 255);
+  --board-last-move-stroke: oklch(0.78 0.15 65);
   --glass-bg: oklch(0.28 0 0 / 48%);
   --glass-border: oklch(1 0 0 / 14%);
   --glass-highlight: oklch(1 0 0 / 12%);

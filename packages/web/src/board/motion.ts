@@ -29,8 +29,8 @@ const reducedMotion = (): boolean => window.matchMedia('(prefers-reduced-motion:
  * Anything else is a rollback, a server echo, or a fresh join, and snaps.
  */
 export const appendedMove = (before: StoreState, after: StoreState): Move | null => {
-  const history = after.game.history;
-  if (history.length !== before.game.history.length + 1) return null;
+  const history = after.view.history;
+  if (history.length !== before.view.history.length + 1) return null;
   return history[history.length - 1] ?? null;
 };
 
@@ -53,7 +53,7 @@ export const planMotion = (before: StoreState | null, after: StoreState): Motion
     };
   }
 
-  const flight = liftPlanner(move, before.game.board);
+  const flight = liftPlanner(move, before.view.board);
   const path = createFlightPath(flight);
   return {
     coord: move.to,

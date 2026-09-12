@@ -5,9 +5,9 @@ import type { Controller } from './port.js';
 
 export const createLocalController = (): Controller => ({
   commitMove: (move: Move): void => {
-    const { game, applyGameState, setSelection } = gameStore.getState();
+    const { liveGame, applyGameState, setSelection } = gameStore.getState();
     try {
-      applyGameState(applyMove(game, move));
+      applyGameState(applyMove(liveGame, move));
     } catch (e) {
       if (e instanceof IllegalMoveError) {
         toast.error(e.message);

@@ -62,7 +62,7 @@ export const PlayPage = () => {
   const room = useRoomConnection(roomId);
   const queryClient = useQueryClient();
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
-  const gameStatus = useGameStore((s) => s.game.status);
+  const gameStatus = useGameStore((s) => s.liveGame.status);
 
   const handleConfirmLeave = (): void => {
     setShowLeaveDialog(false);
