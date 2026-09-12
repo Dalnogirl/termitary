@@ -1,7 +1,7 @@
 import type { Color, PieceType } from '@termitary/engine';
 import { usePrefsStore } from '../store/prefs.js';
 import { type PieceSet, markFor } from './piece-sets.js';
-import { type PieceHue, pieceInk } from './pieces.js';
+import { CSS_TILE_TONES, type PieceHue, pieceInk } from './pieces.js';
 
 type Props = {
   readonly type: PieceType;
@@ -17,7 +17,7 @@ type Props = {
 export const PieceMark = ({ type, color, size, set, hue }: Props) => {
   const preferredSet = usePrefsStore((s) => s.pieceSet);
   const preferredHue = usePrefsStore((s) => s.pieceHue);
-  const ink = pieceInk(type, color, hue ?? preferredHue);
+  const ink = pieceInk(type, color, hue ?? preferredHue, CSS_TILE_TONES);
   const mark = markFor(set ?? preferredSet, type, size / 2);
 
   // A slot is square rather than hexagonal, so a letter is sized to the box

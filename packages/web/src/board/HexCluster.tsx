@@ -32,12 +32,13 @@ const mark = (
   ctx: CanvasRenderingContext2D,
   set: PieceSet,
   hue: PieceHue,
+  theme: CanvasTheme,
   piece: Piece,
   x: number,
   y: number,
   hexSize: number,
 ): void => {
-  const ink = pieceInk(piece.type, piece.color, hue);
+  const ink = pieceInk(piece.type, piece.color, hue, theme);
   const m = markFor(set, piece.type, hexSize);
   if (m.kind === 'text') {
     ctx.font = `bold ${m.fontSize}px ${m.font}`;
@@ -80,7 +81,7 @@ const drawPiece = (
   traceHex(ctx, p, HEX_DRAW_SIZE, HEX_RADIUS);
   ctx.fillStyle = pieceFill(cell.piece, theme);
   ctx.fill();
-  mark(ctx, set, hue, cell.piece, p.x, p.y, HEX_DRAW_SIZE);
+  mark(ctx, set, hue, theme, cell.piece, p.x, p.y, HEX_DRAW_SIZE);
 
   if (cell.covers === undefined) return;
   const chip = { x: p.x + HEX_SIZE * 0.55, y: p.y - HEX_SIZE * 0.65 };
@@ -90,7 +91,7 @@ const drawPiece = (
   ctx.strokeStyle = theme.pieceStroke;
   ctx.lineWidth = 1.5;
   ctx.stroke();
-  mark(ctx, set, hue, cell.covers, chip.x, chip.y, CHIP_SIZE);
+  mark(ctx, set, hue, theme, cell.covers, chip.x, chip.y, CHIP_SIZE);
 };
 
 const drawTarget = (ctx: CanvasRenderingContext2D, theme: CanvasTheme, cell: ClusterCell): void => {
