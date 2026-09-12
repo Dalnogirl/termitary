@@ -1,6 +1,6 @@
 import { WireGameStateSchema, fromWire, toWire } from '@termitary/protocol';
-import { desc, eq, or } from 'drizzle-orm';
-import type { ArchivedGameStore } from '../domain/archived-game-store.js';
+import { and, desc, eq, lt, or } from 'drizzle-orm';
+import type { ArchivedGameCursor, ArchivedGameStore } from '../domain/archived-game-store.js';
 import type {
   ArchivedGame,
   ArchivedGameOverview,
@@ -52,6 +52,16 @@ const toGame = (row: ArchivedGameRow): ArchivedGame => {
   return { ...toOverview(row), state };
 };
 
+// The ordering is (finished_at, id) descending, so resuming after a cursor is
+// that same pair compared as a tuple. SQLite has row values, drizzle does not.
+const startsAfter = (cursor: ArchivedGameCursor | undefined) =>
+  cursor === undefined
+    ? undefined
+    : or(
+        lt(archivedGames.finishedAt, cursor.finishedAt),
+        and(eq(archivedGames.finishedAt, cursor.finishedAt), lt(archivedGames.id, cursor.id)),
+      );
+
 export const createDrizzleArchivedGameStore = (db: Db): ArchivedGameStore => ({
   // Written twice whenever the sweep backstops a game the live path already
   // archived, so the second write has to be a no-op rather than a rewrite.
@@ -75,12 +85,18 @@ export const createDrizzleArchivedGameStore = (db: Db): ArchivedGameStore => ({
       .run();
   },
 
-  listForPlayer: async (playerId): Promise<readonly ArchivedGameOverview[]> =>
+  listForPlayer: async (playerId, page): Promise<readonly ArchivedGameOverview[]> =>
     db
       .select(overviewColumns)
       .from(archivedGames)
-      .where(or(eq(archivedGames.whiteUserId, playerId), eq(archivedGames.blackUserId, playerId)))
-      .orderBy(desc(archivedGames.finishedAt))
+      .where(
+        and(
+          or(eq(archivedGames.whiteUserId, playerId), eq(archivedGames.blackUserId, playerId)),
+          startsAfter(page.before),
+        ),
+      )
+      .orderBy(desc(archivedGames.finishedAt), desc(archivedGames.id))
+      .limit(page.limit)
       .all()
       .map(toOverview),
 

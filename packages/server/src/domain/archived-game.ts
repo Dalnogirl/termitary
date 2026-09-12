@@ -37,6 +37,9 @@ const player = (
     ? undefined
     : { playerId: identity.playerId, name: names.get(identity.playerId) };
 
+export const archivedSeatOf = (players: ArchivedSeats, playerId: string): Color | undefined =>
+  (['white', 'black'] as const).find((color) => players[color]?.playerId === playerId);
+
 export const seatIds = (room: FinishedRoom): readonly string[] =>
   [room.players.white, room.players.black]
     .filter((seat) => seat !== undefined)

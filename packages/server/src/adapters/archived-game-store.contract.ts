@@ -13,6 +13,8 @@ export type ArchivedGameStoreHarness = {
 
 const ident = (id: string) => ({ playerId: id });
 
+const ALL = { limit: 100 };
+
 // Playing to a real queen surround here would say nothing about the archive.
 const FINISHED = { status: 'finished', result: 'draw', endReason: 'queen-surrounded' } as const;
 
@@ -81,9 +83,9 @@ export const describeArchivedGameStoreContract = (
       withArchive(async ({ archive }) => {
         await archive.record(gameOf('r1', { white: 'p1', black: 'p2' }));
 
-        expect((await archive.listForPlayer('p1')).map((g) => g.id)).toEqual(['r1']);
-        expect((await archive.listForPlayer('p2')).map((g) => g.id)).toEqual(['r1']);
-        expect(await archive.listForPlayer('p3')).toEqual([]);
+        expect((await archive.listForPlayer('p1', ALL)).map((g) => g.id)).toEqual(['r1']);
+        expect((await archive.listForPlayer('p2', ALL)).map((g) => g.id)).toEqual(['r1']);
+        expect(await archive.listForPlayer('p3', ALL)).toEqual([]);
       }));
 
     it('lists most recently finished first', async () =>
@@ -91,14 +93,17 @@ export const describeArchivedGameStoreContract = (
         await archive.record(gameOf('older', { finishedAt: 2000 }));
         await archive.record(gameOf('newer', { finishedAt: 5000 }));
 
-        expect((await archive.listForPlayer('p1')).map((g) => g.id)).toEqual(['newer', 'older']);
+        expect((await archive.listForPlayer('p1', ALL)).map((g) => g.id)).toEqual([
+          'newer',
+          'older',
+        ]);
       }));
 
     it('lists the snapshotted names and the game summary', async () =>
       withArchive(async ({ archive }) => {
         await archive.record(gameOf('r1', { startedAt: 1000, finishedAt: 4000 }));
 
-        expect(await archive.listForPlayer('p1')).toEqual([
+        expect(await archive.listForPlayer('p1', ALL)).toEqual([
           {
             id: 'r1',
             players: {
@@ -112,6 +117,40 @@ export const describeArchivedGameStoreContract = (
             moveCount: 0,
           },
         ]);
+      }));
+
+    it('stops at the limit and resumes strictly after the cursor', async () =>
+      withArchive(async ({ archive }) => {
+        await archive.record(gameOf('r1', { finishedAt: 1000 }));
+        await archive.record(gameOf('r2', { finishedAt: 2000 }));
+        await archive.record(gameOf('r3', { finishedAt: 3000 }));
+
+        const first = await archive.listForPlayer('p1', { limit: 2 });
+        expect(first.map((g) => g.id)).toEqual(['r3', 'r2']);
+
+        const last = first.at(-1);
+        if (last === undefined) throw new Error('unreachable: the page has two rows');
+        const next = await archive.listForPlayer('p1', {
+          limit: 2,
+          before: { finishedAt: last.finishedAt, id: last.id },
+        });
+        expect(next.map((g) => g.id)).toEqual(['r1']);
+      }));
+
+    it('breaks a tie on the id, so a shared finish instant never repeats a row', async () =>
+      withArchive(async ({ archive }) => {
+        await archive.record(gameOf('a', { finishedAt: 2000 }));
+        await archive.record(gameOf('b', { finishedAt: 2000 }));
+        await archive.record(gameOf('c', { finishedAt: 2000 }));
+
+        const first = await archive.listForPlayer('p1', { limit: 2 });
+        expect(first.map((g) => g.id)).toEqual(['c', 'b']);
+
+        const next = await archive.listForPlayer('p1', {
+          limit: 2,
+          before: { finishedAt: new Date(2000), id: 'b' },
+        });
+        expect(next.map((g) => g.id)).toEqual(['a']);
       }));
 
     it('keeps the name of a seat whose account is gone', async () =>
