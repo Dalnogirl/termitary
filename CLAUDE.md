@@ -61,7 +61,7 @@ Coverage is high and includes a randomized fuzzer (`src/e2e.test.ts`). Rule chan
 
 ## Server
 
-Hexagonal layering, and the seams are load-bearing because the roadmap swaps the adapters for AWS later:
+Hexagonal layering, and the seams are load-bearing because the adapters get swapped for AWS ones later (#50):
 
 - `domain/` — `Room` (seats as a positional `[white, black]` tuple), `Identity`, and the `RoomStore` / `ConnectionRegistry` port types.
 - `adapters/` — in-memory implementations of both ports, plus better-auth, Drizzle, and the session extractor.
@@ -104,7 +104,7 @@ Konva is imported through deep paths (`konva/lib/Stage.js`) to keep the bundle d
 
 ## State of the work
 
-`docs/roadmap.md` is current through Phase 4: Phases 1 to 3 are done, Phase 4 has the Drizzle room store and better-auth landed with game history and rating still open. Commit messages carry the real story numbers (`S-4.2`).
+`docs/decisions.md` is the build log: what got built and where the original plan was wrong. It is not a plan. Planned work is in GitHub issues, and if it is not an issue nobody is working on it. Commit messages carry story numbers (`S-4.2`) matching the phases in the build log.
 
 The web client authenticates through better-auth's SDK (`network/auth-client.ts`, the client-side twin of `ws/identity.ts`). `/signin` runs the two-step email OTP form, `RequireAuth` guards `/lobby` and `/play`, and `/hotseat` stays open because it never touches the server. Both `network/` fetches send `credentials: 'include'`; the WS upgrade carries the cookie on its own.
 
