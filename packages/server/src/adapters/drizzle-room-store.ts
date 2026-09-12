@@ -11,6 +11,8 @@ const toRoom = (row: RoomRow): Room => ({
   id: row.id,
   state: fromWire(WireGameStateSchema.parse(row.state)),
   players: { white: seat(row.whiteUserId), black: seat(row.blackUserId) },
+  createdAt: row.createdAt,
+  updatedAt: row.updatedAt,
 });
 
 const overviewColumns = {
@@ -38,20 +40,21 @@ const mutableColumns = (room: Room) => ({
   stateVersion: CURRENT_STATE_VERSION,
 });
 
-const insertColumns = (room: Room, now: Date) => ({
+const insertColumns = (room: Room) => ({
   ...mutableColumns(room),
   id: room.id,
   version: 1,
-  createdAt: now,
-  updatedAt: now,
+  createdAt: room.createdAt,
+  updatedAt: room.updatedAt,
 });
 
-// $onUpdate does not fire on the conflict branch of an upsert, so version and
-// updatedAt are set by hand.
-const updateColumns = (room: Room, now: Date) => ({
+// createdAt is deliberately absent: the conflict branch leaves the room's real
+// start alone, whatever the caller is carrying. version is set by hand because
+// $onUpdate does not fire on an upsert's conflict branch.
+const updateColumns = (room: Room) => ({
   ...mutableColumns(room),
   version: sql`${roomsTable.version} + 1`,
-  updatedAt: now,
+  updatedAt: room.updatedAt,
 });
 
 // better-sqlite3 sets a stable `code`; the message text names the table and
@@ -62,10 +65,10 @@ const isPrimaryKeyViolation = (err: unknown): boolean =>
   'code' in err &&
   err.code === 'SQLITE_CONSTRAINT_PRIMARYKEY';
 
-export const createDrizzleRoomStore = (db: Db, now: () => Date = () => new Date()): RoomStore => ({
+export const createDrizzleRoomStore = (db: Db): RoomStore => ({
   create: async (room) => {
     try {
-      db.insert(roomsTable).values(insertColumns(room, now())).run();
+      db.insert(roomsTable).values(insertColumns(room)).run();
     } catch (err) {
       if (isPrimaryKeyViolation(err)) throw new RoomAlreadyExistsError(room.id);
       throw err;
@@ -78,10 +81,9 @@ export const createDrizzleRoomStore = (db: Db, now: () => Date = () => new Date(
   },
 
   save: async (room) => {
-    const stamp = now();
     db.insert(roomsTable)
-      .values(insertColumns(room, stamp))
-      .onConflictDoUpdate({ target: roomsTable.id, set: updateColumns(room, stamp) })
+      .values(insertColumns(room))
+      .onConflictDoUpdate({ target: roomsTable.id, set: updateColumns(room) })
       .run();
   },
 
@@ -123,17 +125,21 @@ export const createDrizzleRoomStore = (db: Db, now: () => Date = () => new Date(
       .all()
       .map(toOverview),
 
+  listFinishedBefore: async (cutoff): Promise<readonly Room[]> =>
+    db
+      .select()
+      .from(roomsTable)
+      .where(and(lt(roomsTable.updatedAt, cutoff), eq(roomsTable.status, 'finished')))
+      .all()
+      .map(toRoom),
+
   deleteAbandonedBefore: async (cutoff) =>
     db
       .delete(roomsTable)
       .where(
         and(
           lt(roomsTable.updatedAt, cutoff),
-          or(
-            eq(roomsTable.status, 'finished'),
-            isNull(roomsTable.whiteUserId),
-            isNull(roomsTable.blackUserId),
-          ),
+          or(isNull(roomsTable.whiteUserId), isNull(roomsTable.blackUserId)),
         ),
       )
       .run().changes,

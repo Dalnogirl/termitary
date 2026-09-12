@@ -1,8 +1,32 @@
-import type { RoomStore } from '../domain/room-store.js';
+import type { Ports } from '../domain/ports.js';
+import { archiveFinished } from './archive-finished.js';
 
 export const ABANDONED_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
 
+export type SweepPorts = Pick<Ports, 'rooms' | 'archive' | 'users'>;
+
+/**
+ * Archive, then delete, always. A crash between the two leaves a room the next
+ * sweep re-archives (a no-op) and deletes; a crash before the archive leaves
+ * the room for the next sweep to retry. Nothing is deleted unarchived.
+ */
 export const sweepAbandonedRooms = async (
-  rooms: RoomStore,
+  { rooms, archive, users }: SweepPorts,
   now: Date = new Date(),
-): Promise<number> => rooms.deleteAbandonedBefore(new Date(now.getTime() - ABANDONED_ROOM_TTL_MS));
+): Promise<number> => {
+  const cutoff = new Date(now.getTime() - ABANDONED_ROOM_TTL_MS);
+
+  let removed = 0;
+  for (const room of await rooms.listFinishedBefore(cutoff)) {
+    try {
+      await archiveFinished(room, { archive, users });
+    } catch (err) {
+      console.error('archiving a swept game failed', { roomId: room.id, err });
+      continue;
+    }
+    await rooms.delete(room.id);
+    removed += 1;
+  }
+
+  return removed + (await rooms.deleteAbandonedBefore(cutoff));
+};

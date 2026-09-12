@@ -20,7 +20,11 @@ export type RoomOverview = {
 export type RoomStore = {
   create(room: Room): Promise<void>;
   get(id: string): Promise<Room | undefined>;
-  /** Insert or replace: `save` on an unknown id writes it. */
+  /**
+   * Insert or replace: `save` on an unknown id writes it. Both timestamps are
+   * written as the room carries them, so a caller that wants `updatedAt` to
+   * move calls `touch` first.
+   */
   save(room: Room): Promise<void>;
   delete(id: string): Promise<void>;
   /**
@@ -32,9 +36,15 @@ export type RoomStore = {
   /** Games in progress with a free seat that the player is not already in. */
   listOpenExcluding(playerId: string): Promise<readonly RoomOverview[]>;
   /**
-   * Removes rooms last written before `cutoff` that nobody can be waiting in:
-   * finished games, and rooms with a free seat. A full game in progress is
-   * never swept, however old, because both players can still return to it.
+   * Finished games last written before `cutoff`, whole rather than projected:
+   * the sweep archives each one before deleting it, which needs the state.
+   */
+  listFinishedBefore(cutoff: Date): Promise<readonly Room[]>;
+  /**
+   * Removes rooms last written before `cutoff` with a free seat, which nobody
+   * can be waiting in. A full game in progress is never swept, however old,
+   * because both players can still return to it. Finished games are left to
+   * `listFinishedBefore` and `delete`, so none is dropped unarchived.
    * Returns the number of rooms removed.
    */
   deleteAbandonedBefore(cutoff: Date): Promise<number>;

@@ -12,7 +12,7 @@ export const createRoom = async (
   identity: Identity,
   roomStore: RoomStore,
 ): Promise<CreateRoomResponseDto> => {
-  const room = buildRoom(randomUUID(), identity);
+  const room = buildRoom(randomUUID(), identity, new Date());
   await roomStore.create(room);
   return { roomId: room.id };
 };

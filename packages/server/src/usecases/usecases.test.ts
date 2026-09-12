@@ -1,12 +1,15 @@
+import type { Board, GameState, Piece } from '@termitary/engine';
 import { listValidMoves } from '@termitary/engine';
 import type { ServerMessage } from '@termitary/protocol';
 import { fromWire, toWireMove } from '@termitary/protocol';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createInMemoryConnectionRegistry } from '../adapters/in-memory-connection-registry.js';
-import { createInMemoryRoomStore } from '../adapters/in-memory-room-store.js';
 import type { Sender } from '../domain/connection-registry.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
+import { touch } from '../domain/room.js';
+import { createTestStores } from '../testing/stores.js';
+import { archiveFinished } from './archive-finished.js';
 import { cancelRoom } from './cancel-room.js';
 import { createRoom } from './create-room.js';
 import { joinGame } from './join-game.js';
@@ -14,15 +17,19 @@ import { makeMove } from './make-move.js';
 import { resign } from './resign.js';
 
 const ident = (id: string): Identity => ({ playerId: id });
+const PLAYERS = [
+  { id: 'alice', name: 'Alice' },
+  { id: 'bob', name: 'Bob' },
+  { id: 'carol', name: 'Carol' },
+  { id: 'eve', name: 'Eve' },
+];
 
 type Inbox = { messages: ServerMessage[] };
 
 const setup = () => {
   const connections = createInMemoryConnectionRegistry();
-  const ports: Ports = {
-    rooms: createInMemoryRoomStore(),
-    connections,
-  };
+  const { rooms, archive, users } = createTestStores(PLAYERS);
+  const ports: Ports = { rooms, connections, archive, users };
   const inboxes = new Map<string, Inbox>();
   const senders = new Map<string, Sender>();
   const connect = (playerId: string): Inbox => {
@@ -352,5 +359,153 @@ describe('cancelRoom', () => {
 
     expect(await cancelRoom(ident('eve'), roomId, ports.rooms)).toBe('forbidden');
     expect(await cancelRoom(ident('alice'), 'nope', ports.rooms)).toBe('not-found');
+  });
+});
+
+const piece = (type: Piece['type'], color: Piece['color']): Piece => ({ type, color });
+
+// White's queen at the origin with five of its six neighbours filled, and a
+// black ant one slide away from closing the ring. Built by hand because
+// playing a real game to a surround here would say nothing about archiving.
+const oneMoveFromSurrounded = (): GameState => {
+  const board: Board = {
+    cells: new Map([
+      ['0,0', [piece('queen', 'white')]],
+      ['1,0', [piece('ant', 'black')]],
+      ['1,-1', [piece('ant', 'black')]],
+      ['0,-1', [piece('beetle', 'black')]],
+      ['-1,0', [piece('spider', 'black')]],
+      ['-1,1', [piece('grasshopper', 'black')]],
+      ['1,1', [piece('ant', 'black')]],
+      ['2,0', [piece('queen', 'black')]],
+    ]),
+  };
+  return {
+    status: 'in_progress',
+    board,
+    hands: {
+      white: { queen: 0, ant: 3, beetle: 2, spider: 2, grasshopper: 3 },
+      black: { queen: 0, ant: 1, beetle: 1, spider: 1, grasshopper: 2 },
+    },
+    currentPlayer: 'black',
+    turnNumbers: { white: 4, black: 4 },
+    history: [],
+  };
+};
+
+const SURROUNDING_MOVE = {
+  kind: 'relocate',
+  from: { q: 1, r: 1 },
+  to: { q: 0, r: 1 },
+} as const;
+
+describe('archiving a finished game', () => {
+  const seatedRoom = async (ports: Ports, state: GameState): Promise<string> => {
+    await ports.rooms.create({
+      id: 'r1',
+      state,
+      players: { white: ident('alice'), black: ident('bob') },
+      createdAt: new Date(1000),
+      updatedAt: new Date(1000),
+    });
+    return 'r1';
+  };
+
+  it('records the game the move that ends it', async () => {
+    const { ports } = setup();
+    const roomId = await seatedRoom(ports, oneMoveFromSurrounded());
+
+    await makeMove(
+      ident('bob'),
+      { type: 'makeMove', roomId, move: toWireMove(SURROUNDING_MOVE) },
+      ports,
+    );
+
+    const archived = await ports.archive.get(roomId);
+    expect(archived).toMatchObject({
+      id: roomId,
+      result: 'black-wins',
+      endReason: 'queen-surrounded',
+      startedAt: new Date(1000),
+      moveCount: 1,
+      players: {
+        white: { playerId: 'alice', name: 'Alice' },
+        black: { playerId: 'bob', name: 'Bob' },
+      },
+    });
+    expect(archived?.state.status).toBe('finished');
+  });
+
+  it('archives nothing while the game is still in progress', async () => {
+    const { ports } = setup();
+    const roomId = await provisionRoom(ports, 'alice');
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+
+    const room = await ports.rooms.get(roomId);
+    if (!room) throw new Error('room missing');
+    const firstMove = listValidMoves(room.state)[0];
+    if (!firstMove) throw new Error('no valid moves');
+    await makeMove(
+      ident('alice'),
+      { type: 'makeMove', roomId, move: toWireMove(firstMove) },
+      ports,
+    );
+
+    expect(await ports.archive.get(roomId)).toBeUndefined();
+  });
+
+  it('records a resignation, snapshotting both names', async () => {
+    const { ports } = setup();
+    const roomId = await provisionRoom(ports, 'alice');
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+
+    await resign(ident('alice'), { type: 'resign', roomId }, ports);
+
+    expect(await ports.archive.listForPlayer('bob')).toMatchObject([
+      {
+        id: roomId,
+        result: 'black-wins',
+        endReason: 'resignation',
+        players: {
+          white: { playerId: 'alice', name: 'Alice' },
+          black: { playerId: 'bob', name: 'Bob' },
+        },
+      },
+    ]);
+  });
+
+  it('keeps the game playable when the archive is down', async () => {
+    const { ports } = setup();
+    const roomId = await provisionRoom(ports, 'alice');
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    const broken: Ports = {
+      ...ports,
+      archive: {
+        ...ports.archive,
+        record: async () => {
+          throw new Error('archive is down');
+        },
+      },
+    };
+
+    await resign(ident('alice'), { type: 'resign', roomId }, broken);
+
+    const room = await ports.rooms.get(roomId);
+    expect(room?.state.status).toBe('finished');
+  });
+
+  it('leaves the live archive row alone when the sweep backstops it', async () => {
+    const { ports } = setup();
+    const roomId = await provisionRoom(ports, 'alice');
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+
+    await resign(ident('alice'), { type: 'resign', roomId }, ports);
+    const first = await ports.archive.get(roomId);
+
+    const room = await ports.rooms.get(roomId);
+    if (!room) throw new Error('room missing');
+    await archiveFinished(touch(room, new Date(9_000_000)), ports);
+
+    expect(await ports.archive.get(roomId)).toEqual(first);
   });
 });

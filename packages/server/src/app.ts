@@ -9,17 +9,18 @@ import Fastify, {
 import { type Auth, createAuth } from './adapters/auth/better-auth.js';
 import { registerAuth } from './adapters/auth/fastify.js';
 import { type DbHandle, createDb } from './adapters/db/client.js';
+import { createDrizzleArchivedGameStore } from './adapters/drizzle-archived-game-store.js';
 import { createDrizzleRoomStore } from './adapters/drizzle-room-store.js';
+import { createDrizzleUserStore } from './adapters/drizzle-user-store.js';
 import { createInMemoryConnectionRegistry } from './adapters/in-memory-connection-registry.js';
 import type { Identity } from './domain/identity.js';
 import type { Ports } from './domain/ports.js';
-import type { RoomStore } from './domain/room-store.js';
 import { env } from './env.js';
 import { type CancelRoomResult, cancelRoom } from './usecases/cancel-room.js';
 import { createRoom } from './usecases/create-room.js';
 import { listMyRooms } from './usecases/list-my-rooms.js';
 import { listRooms } from './usecases/list-rooms.js';
-import { sweepAbandonedRooms } from './usecases/sweep-abandoned-rooms.js';
+import { type SweepPorts, sweepAbandonedRooms } from './usecases/sweep-abandoned-rooms.js';
 import { handleConnection } from './ws/connection.js';
 import { type IdentityExtractor, createIdentityExtractor } from './ws/identity.js';
 
@@ -48,13 +49,15 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
 
   const rooms = createDrizzleRoomStore(dbHandle.db);
   const connections = createInMemoryConnectionRegistry();
-  const ports: Ports = { rooms, connections };
+  const archive = createDrizzleArchivedGameStore(dbHandle.db);
+  const users = createDrizzleUserStore(dbHandle.db);
+  const ports: Ports = { rooms, connections, archive, users };
 
   app.decorateRequest('identity', null);
 
   const sweepTimer = startRoomSweep(
     app,
-    rooms,
+    ports,
     options.roomSweepIntervalMs ?? env.roomSweepIntervalMs,
   );
 
@@ -101,8 +104,8 @@ const CANCEL_ROOM_STATUS: Record<CancelRoomResult, number> = {
   forbidden: 403,
 };
 
-const sweepAndLog = (app: FastifyInstance, rooms: RoomStore): void => {
-  void sweepAbandonedRooms(rooms)
+const sweepAndLog = (app: FastifyInstance, ports: SweepPorts): void => {
+  void sweepAbandonedRooms(ports)
     .then((removed) => {
       if (removed > 0) app.log.info({ removed }, 'swept abandoned rooms');
     })
@@ -111,13 +114,13 @@ const sweepAndLog = (app: FastifyInstance, rooms: RoomStore): void => {
 
 const startRoomSweep = (
   app: FastifyInstance,
-  rooms: RoomStore,
+  ports: SweepPorts,
   intervalMs: number,
 ): NodeJS.Timeout | undefined => {
   if (intervalMs <= 0) return undefined;
-  sweepAndLog(app, rooms);
+  sweepAndLog(app, ports);
   // unref'd so the timer never holds the process open; onClose clears it.
-  return setInterval(() => sweepAndLog(app, rooms), intervalMs).unref();
+  return setInterval(() => sweepAndLog(app, ports), intervalMs).unref();
 };
 
 const gateIdentity =

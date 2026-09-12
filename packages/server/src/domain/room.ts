@@ -8,16 +8,28 @@ export type Room = {
   readonly id: string;
   readonly state: GameState;
   readonly players: Seats;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
 };
+
+export type FinishedRoom = Room & { readonly state: Extract<GameState, { status: 'finished' }> };
+
+export const isFinished = (room: Room): room is FinishedRoom => room.state.status === 'finished';
 
 // White is the first seat filled, which makes the room creator white.
 const SEAT_ORDER = ['white', 'black'] as const;
 
-export const createRoom = (id: string, creator: Identity): Room => ({
+export const createRoom = (id: string, creator: Identity, now: Date): Room => ({
   id,
   state: createGame(),
   players: { white: creator, black: undefined },
+  createdAt: now,
+  updatedAt: now,
 });
+
+// Stores write `updatedAt` as given, so anything that should move a room in
+// the lobby ordering or out of the sweep's reach has to say so here.
+export const touch = (room: Room, now: Date): Room => ({ ...room, updatedAt: now });
 
 export const isFull = (room: Room): boolean =>
   room.players.white !== undefined && room.players.black !== undefined;

@@ -3,7 +3,8 @@ import type { ClientResign } from '@termitary/protocol';
 import { toWire } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
-import { colorOf, isFull } from '../domain/room.js';
+import { colorOf, isFull, touch } from '../domain/room.js';
+import { archiveFinished } from './archive-finished.js';
 import { sendError } from './send-error.js';
 
 // Both players stay bound to the room: the finished game is the point, and
@@ -11,7 +12,7 @@ import { sendError } from './send-error.js';
 export const resign = async (
   identity: Identity,
   msg: ClientResign,
-  { rooms, connections }: Ports,
+  { rooms, connections, archive, users }: Ports,
 ): Promise<void> => {
   const room = await rooms.get(msg.roomId);
   if (room === undefined) {
@@ -41,11 +42,19 @@ export const resign = async (
     return;
   }
 
-  const updated = { ...room, state: resignGame(room.state, color) };
+  const updated = touch({ ...room, state: resignGame(room.state, color) }, new Date());
   await rooms.save(updated);
   await connections.broadcast(updated.id, {
     type: 'stateUpdated',
     roomId: updated.id,
     state: toWire(updated.state),
   });
+
+  // Same terms as makeMove: the resignation stands whether or not the archive
+  // takes it, and the sweep retries what this drops.
+  try {
+    await archiveFinished(updated, { archive, users });
+  } catch (err) {
+    console.error('archiving a resigned game failed', { roomId: updated.id, err });
+  }
 };
