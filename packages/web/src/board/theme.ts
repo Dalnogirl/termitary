@@ -15,6 +15,7 @@ export type CanvasTheme = {
   readonly targetStroke: string;
   readonly targetFillActive: string;
   readonly targetStrokeActive: string;
+  readonly lastMoveStroke: string;
 };
 
 export const readTheme = (): CanvasTheme => ({
@@ -31,4 +32,5 @@ export const readTheme = (): CanvasTheme => ({
   targetStroke: cssVar('board-target-stroke', 'rgb(255 255 255 / 45%)'),
   targetFillActive: cssVar('board-target-fill-active', 'rgb(255 255 255 / 28%)'),
   targetStrokeActive: cssVar('board-target-stroke-active', 'rgb(255 255 255)'),
+  lastMoveStroke: cssVar('board-last-move-stroke', 'oklch(0.78 0.15 65)'),
 });

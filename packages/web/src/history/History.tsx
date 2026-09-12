@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 import type { HexCoord, Move, PieceType } from '@hive/engine';
 import { ChevronLeft, ChevronRight, ListOrdered } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useGameStore } from '../store/store.js';
+import { gameStore, isLive, useGameStore } from '../store/store.js';
 
 const PIECE_NAME: Record<PieceType, string> = {
   queen: 'Queen',
@@ -33,15 +33,25 @@ const initialOpen = (): boolean =>
 
 export const History = () => {
   const history = useGameStore((s) => s.liveGame.history);
+  const viewIndex = useGameStore((s) => s.viewIndex);
+  const setViewIndex = useGameStore((s) => s.setViewIndex);
   const [isOpen, setIsOpen] = useState(initialOpen);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const activeRef = useRef<HTMLLIElement>(null);
+
+  useEffect(() => {
+    if (!isOpen || viewIndex === 0) return;
+    activeRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [isOpen, viewIndex]);
 
   // ESC closes the drawer. Lightweight modal etiquette — full focus trap would
   // need Radix Dialog; this covers the most common dismiss path.
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setIsOpen(false);
+      // Stepped back, Escape returns to the live board instead; the game view
+      // owns that binding.
+      if (e.key === 'Escape' && isLive(gameStore.getState())) setIsOpen(false);
     };
     window.addEventListener('keydown', onKey);
     closeRef.current?.focus();
@@ -107,16 +117,28 @@ export const History = () => {
             {history.map((move, idx) => {
               const turn = Math.floor(idx / 2) + 1;
               const player = idx % 2 === 0 ? 'White' : 'Black';
+              const isActive = viewIndex === idx + 1;
               return (
                 <li
                   // Move history is append-only — idx IS the canonical move ordinal.
                   // biome-ignore lint/suspicious/noArrayIndexKey: append-only list
                   key={idx}
-                  className="flex gap-2 px-4 py-1.5 border-b border-border/50 hover:bg-muted/50"
+                  ref={isActive ? activeRef : null}
+                  className="border-b border-border/50"
                 >
-                  <span className="text-muted-foreground w-6 shrink-0">{turn}.</span>
-                  <span className="font-semibold w-12 shrink-0">{player}</span>
-                  <span className="text-foreground/80">{formatMove(move)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setViewIndex(idx + 1)}
+                    aria-current={isActive}
+                    className={cn(
+                      'flex w-full gap-2 px-4 py-1.5 text-left hover:bg-muted/50',
+                      isActive && 'bg-muted',
+                    )}
+                  >
+                    <span className="text-muted-foreground w-6 shrink-0">{turn}.</span>
+                    <span className="font-semibold w-12 shrink-0">{player}</span>
+                    <span className="text-foreground/80">{formatMove(move)}</span>
+                  </button>
                 </li>
               );
             })}
