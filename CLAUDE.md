@@ -48,7 +48,7 @@ Packages are consumed as raw TypeScript source (`"main": "src/index.ts"`); nothi
 
 ## Engine
 
-`docs/architecture.md` describes the intended design but is written in classes (`class Board`, `MoveValidator`, `GameCoordinator`). The implementation is entirely free functions over immutable value objects. Trust the code; treat the doc as rationale for the layering, not as an API reference.
+`docs/architecture.md` explains why the engine is shaped the way it is. Its samples match the code (free functions over immutable value objects) but are abridged, so read it for rationale and the source for signatures.
 
 The real shape:
 
@@ -102,7 +102,7 @@ Konva is imported through deep paths (`konva/lib/Stage.js`) to keep the bundle d
 
 ## State of the work
 
-`docs/roadmap.md` phases lag reality: it marks Phase 2 and 3 unchecked, but the hot-seat UI, WS server, and lobby all exist and Phase 4 (Drizzle + better-auth) is landing. Commit messages carry the real story numbers (`S-4.2`).
+`docs/roadmap.md` is current through Phase 4: Phases 1 to 3 are done, Phase 4 has the Drizzle room store and better-auth landed with game history and rating still open. Commit messages carry the real story numbers (`S-4.2`).
 
 The web client authenticates through better-auth's SDK (`network/auth-client.ts`, the client-side twin of `ws/identity.ts`). `/signin` runs the two-step email OTP form, `RequireAuth` guards `/lobby` and `/play`, and `/hotseat` stays open because it never touches the server. Both `network/` fetches send `credentials: 'include'`; the WS upgrade carries the cookie on its own.
 
