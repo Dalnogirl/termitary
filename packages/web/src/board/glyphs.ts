@@ -1,4 +1,4 @@
-import type { PieceType } from '@hive/engine';
+import type { PieceType } from '@termitary/engine';
 
 export type GlyphShape =
   | { readonly kind: 'fill'; readonly d: string }

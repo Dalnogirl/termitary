@@ -1,5 +1,5 @@
-import { type GameState, createGame } from '@hive/engine';
-import type { Color } from '@hive/engine';
+import { type GameState, createGame } from '@termitary/engine';
+import type { Color } from '@termitary/engine';
 import type { Identity } from './identity.js';
 
 export type Seats = Readonly<Record<Color, Identity | undefined>>;

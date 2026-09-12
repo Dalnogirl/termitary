@@ -1,4 +1,4 @@
-# Hive Engine — Core Architecture
+# Termitary Engine — Core Architecture
 
 Design decisions for the pure game engine (`packages/engine`). Implementation details, not project plan.
 
@@ -50,7 +50,7 @@ export type Board = { readonly cells: ReadonlyMap<string, readonly Piece[]> };
 
 **No `width`/`height`/`bounds`.** There aren't any. Renderer computes bounding box of occupied cells to center the viewport.
 
-Serialization is not free, because a `Map` is not JSON. `@hive/protocol` owns that conversion (`toWire`/`fromWire`), and the engine stays ignorant of the wire.
+Serialization is not free, because a `Map` is not JSON. `@termitary/protocol` owns that conversion (`toWire`/`fromWire`), and the engine stays ignorant of the wire.
 
 `board.ts` is the accessors plus two mutators that return new boards:
 
@@ -223,7 +223,7 @@ Still deferred: the height-aware squeeze between two stacks of equal height. `be
 
 ### Frontend animations
 
-Handled in `@hive/web` (`board/motion.ts`), where a relocation renders as a lift and a drop. The engine never learned about it, as intended.
+Handled in `@termitary/web` (`board/motion.ts`), where a relocation renders as a lift and a drop. The engine never learned about it, as intended.
 
 ---
 

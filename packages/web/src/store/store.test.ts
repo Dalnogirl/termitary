@@ -1,4 +1,10 @@
-import { type GameState, type Move, applyMove, createGame, listValidMoves } from '@hive/engine';
+import {
+  type GameState,
+  type Move,
+  applyMove,
+  createGame,
+  listValidMoves,
+} from '@termitary/engine';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { gameStore, isLive } from './store.js';
 

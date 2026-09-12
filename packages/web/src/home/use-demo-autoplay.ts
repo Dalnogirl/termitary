@@ -1,4 +1,4 @@
-import { applyMove } from '@hive/engine';
+import { applyMove } from '@termitary/engine';
 import { useEffect } from 'react';
 import { gameStore } from '../store/store.js';
 import { createDemoPicker } from './demo-script.js';

@@ -1,6 +1,6 @@
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { Piece, PieceType } from '@hive/engine';
+import type { Piece, PieceType } from '@termitary/engine';
 import { Link } from 'react-router';
 import { type ClusterCell, HexCluster } from '../board/HexCluster.js';
 import { HomeHero } from './HomeHero.js';
@@ -47,7 +47,7 @@ const RULES: readonly {
 export const SignedOutHome = () => (
   <>
     <HomeHero height="partial">
-      <h1 className="text-4xl font-bold tracking-tight">Hive</h1>
+      <h1 className="text-4xl font-bold tracking-tight">Termitary</h1>
       <p className="text-lg text-foreground">
         A board game with no board. Bring out your queen, then bury the other one under six pieces.
       </p>

@@ -19,9 +19,9 @@ pnpm test                      # vitest run in engine/protocol/server (web has n
 Single test file or case:
 
 ```bash
-pnpm --filter @hive/engine test src/movements/spider.test.ts
-pnpm --filter @hive/server test -t 'rejects unauthenticated'
-pnpm --filter @hive/engine test:watch
+pnpm --filter @termitary/engine test src/movements/spider.test.ts
+pnpm --filter @termitary/server test -t 'rejects unauthenticated'
+pnpm --filter @termitary/engine test:watch
 ```
 
 There are no vitest config files. Vitest picks up colocated `*.test.ts` next to the source it covers.
@@ -39,10 +39,10 @@ Migrations run automatically on boot (`createDb` calls `migrate`), so a fresh ch
 
 `engine` → `protocol` → `server` / `web`. The engine imports nothing; the protocol imports the engine; server and web import both.
 
-- **`@hive/engine`** — pure Hive rules. No IO, no framework, no deps beyond fast-check in tests.
-- **`@hive/protocol`** — zod schemas for every WS message and REST body, plus `toWire`/`fromWire` converting `GameState` to and from JSON (the board is a `Map`, so it needs explicit conversion).
-- **`@hive/server`** — Fastify + `@fastify/websocket`, better-auth over Drizzle/SQLite.
-- **`@hive/web`** — React 19 SPA, Vite, Konva canvas board, zustand, Tailwind v4 + shadcn.
+- **`@termitary/engine`** — pure Hive rules. No IO, no framework, no deps beyond fast-check in tests.
+- **`@termitary/protocol`** — zod schemas for every WS message and REST body, plus `toWire`/`fromWire` converting `GameState` to and from JSON (the board is a `Map`, so it needs explicit conversion).
+- **`@termitary/server`** — Fastify + `@fastify/websocket`, better-auth over Drizzle/SQLite.
+- **`@termitary/web`** — React 19 SPA, Vite, Konva canvas board, zustand, Tailwind v4 + shadcn.
 
 Packages are consumed as raw TypeScript source (`"main": "src/index.ts"`); nothing builds to `dist`. Editing the engine changes the web app on the next vite reload with no build step.
 

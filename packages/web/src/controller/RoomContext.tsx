@@ -1,4 +1,4 @@
-import type { Color } from '@hive/engine';
+import type { Color } from '@termitary/engine';
 import { type ReactNode, createContext, useContext } from 'react';
 
 export type RoomContextValue = {

@@ -1,4 +1,4 @@
-import type { Color, HexCoord, Move } from '@hive/engine';
+import type { Color, HexCoord, Move } from '@termitary/engine';
 import { gameStore, isLive } from '../store/store.js';
 import type { Controller } from './port.js';
 

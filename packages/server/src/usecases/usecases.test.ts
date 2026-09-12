@@ -1,6 +1,6 @@
-import { listValidMoves } from '@hive/engine';
-import type { ServerMessage } from '@hive/protocol';
-import { fromWire, toWireMove } from '@hive/protocol';
+import { listValidMoves } from '@termitary/engine';
+import type { ServerMessage } from '@termitary/protocol';
+import { fromWire, toWireMove } from '@termitary/protocol';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createInMemoryConnectionRegistry } from '../adapters/in-memory-connection-registry.js';
 import { createInMemoryRoomStore } from '../adapters/in-memory-room-store.js';

@@ -1,5 +1,5 @@
-import type { ClientMessage, ServerMessage } from '@hive/protocol';
-import { ServerMessageSchema } from '@hive/protocol';
+import type { ClientMessage, ServerMessage } from '@termitary/protocol';
+import { ServerMessageSchema } from '@termitary/protocol';
 import { expect } from 'vitest';
 import { WebSocket } from 'ws';
 

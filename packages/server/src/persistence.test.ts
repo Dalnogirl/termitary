@@ -1,8 +1,8 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { listValidMoves } from '@hive/engine';
-import { fromWire, toWireMove } from '@hive/protocol';
+import { listValidMoves } from '@termitary/engine';
+import { fromWire, toWireMove } from '@termitary/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type DbHandle, createDb } from './adapters/db/client.js';
 import { type TestApp, createTestApp } from './testing/auth-helper.js';
@@ -26,7 +26,7 @@ describe('room persistence across a restart', () => {
   };
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'hive-persistence-'));
+    dir = mkdtempSync(join(tmpdir(), 'termitary-persistence-'));
     path = join(dir, 'test.db');
   });
 

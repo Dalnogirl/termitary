@@ -1,4 +1,4 @@
-import type { Color, PieceType } from '@hive/engine';
+import type { Color, PieceType } from '@termitary/engine';
 import { usePrefsStore } from '../store/prefs.js';
 import { type PieceSet, markFor } from './piece-sets.js';
 import { type PieceHue, pieceInk } from './pieces.js';

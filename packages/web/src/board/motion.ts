@@ -1,5 +1,5 @@
 import 'konva/lib/_CoreInternals.js';
-import type { HexCoord, Move } from '@hive/engine';
+import type { HexCoord, Move } from '@termitary/engine';
 import { Animation } from 'konva/lib/Animation.js';
 import type { Group } from 'konva/lib/Group.js';
 import type { Layer } from 'konva/lib/Layer.js';

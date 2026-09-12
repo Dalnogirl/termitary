@@ -1,6 +1,6 @@
-import { type Move, createGame, listValidMoves } from '@hive/engine';
-import type { ClientMessage, ServerMessage } from '@hive/protocol';
-import { toWire } from '@hive/protocol';
+import { type Move, createGame, listValidMoves } from '@termitary/engine';
+import type { ClientMessage, ServerMessage } from '@termitary/protocol';
+import { toWire } from '@termitary/protocol';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WsClient, WsStatus } from '../network/client.js';
 import { gameStore } from '../store/store.js';

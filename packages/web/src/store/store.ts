@@ -6,7 +6,7 @@ import {
   createGame,
   listValidMoves,
   replayFrames,
-} from '@hive/engine';
+} from '@termitary/engine';
 import { type StateCreator, createStore, useStore } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
@@ -80,7 +80,7 @@ const initializer: StateCreator<GameStore, [['zustand/devtools', never]]> = (set
 });
 
 export const gameStore = createStore<GameStore>()(
-  devtools(initializer, { name: 'hive-game', enabled: import.meta.env.DEV }),
+  devtools(initializer, { name: 'termitary-game', enabled: import.meta.env.DEV }),
 );
 
 export const isLive = (state: StoreState): boolean =>

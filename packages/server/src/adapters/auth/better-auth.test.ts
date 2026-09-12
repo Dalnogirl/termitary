@@ -1,7 +1,7 @@
 // S-4.1 smoke: signup → OTP → session via the mounted /api/auth/* routes.
 //
 // Manual curl recipe (matches the Phase-4 plan wording):
-//   pnpm --filter @hive/server dev
+//   pnpm --filter @termitary/server dev
 //   curl -X POST http://127.0.0.1:3001/api/auth/email-otp/send-verification-otp \
 //     -H 'content-type: application/json' \
 //     -d '{"email":"alice@test.dev","type":"sign-in"}'

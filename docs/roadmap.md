@@ -1,7 +1,7 @@
-# Hive Web — Project Roadmap
+# Termitary — Project Roadmap
 
 ## Context
-Build a multiplayer web Hive board game. Start as a local monolith using familiar tech (Node, Express/Fastify, React), then progressively migrate to AWS to learn cloud services without blocking game development.
+Build a multiplayer web Hive board game (shipped as Termitary). Start as a local monolith using familiar tech (Node, Express/Fastify, React), then progressively migrate to AWS to learn cloud services without blocking game development.
 
 Base game only (no expansions). Untimed. Expansions + clock added later.
 
@@ -179,7 +179,7 @@ This phase exists so the data model is proven before touching DynamoDB.
 ## Monorepo Structure
 
 ```
-hive/
+termitary/
 ├── packages/
 │   ├── engine/      # Pure game logic (Phase 1)
 │   ├── server/      # Game server (Phase 3, evolves through 6-8)

@@ -3,6 +3,8 @@ import { devtools } from 'zustand/middleware';
 import { type PieceSet, isPieceSet } from '../board/piece-sets.js';
 import { type PieceHue, isPieceHue } from '../board/pieces.js';
 
+// Kept on the old `hive.` prefix through the rename to Termitary: renaming the
+// key would reset every existing player's piece set and hue without an error.
 const PIECE_SET_KEY = 'hive.pieceSet';
 const PIECE_HUE_KEY = 'hive.pieceHue';
 
@@ -51,7 +53,7 @@ const initializer: StateCreator<PrefsStore, [['zustand/devtools', never]]> = (se
 });
 
 export const prefsStore = createStore<PrefsStore>()(
-  devtools(initializer, { name: 'hive-prefs', enabled: import.meta.env.DEV }),
+  devtools(initializer, { name: 'termitary-prefs', enabled: import.meta.env.DEV }),
 );
 
 export const usePrefsStore = <T>(selector: (s: PrefsStore) => T): T =>

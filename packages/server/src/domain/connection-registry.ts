@@ -1,4 +1,4 @@
-import type { ServerMessage } from '@hive/protocol';
+import type { ServerMessage } from '@termitary/protocol';
 
 export type Sender = (msg: ServerMessage) => Promise<void>;
 

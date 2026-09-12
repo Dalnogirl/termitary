@@ -1,6 +1,6 @@
-import { IllegalMoveError, applyMove } from '@hive/engine';
-import type { ClientMakeMove } from '@hive/protocol';
-import { fromWireMove, toWire } from '@hive/protocol';
+import { IllegalMoveError, applyMove } from '@termitary/engine';
+import type { ClientMakeMove } from '@termitary/protocol';
+import { fromWireMove, toWire } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { type Room, colorOf } from '../domain/room.js';

@@ -1,4 +1,4 @@
-import type { MyRoomSummaryDto, RoomSummaryDto } from '@hive/protocol';
+import type { MyRoomSummaryDto, RoomSummaryDto } from '@termitary/protocol';
 import { getApiUrl } from './url.js';
 
 export const fetchRooms = async (): Promise<readonly RoomSummaryDto[]> => {

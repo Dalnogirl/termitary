@@ -1,5 +1,5 @@
-import type { ClientJoinGame } from '@hive/protocol';
-import { toWire } from '@hive/protocol';
+import type { ClientJoinGame } from '@termitary/protocol';
+import { toWire } from '@termitary/protocol';
 import type { ConnectionRegistry } from '../domain/connection-registry.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';

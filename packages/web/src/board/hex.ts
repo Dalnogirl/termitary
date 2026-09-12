@@ -1,4 +1,4 @@
-import type { HexCoord } from '@hive/engine';
+import type { HexCoord } from '@termitary/engine';
 import { Shape, type ShapeConfig } from 'konva/lib/Shape.js';
 
 export type Pixel = { readonly x: number; readonly y: number };

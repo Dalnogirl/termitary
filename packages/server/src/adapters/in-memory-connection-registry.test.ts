@@ -1,4 +1,4 @@
-import type { ServerMessage } from '@hive/protocol';
+import type { ServerMessage } from '@termitary/protocol';
 import { describe, expect, it } from 'vitest';
 import { createInMemoryConnectionRegistry } from './in-memory-connection-registry.js';
 

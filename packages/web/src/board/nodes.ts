@@ -1,5 +1,5 @@
 import 'konva/lib/_CoreInternals.js';
-import type { Piece, PieceType } from '@hive/engine';
+import type { Piece, PieceType } from '@termitary/engine';
 import { Group } from 'konva/lib/Group.js';
 import type { Shape } from 'konva/lib/Shape.js';
 import { Path } from 'konva/lib/shapes/Path.js';

@@ -9,8 +9,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import type { OpponentPresence } from '@hive/protocol';
 import { useQueryClient } from '@tanstack/react-query';
+import type { OpponentPresence } from '@termitary/protocol';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';

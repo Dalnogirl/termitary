@@ -1,4 +1,4 @@
-import type { RoomSummaryDto } from '@hive/protocol';
+import type { RoomSummaryDto } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { RoomOverview, RoomStore } from '../domain/room-store.js';
 

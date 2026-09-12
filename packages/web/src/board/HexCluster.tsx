@@ -1,4 +1,4 @@
-import type { HexCoord, Piece } from '@hive/engine';
+import type { HexCoord, Piece } from '@termitary/engine';
 import { useEffect, useRef } from 'react';
 import { usePrefsStore } from '../store/prefs.js';
 import { axialToPixel, traceHex } from './hex.js';

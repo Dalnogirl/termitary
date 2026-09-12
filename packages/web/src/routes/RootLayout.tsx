@@ -36,7 +36,7 @@ export const RootLayout = () => (
         to="/"
         className="text-base font-bold tracking-[0.2em] uppercase no-underline text-foreground"
       >
-        Hive
+        Termitary
       </NavLink>
       <ul className="flex items-center gap-2 list-none p-0 m-0">
         <li>

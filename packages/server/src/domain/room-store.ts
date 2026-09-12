@@ -1,4 +1,4 @@
-import type { GameState } from '@hive/engine';
+import type { GameState } from '@termitary/engine';
 import type { Room, Seats } from './room.js';
 
 // What the lobby needs. The listing queries return this rather than whole

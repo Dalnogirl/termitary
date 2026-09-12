@@ -6,7 +6,7 @@ import {
   type PieceType,
   occupiedCells,
   topPieceAt,
-} from '@hive/engine';
+} from '@termitary/engine';
 import type { Group } from 'konva/lib/Group.js';
 import { prefsStore } from '../store/prefs.js';
 import type { StoreState } from '../store/store.js';

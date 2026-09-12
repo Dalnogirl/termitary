@@ -1,5 +1,5 @@
 {
-  "name": "hive",
+  "name": "termitary",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -8,9 +8,9 @@
     "test": "pnpm -r test",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "dev": "pnpm --parallel --filter @hive/web --filter @hive/server dev",
-    "dev:web": "pnpm --filter @hive/web dev",
-    "dev:server": "pnpm --filter @hive/server dev"
+    "dev": "pnpm --parallel --filter @termitary/web --filter @termitary/server dev",
+    "dev:web": "pnpm --filter @termitary/web dev",
+    "dev:server": "pnpm --filter @termitary/server dev"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",

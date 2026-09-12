@@ -1,4 +1,4 @@
-import type { Board, GameState, Hand, Move } from '@hive/engine';
+import type { Board, GameState, Hand, Move } from '@termitary/engine';
 import { z } from 'zod';
 
 const WireColorSchema = z.enum(['white', 'black']);

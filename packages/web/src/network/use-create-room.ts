@@ -1,5 +1,5 @@
-import type { CreateRoomResponseDto } from '@hive/protocol';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { CreateRoomResponseDto } from '@termitary/protocol';
 import { getApiUrl } from './url.js';
 
 const createRoom = async (): Promise<CreateRoomResponseDto> => {

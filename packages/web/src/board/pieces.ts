@@ -1,4 +1,4 @@
-import type { Color, Piece, PieceType } from '@hive/engine';
+import type { Color, Piece, PieceType } from '@termitary/engine';
 import type { CanvasTheme } from './theme.js';
 
 /** Whether one tone serves both players, or each tile tone gets its own. */
