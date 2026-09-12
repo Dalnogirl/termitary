@@ -31,7 +31,11 @@ export const createInMemoryConnectionRegistry = (): InMemoryConnectionRegistry =
     bind(playerId, sender) {
       senders.set(playerId, sender);
     },
-    unbind(playerId) {
+    isBound(playerId, sender) {
+      return senders.get(playerId) === sender;
+    },
+    unbind(playerId, sender) {
+      if (senders.get(playerId) !== sender) return;
       senders.delete(playerId);
       removeFromRoom(playerId);
     },

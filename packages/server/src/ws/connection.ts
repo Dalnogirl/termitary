@@ -1,7 +1,7 @@
 import type { ServerMessage } from '@hive/protocol';
 import type { FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
-import type { ConnectionLifecycle } from '../domain/connection-registry.js';
+import type { ConnectionLifecycle, Sender } from '../domain/connection-registry.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { otherPlayer } from '../domain/room.js';
@@ -30,9 +30,10 @@ export const handleConnection = ({
   const { playerId } = identity;
   req.log.info({ playerId }, 'ws client connected');
 
-  lifecycle.bind(playerId, async (msg) => {
+  const sender = async (msg: ServerMessage): Promise<void> => {
     send(socket, msg);
-  });
+  };
+  lifecycle.bind(playerId, sender);
 
   send(socket, { type: 'connected', playerId });
 
@@ -50,7 +51,7 @@ export const handleConnection = ({
   });
 
   socket.on('close', () => {
-    void detachOnClose(playerId, ports, lifecycle, req);
+    void detachOnClose(playerId, sender, ports, lifecycle, req);
   });
 };
 
@@ -58,23 +59,28 @@ export const handleConnection = ({
 // registry's playerRoom mapping, after which findRoomByPlayerId
 // returns undefined. Disconnect ≠ leave — room state (seats) is
 // untouched, so a reconnect lands in joinGame's re-attach branch.
-// Awaiting (rather than fire-and-forget .finally) keeps unbind from
-// racing with a fresh bind() for the same playerId — e.g. a reload
-// that opens a new socket before the old close handler runs.
 // Never rejects: shutdown closes the room store while sockets are still
 // closing, and a rejected listener is an unhandled rejection.
 const detachOnClose = async (
   playerId: string,
+  sender: Sender,
   ports: Ports,
   lifecycle: ConnectionLifecycle,
   req: FastifyRequest,
 ): Promise<void> => {
+  // A replacement socket for this player is already bound (reload, React
+  // remount), so this close is history: reporting a disconnect would lie and
+  // unbinding would silence the live socket.
+  if (!lifecycle.isBound(playerId, sender)) {
+    req.log.info({ playerId }, 'ws client disconnected (superseded)');
+    return;
+  }
   try {
     await notifyOpponentOfDisconnect(playerId, ports);
   } catch (err) {
     req.log.error({ err, playerId }, 'disconnect notification failed');
   } finally {
-    lifecycle.unbind(playerId);
+    lifecycle.unbind(playerId, sender);
     req.log.info({ playerId }, 'ws client disconnected');
   }
 };

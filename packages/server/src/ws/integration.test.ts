@@ -92,6 +92,39 @@ describe('ws integration', () => {
     await bobWs.close();
   });
 
+  it('answers a socket opened while the previous one for the same player is still closing', async () => {
+    // React's StrictMode remount, and any reload, opens the replacement socket
+    // before the old one's close lands on the server. Binding is per player, so
+    // the late close used to unbind the live socket and every reply to it —
+    // gameJoined included — went nowhere.
+    const roomId = await createRoomViaRest(alice.cookie);
+    const aliceWs = await connect(wsUrl, alice.userId, alice.cookie);
+    expectKind(await aliceWs.next(), 'connected');
+    aliceWs.send({ type: 'joinGame', roomId });
+    expectKind(await aliceWs.next((m) => m.type === 'gameJoined'), 'gameJoined');
+
+    const abandoned = await connect(wsUrl, bob.userId, bob.cookie);
+    void abandoned.close();
+    const bobWs = await connect(wsUrl, bob.userId, bob.cookie);
+    expectKind(await bobWs.next((m) => m.type === 'connected'), 'connected');
+
+    bobWs.send({ type: 'joinGame', roomId });
+    const joined = expectKind(await bobWs.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    expect(joined.playerColor).toBe('black');
+    expect(joined.opponent).toBe('connected');
+
+    // The superseded close must not report bob as away either.
+    aliceWs.send({ type: 'joinGame', roomId });
+    const aliceRejoined = expectKind(
+      await aliceWs.next((m) => m.type === 'gameJoined'),
+      'gameJoined',
+    );
+    expect(aliceRejoined.opponent).toBe('connected');
+
+    await aliceWs.close();
+    await bobWs.close();
+  });
+
   it('returns an error tagged with requestKind for moves on unknown rooms', async () => {
     const aliceWs = await connect(wsUrl, alice.userId, alice.cookie);
     expectKind(await aliceWs.next(), 'connected');
