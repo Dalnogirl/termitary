@@ -5,12 +5,14 @@ import { LobbyPage } from './routes/LobbyPage.js';
 import { PlayPage } from './routes/PlayPage.js';
 import { RequireAuth } from './routes/RequireAuth.js';
 import { RootLayout } from './routes/RootLayout.js';
+import { RouteError } from './routes/RouteError.js';
 import { SignInPage } from './routes/SignInPage.js';
 
 const router = createBrowserRouter([
   {
     path: '/',
     Component: RootLayout,
+    ErrorBoundary: RouteError,
     children: [
       { index: true, Component: HomePage },
       { path: 'hotseat', Component: HotseatPage },

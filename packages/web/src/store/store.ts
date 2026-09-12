@@ -7,6 +7,7 @@ import {
   listValidMoves,
   replayFrames,
 } from '@termitary/engine';
+import { toast } from 'sonner';
 import { type StateCreator, createStore, useStore } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
@@ -21,6 +22,7 @@ export type StoreState = {
   readonly view: GameState;
   readonly lastMove: Move | null;
   readonly frames: readonly GameState[] | null;
+  readonly replayFailed: boolean;
   readonly validMoves: readonly Move[];
   readonly selection: Selection;
 };
@@ -35,15 +37,33 @@ type StoreActions = {
 
 export type GameStore = StoreState & StoreActions;
 
-const liveView = (liveGame: GameState, frames: readonly GameState[] | null): StoreState => ({
+const liveView = (
+  liveGame: GameState,
+  frames: readonly GameState[] | null,
+  replayFailed = false,
+): StoreState => ({
   liveGame,
   viewIndex: liveGame.history.length,
   view: liveGame,
   lastMove: liveGame.history.at(-1) ?? null,
   frames,
+  replayFailed,
   validMoves: listValidMoves(liveGame),
   selection: null,
 });
+
+// replayFrames re-validates every move, so a history that was legal when it was
+// stored and is not under the current rules throws here. Forward play does not
+// depend on the rebuild, so the live board keeps going and only scrubbing dies.
+const buildFrames = (state: StoreState): readonly GameState[] | null => {
+  try {
+    return replayFrames(state.liveGame.history);
+  } catch (error) {
+    console.error(error);
+    toast.error('This game\u2019s history could not be rebuilt', { id: 'replay-failed' });
+    return null;
+  }
+};
 
 // Stepping back is the only thing that needs the intermediate positions, so a
 // player who never opens the history pays nothing for them.
@@ -54,9 +74,12 @@ const viewAt = (state: StoreState, index: number): StoreState => {
   // state keeps zustand from notifying, so an arrow key at the live end cannot
   // clear a selection the player is midway through making.
   if (viewIndex === state.viewIndex) return state;
-  if (viewIndex === liveIndex) return liveView(state.liveGame, state.frames);
+  if (viewIndex === liveIndex) return liveView(state.liveGame, state.frames, state.replayFailed);
+  if (state.replayFailed) return state;
 
-  const frames = state.frames ?? replayFrames(state.liveGame.history);
+  const frames = state.frames ?? buildFrames(state);
+  if (frames === null) return { ...state, replayFailed: true };
+
   return {
     ...state,
     viewIndex,
