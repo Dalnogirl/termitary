@@ -95,6 +95,17 @@ describe('store view', () => {
     expect(s.frames).toBeNull();
   });
 
+  it('leaves a live board and its selection alone when stepping past the end', () => {
+    gameStore.getState().applyGameState(FOUR_PLIES);
+    gameStore.getState().setSelection({ kind: 'hand', piece: 'ant' });
+    const before = gameStore.getState();
+
+    gameStore.getState().setViewIndex(before.viewIndex + 1);
+
+    expect(gameStore.getState().selection).toEqual({ kind: 'hand', piece: 'ant' });
+    expect(gameStore.getState().validMoves).toBe(before.validMoves);
+  });
+
   it('reports the move that produced the live board as lastMove', () => {
     gameStore.getState().applyGameState(FOUR_PLIES);
     const last: Move | undefined = FOUR_PLIES.history.at(-1);

@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 import type { HexCoord, Move, PieceType } from '@hive/engine';
 import { ChevronLeft, ChevronRight, ListOrdered } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { gameStore, isLive, useGameStore } from '../store/store.js';
+import { useGameStore } from '../store/store.js';
 
 const PIECE_NAME: Record<PieceType, string> = {
   queen: 'Queen',
@@ -44,18 +44,9 @@ export const History = () => {
     activeRef.current?.scrollIntoView({ block: 'nearest' });
   }, [isOpen, viewIndex]);
 
-  // ESC closes the drawer. Lightweight modal etiquette — full focus trap would
-  // need Radix Dialog; this covers the most common dismiss path.
   useEffect(() => {
     if (!isOpen) return;
-    const onKey = (e: KeyboardEvent): void => {
-      // Stepped back, Escape returns to the live board instead; the game view
-      // owns that binding.
-      if (e.key === 'Escape' && isLive(gameStore.getState())) setIsOpen(false);
-    };
-    window.addEventListener('keydown', onKey);
     closeRef.current?.focus();
-    return () => window.removeEventListener('keydown', onKey);
   }, [isOpen]);
 
   if (!isOpen) {

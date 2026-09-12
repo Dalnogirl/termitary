@@ -50,6 +50,10 @@ const liveView = (liveGame: GameState, frames: readonly GameState[] | null): Sto
 const viewAt = (state: StoreState, index: number): StoreState => {
   const liveIndex = state.liveGame.history.length;
   const viewIndex = Math.min(Math.max(index, 0), liveIndex);
+  // Stepping past either end lands where you already are. Returning the same
+  // state keeps zustand from notifying, so an arrow key at the live end cannot
+  // clear a selection the player is midway through making.
+  if (viewIndex === state.viewIndex) return state;
   if (viewIndex === liveIndex) return liveView(state.liveGame, state.frames);
 
   const frames = state.frames ?? replayFrames(state.liveGame.history);
