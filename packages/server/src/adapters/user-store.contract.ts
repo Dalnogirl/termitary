@@ -93,6 +93,19 @@ export const describeUserStoreContract = (
         expect(await users.namesOf(['p2'])).toEqual(new Map([['p2', 'Bob']]));
       }));
 
+    it('keeps createdAt when renaming', async () =>
+      withUsers(async ({ users }) => {
+        const before = await users.get('p1');
+        expect((await users.rename('p1', 'Hleb', later))?.createdAt).toEqual(before?.createdAt);
+      }));
+
+    it('renames an account that has no profile to the name asked for', async () =>
+      withUsers(async ({ users, seedAccountWithoutProfile }) => {
+        await seedAccountWithoutProfile('fresh');
+        expect((await users.rename('fresh', 'Hleb', later))?.name).toBe('Hleb');
+        expect(await users.namesOf(['fresh'])).toEqual(new Map([['fresh', 'Hleb']]));
+      }));
+
     it('reports a rename of a missing account rather than creating one', async () =>
       withUsers(async ({ users }) => {
         expect(await users.rename('gone', 'Hleb', later)).toBeNull();

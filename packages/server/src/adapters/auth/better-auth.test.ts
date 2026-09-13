@@ -114,11 +114,11 @@ describe('better-auth email OTP', () => {
     expect(dbHandle.db.select().from(profiles).all()).toEqual(first);
   });
 
-  it('writes the profile on a later sign-in when the first one failed', async () => {
+  it('signs in even when the profile write fails, and repairs on the next one', async () => {
     const email = 'alice@test.dev';
     profileWriteFails = true;
-    await expect(signIn(email)).rejects.toThrow();
-    // The account is already committed, so the retry below never re-runs a
+    await signIn(email);
+    // The account is committed either way, so nothing would re-run a
     // `user.create` hook. This is the hole a create hook alone cannot repair.
     expect(dbHandle.db.select().from(user).all()).toHaveLength(1);
     expect(dbHandle.db.select().from(profiles).all()).toHaveLength(0);

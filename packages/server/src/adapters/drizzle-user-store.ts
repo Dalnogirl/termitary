@@ -52,15 +52,14 @@ export const createDrizzleUserStore = (db: Db): UserStore => ({
   ensure: async (userId, now) => toProfile(ensureProfileRow(db, userId, now)),
 
   rename: async (userId, name, now) => {
-    // The profile FK cascades, so an account deleted mid-flight leaves no row
-    // to update and the insert half of `ensureProfileRow` would violate it.
+    // The profile FK cascades, so an account deleted mid-flight has no row to
+    // update and the insert below would violate the key instead of reporting.
     const accountExists = db.select({ id: user.id }).from(user).where(eq(user.id, userId)).get();
     if (accountExists === undefined) return null;
-    ensureProfileRow(db, userId, now);
     const row = db
-      .update(profiles)
-      .set({ name, updatedAt: now })
-      .where(eq(profiles.userId, userId))
+      .insert(profiles)
+      .values({ userId, name, createdAt: now, updatedAt: now })
+      .onConflictDoUpdate({ target: profiles.userId, set: { name, updatedAt: now } })
       .returning()
       .get();
     return toProfile(row);

@@ -36,11 +36,20 @@ export const createAuth = (db: Db, users: UserStore, opts: { sendOtp?: SendOtp }
     // before running the hook, so a hook that throws leaves the account behind
     // and `user.create` never fires again for it. Every sign-in opens a
     // session, so this insert retries where a create hook could not.
+    //
+    // Swallowed on purpose: the session row is already committed when this
+    // runs, so a throw would 500 a sign-in that otherwise worked and leave a
+    // session no client ever receives a cookie for. A missing profile is what
+    // the next sign-in repairs.
     databaseHooks: {
       session: {
         create: {
           after: async (session) => {
-            await users.ensure(session.userId, new Date());
+            try {
+              await users.ensure(session.userId, new Date());
+            } catch (err) {
+              console.error('[auth] profile write failed', { userId: session.userId, err });
+            }
           },
         },
       },
