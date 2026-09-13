@@ -4,6 +4,25 @@ import { user } from './auth-schema.js';
 
 // Hand-written game tables. `auth-schema.ts` is CLI output and gets rewritten
 // whole by `pnpm db:generate-schema`, so nothing hand-authored survives there.
+// That is also why this warning lives here: `user.name` and `user.image` are
+// better-auth's columns and nothing in this app reads either. A display name
+// is in `profiles` below, reached through `UserStore`. better-auth writes
+// `user.name` as `''` on every sign-in and never writes `user.image` at all,
+// and neither can be dropped while better-auth owns the model.
+
+// One row per account, created on first sign-in. Cascade rather than set null:
+// a deleted account takes its profile with it, and the archive still renders
+// because it snapshots names instead of joining.
+export const profiles = sqliteTable('profiles', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
+export type ProfileRow = typeof profiles.$inferSelect;
 
 // Bump when `state` changes shape. WireGameStateSchema is strict, so old rows
 // stop parsing; this is what a read-time upgrade would branch on.

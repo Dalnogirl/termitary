@@ -46,13 +46,14 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
   const app = Fastify({ logger: options.logger ?? false });
 
   const dbHandle = options.db ?? createDb(env.databaseUrl);
-  const auth = options.auth ?? createAuth(dbHandle.db);
-  const extractIdentity = createIdentityExtractor(auth);
-
   const rooms = createDrizzleRoomStore(dbHandle.db);
   const connections = createInMemoryConnectionRegistry();
   const archive = createDrizzleArchivedGameStore(dbHandle.db);
   const users = createDrizzleUserStore(dbHandle.db);
+
+  // Before `createAuth`, which writes a profile through this port on sign-up.
+  const auth = options.auth ?? createAuth(dbHandle.db, users);
+  const extractIdentity = createIdentityExtractor(auth);
   const ports: Ports = { rooms, connections, archive, users };
 
   app.decorateRequest('identity', null);
