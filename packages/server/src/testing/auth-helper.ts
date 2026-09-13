@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { createAuth } from '../adapters/auth/better-auth.js';
 import { type DbHandle, createDb } from '../adapters/db/client.js';
+import { createDrizzleUserStore } from '../adapters/drizzle-user-store.js';
 import { buildApp } from '../app.js';
 
 export type SignInResult = {
@@ -22,7 +23,7 @@ export type TestApp = {
 export const createTestApp = async (existing?: DbHandle): Promise<TestApp> => {
   const otps: Array<{ email: string; otp: string }> = [];
   const db = existing ?? createDb(':memory:');
-  const auth = createAuth(db.db, {
+  const auth = createAuth(db.db, createDrizzleUserStore(db.db), {
     sendOtp: async ({ email, otp }) => {
       otps.push({ email, otp });
     },
