@@ -12,7 +12,11 @@ const Opponent = ({ game }: { readonly game: ArchivedGameSummaryDto }) => {
   return userId === null ? (
     <span>{name}</span>
   ) : (
-    <Link to={paths.profile(userId)} className="no-underline text-foreground hover:underline">
+    <Link
+      to={paths.profile(userId)}
+      viewTransition
+      className="no-underline text-foreground hover:underline"
+    >
       {name}
     </Link>
   );

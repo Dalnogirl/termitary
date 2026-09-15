@@ -71,7 +71,7 @@ export const SignInPage = () => {
         fail(apiError.message ?? 'That code was not accepted');
         return;
       }
-      await navigate(target, { replace: true });
+      await navigate(target, { replace: true, viewTransition: true });
     } catch (err) {
       fail(messageOf(err, 'Could not reach the server'));
     } finally {
