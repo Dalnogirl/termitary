@@ -10,6 +10,7 @@ type MessageType = ServerMessage['type'];
 const sent: ClientMessage[] = [];
 const messageHandlers = new Map<MessageType, (msg: ServerMessage) => void>();
 let emitStatus: (status: WsStatus) => void = () => {};
+let closed = false;
 
 const fakeClient: WsClient = {
   send: (msg) => {
@@ -25,7 +26,9 @@ const fakeClient: WsClient = {
       emitStatus = () => {};
     };
   },
-  close: () => {},
+  close: () => {
+    closed = true;
+  },
 };
 
 vi.mock('../network/client.js', () => ({ createWsClient: () => fakeClient }));
@@ -69,7 +72,63 @@ describe('createRoomController', () => {
     sent.length = 0;
     messageHandlers.clear();
     toastError.mockClear();
+    closed = false;
     gameStore.getState().reset();
+  });
+
+  it('seats the color and opponent the server assigns', () => {
+    const controller = setup();
+
+    expect(controller.store.getState()).toEqual({
+      status: 'in-room',
+      myColor: 'white',
+      errorMsg: null,
+      opponent: { status: 'connected', userId: 'u2', name: 'Amber Beetle' },
+    });
+    expect(gameStore.getState().liveGame).toEqual(createGame());
+  });
+
+  it('follows the opponent out of the room and back in', () => {
+    const controller = setup();
+    const away = { status: 'disconnected', userId: 'u2', name: 'Amber Beetle' } as const;
+
+    deliver({ type: 'presenceUpdate', roomId: 'r1', opponent: away });
+
+    expect(controller.store.getState().opponent).toEqual(away);
+    expect(controller.store.getState().status).toBe('in-room');
+
+    deliver({
+      type: 'presenceUpdate',
+      roomId: 'r1',
+      opponent: { ...away, status: 'connected' },
+    });
+
+    expect(controller.store.getState().opponent).toEqual({ ...away, status: 'connected' });
+  });
+
+  it('takes the server board over an optimistic one', () => {
+    const controller = setup();
+    controller.commitMove(firstMove());
+
+    const authoritative = createGame();
+    deliver({ type: 'stateUpdated', roomId: 'r1', state: toWire(authoritative) });
+
+    expect(gameStore.getState().liveGame).toEqual(authoritative);
+  });
+
+  it('unbinds every handler and closes the socket on dispose', () => {
+    const controller = setup();
+    sent.length = 0;
+
+    controller.dispose();
+
+    expect(closed).toBe(true);
+    expect(messageHandlers.size).toBe(0);
+
+    // A reconnect on a disposed controller would otherwise re-join a room
+    // the player has navigated away from.
+    emitStatus('open');
+    expect(sent).toEqual([]);
   });
 
   it('surfaces the reason a server-rejected move rolled back', () => {
