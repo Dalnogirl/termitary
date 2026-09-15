@@ -5,6 +5,7 @@ import { Toaster } from 'sonner';
 import { Logo } from '../brand/Logo.js';
 import { signOut, useSession } from '../network/auth-client.js';
 import { SettingsDialog } from '../settings/SettingsDialog.js';
+import { paths } from './paths.js';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(buttonVariants({ variant: isActive ? 'secondary' : 'ghost', size: 'sm' }), 'no-underline');
@@ -17,12 +18,17 @@ const SessionBadge = () => {
 
   const handleSignOut = async (): Promise<void> => {
     await signOut();
-    await navigate('/signin', { replace: true });
+    await navigate(paths.signin, { replace: true });
   };
 
   return (
     <div className="flex items-center gap-3">
-      <span className="text-xs text-muted-foreground">{data.user.email}</span>
+      <NavLink
+        to={paths.profile(data.user.id)}
+        className="text-xs text-muted-foreground no-underline hover:text-foreground"
+      >
+        {data.user.email}
+      </NavLink>
       <Button variant="ghost" size="sm" onClick={() => void handleSignOut()}>
         Sign out
       </Button>
@@ -33,23 +39,18 @@ const SessionBadge = () => {
 export const RootLayout = () => (
   <div className="flex h-dvh w-dvw flex-col bg-background text-foreground overflow-hidden">
     <nav className="flex items-center gap-6 border-b border-border bg-background px-5 py-3">
-      <NavLink to="/" className="no-underline text-foreground">
+      <NavLink to={paths.home} className="no-underline text-foreground">
         <Logo size="nav" />
       </NavLink>
       <ul className="flex items-center gap-2 list-none p-0 m-0">
         <li>
-          <NavLink to="/hotseat" className={navLinkClass}>
+          <NavLink to={paths.hotseat} className={navLinkClass}>
             Hotseat
           </NavLink>
         </li>
         <li>
-          <NavLink to="/lobby" className={navLinkClass}>
+          <NavLink to={paths.lobby} className={navLinkClass}>
             Play online
-          </NavLink>
-        </li>
-        <li>
-          <NavLink to="/archived-games" className={navLinkClass}>
-            Past games
           </NavLink>
         </li>
       </ul>

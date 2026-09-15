@@ -1,11 +1,20 @@
 import type { ArchivedGameSummaryDto } from '@termitary/protocol';
 import { describe, expect, it } from 'vitest';
-import { archivedDetail, endReasonLabel, opponentName, outcomeLabel } from './summary.js';
+import {
+  archivedDetail,
+  endReasonLabel,
+  opponentName,
+  opponentOf,
+  outcomeLabel,
+} from './summary.js';
 
 const game = (over: Partial<ArchivedGameSummaryDto> = {}): ArchivedGameSummaryDto => ({
   gameId: 'g1',
   seat: 'white',
-  players: { white: 'me', black: 'them' },
+  players: {
+    white: { userId: 'u-me', name: 'me' },
+    black: { userId: 'u-them', name: 'them' },
+  },
   result: 'white-wins',
   endReason: 'queen-surrounded',
   startedAt: 0,
@@ -21,14 +30,24 @@ describe('opponentName', () => {
   });
 
   it('falls back when nobody held the seat', () => {
-    expect(opponentName(game({ players: { white: 'me', black: null } }))).toBe('Unknown opponent');
+    const players = {
+      white: { userId: 'u-me', name: 'me' },
+      black: { userId: null, name: null },
+    };
+    expect(opponentName(game({ players }))).toBe('Unknown opponent');
+  });
+});
+
+describe('opponentOf', () => {
+  it('keeps the opponent’s id, so a row can link to their profile', () => {
+    expect(opponentOf(game({ seat: 'white' }))).toEqual({ userId: 'u-them', name: 'them' });
   });
 });
 
 describe('outcomeLabel', () => {
-  it('reads the result from the caller’s seat', () => {
-    expect(outcomeLabel(game({ seat: 'white', result: 'white-wins' }))).toBe('You won');
-    expect(outcomeLabel(game({ seat: 'black', result: 'white-wins' }))).toBe('You lost');
+  it('reads the result from the row’s seat, in the third person', () => {
+    expect(outcomeLabel(game({ seat: 'white', result: 'white-wins' }))).toBe('Won');
+    expect(outcomeLabel(game({ seat: 'black', result: 'white-wins' }))).toBe('Lost');
   });
 
   it('has no side for a draw', () => {
@@ -43,7 +62,7 @@ describe('endReasonLabel', () => {
       'opponent resigned',
     );
     expect(endReasonLabel(game({ ...resigned, seat: 'black', result: 'white-wins' }))).toBe(
-      'you resigned',
+      'resigned',
     );
   });
 
@@ -55,7 +74,7 @@ describe('endReasonLabel', () => {
 describe('archivedDetail', () => {
   it('carries outcome, seat and move count', () => {
     expect(archivedDetail(game({ finishedAt: Date.now() }))).toBe(
-      'You won, queen surrounded · playing white · 12 moves · just now',
+      'Won, queen surrounded · playing white · 12 moves · just now',
     );
   });
 });

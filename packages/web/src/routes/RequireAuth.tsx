@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useSession } from '../network/auth-client.js';
+import { paths } from './paths.js';
 
 // Gates the routes that talk to the server. /hotseat stays outside: it runs
 // entirely in the engine and never opens a socket.
@@ -15,7 +16,7 @@ export const RequireAuth = () => {
     // Full location, not just pathname: a deep link's query and hash are part
     // of where the user was trying to go.
     const from = `${location.pathname}${location.search}${location.hash}`;
-    return <Navigate to="/signin" replace state={{ from }} />;
+    return <Navigate to={paths.signin} replace state={{ from }} />;
   }
 
   return <Outlet />;

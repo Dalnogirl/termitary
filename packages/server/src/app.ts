@@ -23,6 +23,7 @@ import { getProfile } from './usecases/get-profile.js';
 import { listMyRooms } from './usecases/list-my-rooms.js';
 import { ArchivedGamesQuerySchema, listPlayerGames } from './usecases/list-player-games.js';
 import { listRooms } from './usecases/list-rooms.js';
+import { RenameProfileBodySchema, renameProfile } from './usecases/rename-profile.js';
 import { type SweepPorts, sweepAbandonedRooms } from './usecases/sweep-abandoned-rooms.js';
 import { handleConnection } from './ws/connection.js';
 import { type IdentityExtractor, createIdentityExtractor } from './ws/identity.js';
@@ -88,6 +89,17 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
   app.delete<{ Params: { id: string } }>('/rooms/:id', { preHandler: gate }, async (req, reply) => {
     const outcome = await cancelRoom(requireIdentity(req), req.params.id, rooms);
     return reply.code(CANCEL_ROOM_STATUS[outcome]).send();
+  });
+  app.patch('/profile', { preHandler: gate }, async (req, reply) => {
+    const body = RenameProfileBodySchema.safeParse(req.body);
+    // The zod message is the copy the form shows, so it is sent as-is rather
+    // than flattened to a code the client would have to translate back.
+    if (!body.success) {
+      return reply.code(400).send({ error: body.error.issues[0]?.message ?? 'Invalid name.' });
+    }
+    const result = await renameProfile(requireIdentity(req), body.data.name, ports);
+    if (result.outcome === 'gone') return reply.code(404).send({ error: 'not-found' });
+    return result.profile;
   });
   app.get<{ Params: { userId: string } }>(
     '/users/:userId',

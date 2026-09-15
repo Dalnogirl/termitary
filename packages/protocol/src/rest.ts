@@ -30,10 +30,17 @@ export type Page<T> = {
   readonly nextCursor?: string;
 };
 
-/** Display names, snapshotted when the game was archived. Null once nobody held the seat. */
-export type ArchivedSeatNamesDto = {
-  readonly white: string | null;
-  readonly black: string | null;
+// A seat as the game remembers it. `name` is snapshotted at archive time, so
+// it outlives the account: a deleted player keeps a name with no `userId`, and
+// a seat nobody ever took is null on both.
+export type ArchivedPlayerDto = {
+  readonly userId: string | null;
+  readonly name: string | null;
+};
+
+export type ArchivedSeatPlayersDto = {
+  readonly white: ArchivedPlayerDto;
+  readonly black: ArchivedPlayerDto;
 };
 
 // A row is served from one player's side: `seat` is the seat that player held
@@ -42,7 +49,7 @@ export type ArchivedSeatNamesDto = {
 export type ArchivedGameSummaryDto = {
   readonly gameId: string;
   readonly seat: 'white' | 'black';
-  readonly players: ArchivedSeatNamesDto;
+  readonly players: ArchivedSeatPlayersDto;
   readonly result: 'white-wins' | 'black-wins' | 'draw';
   readonly endReason: 'queen-surrounded' | 'resignation';
   /** Epoch milliseconds. */
@@ -95,4 +102,9 @@ export type ProfileDto = {
   /** Epoch milliseconds. When the profile was created, not the account. */
   readonly memberSince: number;
   readonly record: PlayerRecordDto;
+};
+
+/** The only editable field on a profile. The server parses it with `ProfileNameSchema`. */
+export type UpdateProfileRequestDto = {
+  readonly name: string;
 };

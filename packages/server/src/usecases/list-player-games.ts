@@ -1,8 +1,12 @@
 import type { Color } from '@termitary/engine';
-import type { ArchivedGameSummaryDto, Page } from '@termitary/protocol';
+import type { ArchivedGameSummaryDto, ArchivedPlayerDto, Page } from '@termitary/protocol';
 import { z } from 'zod';
 import type { ArchivedGameStore } from '../domain/archived-game-store.js';
-import { type ArchivedGameOverview, archivedSeatOf } from '../domain/archived-game.js';
+import {
+  type ArchivedGameOverview,
+  type ArchivedPlayer,
+  archivedSeatOf,
+} from '../domain/archived-game.js';
 import { decodeCursor, encodeCursor } from '../http/keyset-cursor.js';
 
 const DEFAULT_LIMIT = 20;
@@ -33,6 +37,11 @@ export const ArchivedGamesQuerySchema = z.object({
 
 export type ArchivedGamesQuery = z.infer<typeof ArchivedGamesQuerySchema>;
 
+const seatPlayer = (player: ArchivedPlayer | undefined): ArchivedPlayerDto => ({
+  userId: player?.playerId ?? null,
+  name: player?.name ?? null,
+});
+
 export const summarizeArchived = (
   seat: Color,
   game: ArchivedGameOverview,
@@ -40,8 +49,8 @@ export const summarizeArchived = (
   gameId: game.id,
   seat,
   players: {
-    white: game.players.white?.name ?? null,
-    black: game.players.black?.name ?? null,
+    white: seatPlayer(game.players.white),
+    black: seatPlayer(game.players.black),
   },
   result: game.result,
   endReason: game.endReason,

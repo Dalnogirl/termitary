@@ -12,6 +12,7 @@ import type { EndReason } from '@termitary/engine';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useRoomContext } from '../controller/RoomContext.js';
+import { paths } from '../routes/paths.js';
 import { useGameStore } from '../store/store.js';
 
 type FinishedResult = 'white-wins' | 'black-wins' | 'draw';
@@ -68,7 +69,7 @@ export const Modal = () => {
           {hotseat ? (
             <AlertDialogAction onClick={reset}>New game</AlertDialogAction>
           ) : (
-            <AlertDialogAction onClick={() => void navigate('/lobby')}>
+            <AlertDialogAction onClick={() => void navigate(paths.lobby)}>
               Back to lobby
             </AlertDialogAction>
           )}

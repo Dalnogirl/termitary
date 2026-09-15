@@ -3,9 +3,11 @@ import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
+import { useSession } from '../network/auth-client.js';
 import { fetchMyRooms } from '../network/rooms-api.js';
 import { useCreateRoom } from '../network/use-create-room.js';
 import { RoomRow, myRoomAction, myRoomDetail } from '../rooms/RoomRow.js';
+import { paths } from '../routes/paths.js';
 import { HomeHero } from './HomeHero.js';
 
 const SHOWN = 3;
@@ -14,10 +16,11 @@ const linkClass = 'text-muted-foreground hover:text-foreground no-underline';
 
 export const SignedInHome = () => {
   const navigate = useNavigate();
+  const { data: session } = useSession();
   const mine = useQuery({ queryKey: ['rooms', 'mine'], queryFn: fetchMyRooms });
   const createRoom = useCreateRoom();
 
-  const openRoom = (roomId: string) => void navigate(`/play/${roomId}`);
+  const openRoom = (roomId: string) => void navigate(paths.play(roomId));
 
   const handleCreate = (): void => {
     createRoom.mutate(undefined, {
@@ -70,7 +73,7 @@ export const SignedInHome = () => {
           {createRoom.isPending ? 'Creating…' : 'Create new game'}
         </Button>
         <Link
-          to="/hotseat"
+          to={paths.hotseat}
           className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'no-underline')}
         >
           Play on this device
@@ -78,13 +81,15 @@ export const SignedInHome = () => {
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
-        <Link to="/lobby" className={`${linkClass} text-xs`}>
+        <Link to={paths.lobby} className={`${linkClass} text-xs`}>
           {rooms.length > SHOWN ? `All ${rooms.length} of your games` : 'Open games'} and free seats
           →
         </Link>
-        <Link to="/archived-games" className={`${linkClass} text-xs`}>
-          Past games →
-        </Link>
+        {session && (
+          <Link to={paths.profile(session.user.id)} className={`${linkClass} text-xs`}>
+            Your profile and past games →
+          </Link>
+        )}
       </div>
     </HomeHero>
   );
