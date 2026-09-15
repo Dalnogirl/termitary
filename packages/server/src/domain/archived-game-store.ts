@@ -1,4 +1,5 @@
 import type { ArchivedGame, ArchivedGameOverview } from './archived-game.js';
+import type { PlayerGameOutcome } from './player-record.js';
 
 /** The last row of a page. Paging resumes strictly after it. */
 export type ArchivedGameCursor = {
@@ -28,5 +29,10 @@ export type ArchivedGameStore = {
     playerId: string,
     page: ArchivedGamePageQuery,
   ): Promise<readonly ArchivedGameOverview[]>;
+  /**
+   * Every finished game the player sat in, as the few columns a record counts.
+   * Unpaged and unordered on purpose: a record is over all of them.
+   */
+  outcomesForPlayer(playerId: string): Promise<readonly PlayerGameOutcome[]>;
   get(id: string): Promise<ArchivedGame | undefined>;
 };

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchArchivedGame, fetchArchivedGames } from './archived-games-api.js';
+import { fetchArchivedGame, fetchPlayerGames } from './archived-games-api.js';
 
 const respond = (status: number, body: unknown): typeof fetch => {
   const fake = vi.fn(async () =>
@@ -13,18 +13,26 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('fetchArchivedGames', () => {
+describe('fetchPlayerGames', () => {
   it('sends the cookie and no cursor on the first page', async () => {
     const fake = respond(200, { items: [] });
-    await fetchArchivedGames();
-    expect(fake).toHaveBeenCalledWith(expect.stringMatching(/\/archived-games$/), {
+    await fetchPlayerGames('u1');
+    expect(fake).toHaveBeenCalledWith(expect.stringMatching(/\/users\/u1\/games$/), {
+      credentials: 'include',
+    });
+  });
+
+  it('escapes the player id it is given', async () => {
+    const fake = respond(200, { items: [] });
+    await fetchPlayerGames('a/b');
+    expect(fake).toHaveBeenCalledWith(expect.stringContaining('/users/a%2Fb/games'), {
       credentials: 'include',
     });
   });
 
   it('hands the cursor back encoded', async () => {
     const fake = respond(200, { items: [] });
-    await fetchArchivedGames('a+b/c=');
+    await fetchPlayerGames('u1', 'a+b/c=');
     expect(fake).toHaveBeenCalledWith(
       expect.stringContaining('?before=a%2Bb%2Fc%3D'),
       expect.anything(),
@@ -33,7 +41,7 @@ describe('fetchArchivedGames', () => {
 
   it('throws on a failed page', async () => {
     respond(500, {});
-    await expect(fetchArchivedGames()).rejects.toThrow('500');
+    await expect(fetchPlayerGames('u1')).rejects.toThrow('500');
   });
 });
 

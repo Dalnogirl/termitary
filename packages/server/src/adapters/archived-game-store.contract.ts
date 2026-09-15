@@ -153,6 +153,25 @@ export const describeArchivedGameStoreContract = (
         expect(next.map((g) => g.id)).toEqual(['a']);
       }));
 
+    it('reports one outcome per game, on the seat the player held', async () =>
+      withArchive(async ({ archive }) => {
+        await archive.record(gameOf('r1', { white: 'p1', black: 'p2', finishedAt: 2000 }));
+        await archive.record(gameOf('r2', { white: 'p2', black: 'p1', finishedAt: 3000 }));
+
+        const outcomes = await archive.outcomesForPlayer('p1');
+        expect(outcomes).toHaveLength(2);
+        expect(outcomes.map((o) => o.seat).sort()).toEqual(['black', 'white']);
+        expect(outcomes.map((o) => o.finishedAt).sort()).toEqual([new Date(2000), new Date(3000)]);
+        expect(outcomes[0]).toMatchObject({ result: 'draw', endReason: 'queen-surrounded' });
+      }));
+
+    it('reports no outcomes for a player who finished nothing', async () =>
+      withArchive(async ({ archive }) => {
+        await archive.record(gameOf('r1', { white: 'p1', black: 'p2' }));
+
+        expect(await archive.outcomesForPlayer('p3')).toEqual([]);
+      }));
+
     it('keeps the name of a seat whose account is gone', async () =>
       withArchive(async ({ archive }) => {
         const game = gameOf('r1');

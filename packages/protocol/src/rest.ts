@@ -36,8 +36,9 @@ export type ArchivedSeatNamesDto = {
   readonly black: string | null;
 };
 
-// Only games the caller played are ever served, so `seat` is theirs and is
-// never null, exactly as `MyRoomSummaryDto.seat` is not.
+// A row is served from one player's side: `seat` is the seat that player held
+// in the game, never null, exactly as `MyRoomSummaryDto.seat` is not. On a
+// profile listing that player is the profile owner, not the caller.
 export type ArchivedGameSummaryDto = {
   readonly gameId: string;
   readonly seat: 'white' | 'black';
@@ -55,4 +56,43 @@ export type ArchivedGameSummaryDto = {
 // the scrub controls fold back into positions.
 export type ArchivedGameDetailDto = ArchivedGameSummaryDto & {
   readonly state: WireGameState;
+};
+
+/** Every count is over finished games only; a game in progress is in no record. */
+export type SeatRecordDto = {
+  readonly played: number;
+  readonly wins: number;
+  readonly losses: number;
+  readonly draws: number;
+  /** Wins over games played, three decimals. Zero for a player who has finished nothing. */
+  readonly winRate: number;
+};
+
+// The white/black split is two samples of the same player and says less than it
+// looks like it does; it is here because the scan that fills the rest already
+// has it.
+export type PlayerRecordDto = {
+  readonly overall: SeatRecordDto;
+  readonly asWhite: SeatRecordDto;
+  readonly asBlack: SeatRecordDto;
+  /** Plies, not move pairs, matching `ArchivedGameSummaryDto.moveCount`. */
+  readonly averageMoves: number;
+  readonly endings: {
+    readonly queenSurrounded: number;
+    readonly resignation: number;
+  };
+  /** Consecutive wins by finish order. A draw breaks it. */
+  readonly longestWinStreak: number;
+  /** Epoch milliseconds, null until a first game finishes. */
+  readonly lastPlayedAt: number | null;
+};
+
+// Public to any signed-in player, so it carries nothing the owner would not
+// show a stranger: no email, no id beyond the one already in the URL.
+export type ProfileDto = {
+  readonly userId: string;
+  readonly name: string;
+  /** Epoch milliseconds. When the profile was created, not the account. */
+  readonly memberSince: number;
+  readonly record: PlayerRecordDto;
 };

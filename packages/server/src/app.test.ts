@@ -1,4 +1,9 @@
-import type { ArchivedGameDetailDto, ArchivedGameSummaryDto, Page } from '@termitary/protocol';
+import type {
+  ArchivedGameDetailDto,
+  ArchivedGameSummaryDto,
+  Page,
+  ProfileDto,
+} from '@termitary/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDrizzleArchivedGameStore } from './adapters/drizzle-archived-game-store.js';
 import { toArchivedGame } from './domain/archived-game.js';
@@ -150,13 +155,17 @@ describe('REST routes', () => {
     });
   });
 
-  describe('GET /archived-games', () => {
+  describe('archives and profiles', () => {
     // Reaching a finished game through the socket would test the write path
     // over again; these routes only care that a row exists.
     const archiveGame = async (
       id: string,
       seats: { white: { id: string; name: string }; black: { id: string; name: string } },
       finishedAt: number,
+      over: {
+        result?: 'white-wins' | 'black-wins' | 'draw';
+        endReason?: 'queen-surrounded' | 'resignation';
+      } = {},
     ): Promise<void> => {
       const seated = seatPlayer(newRoom(id, { playerId: seats.white.id }, new Date(1000)), {
         playerId: seats.black.id,
@@ -167,8 +176,8 @@ describe('REST routes', () => {
           state: {
             ...seated.state,
             status: 'finished',
-            result: 'white-wins',
-            endReason: 'resignation',
+            result: over.result ?? 'white-wins',
+            endReason: over.endReason ?? 'resignation',
           },
         },
         new Date(finishedAt),
@@ -185,14 +194,28 @@ describe('REST routes', () => {
       );
     };
 
-    const listed = async (cookie: string, query = ''): Promise<Page<ArchivedGameSummaryDto>> => {
+    const listed = async (
+      cookie: string,
+      userId: string,
+      query = '',
+    ): Promise<Page<ArchivedGameSummaryDto>> => {
       const res = await ctx.app.inject({
         method: 'GET',
-        url: `/archived-games${query}`,
+        url: `/users/${userId}/games${query}`,
         headers: { cookie },
       });
       expect(res.statusCode).toBe(200);
       return res.json() as Page<ArchivedGameSummaryDto>;
+    };
+
+    const profileOf = async (cookie: string, userId: string): Promise<ProfileDto> => {
+      const res = await ctx.app.inject({
+        method: 'GET',
+        url: `/users/${userId}`,
+        headers: { cookie },
+      });
+      expect(res.statusCode).toBe(200);
+      return res.json() as ProfileDto;
     };
 
     const twoPlayers = async () => {
@@ -204,89 +227,164 @@ describe('REST routes', () => {
       };
     };
 
-    it('returns 401 without an auth cookie', async () => {
-      const res = await ctx.app.inject({ method: 'GET', url: '/archived-games' });
-      expect(res.statusCode).toBe(401);
-    });
+    describe('GET /users/:userId/games', () => {
+      it('returns 401 without an auth cookie', async () => {
+        const res = await ctx.app.inject({ method: 'GET', url: '/users/someone/games' });
+        expect(res.statusCode).toBe(401);
+      });
 
-    it('lists the games the caller played, newest first, with their seat', async () => {
-      const { alice, bob } = await twoPlayers();
-      await archiveGame('older', { white: alice, black: bob }, 2000);
-      await archiveGame('newer', { white: bob, black: alice }, 5000);
+      it('lists the named player\u2019s games, newest first, with their seat', async () => {
+        const { alice, bob } = await twoPlayers();
+        await archiveGame('older', { white: alice, black: bob }, 2000);
+        await archiveGame('newer', { white: bob, black: alice }, 5000);
 
-      expect(await listed(alice.cookie)).toEqual({
-        items: [
-          {
-            gameId: 'newer',
-            seat: 'black',
-            players: { white: 'Bob', black: 'Alice' },
-            result: 'white-wins',
-            endReason: 'resignation',
-            startedAt: 1000,
-            finishedAt: 5000,
-            moveCount: 0,
-          },
-          expect.objectContaining({ gameId: 'older', seat: 'white' }),
-        ],
+        expect(await listed(alice.cookie, alice.id)).toEqual({
+          items: [
+            {
+              gameId: 'newer',
+              seat: 'black',
+              players: { white: 'Bob', black: 'Alice' },
+              result: 'white-wins',
+              endReason: 'resignation',
+              startedAt: 1000,
+              finishedAt: 5000,
+              moveCount: 0,
+            },
+            expect.objectContaining({ gameId: 'older', seat: 'white' }),
+          ],
+        });
+      });
+
+      it('serves another player\u2019s games, seated from their side', async () => {
+        const { alice, bob } = await twoPlayers();
+        const eve = await ctx.signIn('eve@test.dev');
+        await archiveGame('r1', { white: alice, black: bob }, 2000);
+
+        expect((await listed(eve.cookie, bob.id)).items).toEqual([
+          expect.objectContaining({ gameId: 'r1', seat: 'black' }),
+        ]);
+      });
+
+      it('leaves out a game the named player never played', async () => {
+        const { alice, bob } = await twoPlayers();
+        const eve = await ctx.signIn('eve@test.dev');
+        await archiveGame('theirs', { white: alice, black: bob }, 2000);
+
+        expect(await listed(eve.cookie, eve.userId)).toEqual({ items: [] });
+      });
+
+      it('pages on the cursor and stops without one', async () => {
+        const { alice, bob } = await twoPlayers();
+        await archiveGame('r1', { white: alice, black: bob }, 1000);
+        await archiveGame('r2', { white: alice, black: bob }, 2000);
+        await archiveGame('r3', { white: alice, black: bob }, 3000);
+
+        const first = await listed(alice.cookie, alice.id, '?limit=2');
+        expect(first.items.map((g) => g.gameId)).toEqual(['r3', 'r2']);
+        expect(first.nextCursor).toEqual(expect.any(String));
+
+        const second = await listed(alice.cookie, alice.id, `?limit=2&before=${first.nextCursor}`);
+        expect(second.items.map((g) => g.gameId)).toEqual(['r1']);
+        expect(second.nextCursor).toBeUndefined();
+      });
+
+      it('omits the cursor when the last page is exactly full', async () => {
+        const { alice, bob } = await twoPlayers();
+        await archiveGame('r1', { white: alice, black: bob }, 1000);
+        await archiveGame('r2', { white: alice, black: bob }, 2000);
+
+        expect((await listed(alice.cookie, alice.id, '?limit=2')).nextCursor).toBeUndefined();
+      });
+
+      it('answers 400 to a cursor that does not decode', async () => {
+        const { alice } = await twoPlayers();
+        const res = await ctx.app.inject({
+          method: 'GET',
+          url: `/users/${alice.id}/games?before=not-a-cursor`,
+          headers: { cookie: alice.cookie },
+        });
+        expect(res.statusCode).toBe(400);
+      });
+
+      it('answers 400 to a limit that is not a positive integer', async () => {
+        const { alice } = await twoPlayers();
+        const res = await ctx.app.inject({
+          method: 'GET',
+          url: `/users/${alice.id}/games?limit=0`,
+          headers: { cookie: alice.cookie },
+        });
+        expect(res.statusCode).toBe(400);
+      });
+
+      it('caps an oversized limit instead of refusing it', async () => {
+        const { alice, bob } = await twoPlayers();
+        await archiveGame('r1', { white: alice, black: bob }, 1000);
+
+        expect((await listed(alice.cookie, alice.id, '?limit=5000')).items).toHaveLength(1);
       });
     });
 
-    it('leaves out a game the caller never played', async () => {
-      const { alice, bob } = await twoPlayers();
-      const eve = await ctx.signIn('eve@test.dev');
-      await archiveGame('theirs', { white: alice, black: bob }, 2000);
-
-      expect(await listed(eve.cookie)).toEqual({ items: [] });
-    });
-
-    it('pages on the cursor and stops without one', async () => {
-      const { alice, bob } = await twoPlayers();
-      await archiveGame('r1', { white: alice, black: bob }, 1000);
-      await archiveGame('r2', { white: alice, black: bob }, 2000);
-      await archiveGame('r3', { white: alice, black: bob }, 3000);
-
-      const first = await listed(alice.cookie, '?limit=2');
-      expect(first.items.map((g) => g.gameId)).toEqual(['r3', 'r2']);
-      expect(first.nextCursor).toEqual(expect.any(String));
-
-      const second = await listed(alice.cookie, `?limit=2&before=${first.nextCursor}`);
-      expect(second.items.map((g) => g.gameId)).toEqual(['r1']);
-      expect(second.nextCursor).toBeUndefined();
-    });
-
-    it('omits the cursor when the last page is exactly full', async () => {
-      const { alice, bob } = await twoPlayers();
-      await archiveGame('r1', { white: alice, black: bob }, 1000);
-      await archiveGame('r2', { white: alice, black: bob }, 2000);
-
-      expect((await listed(alice.cookie, '?limit=2')).nextCursor).toBeUndefined();
-    });
-
-    it('answers 400 to a cursor that does not decode', async () => {
-      const { alice } = await twoPlayers();
-      const res = await ctx.app.inject({
-        method: 'GET',
-        url: '/archived-games?before=not-a-cursor',
-        headers: { cookie: alice.cookie },
+    describe('GET /users/:userId', () => {
+      it('returns 401 without an auth cookie', async () => {
+        const res = await ctx.app.inject({ method: 'GET', url: '/users/someone' });
+        expect(res.statusCode).toBe(401);
       });
-      expect(res.statusCode).toBe(400);
-    });
 
-    it('answers 400 to a limit that is not a positive integer', async () => {
-      const { alice } = await twoPlayers();
-      const res = await ctx.app.inject({
-        method: 'GET',
-        url: '/archived-games?limit=0',
-        headers: { cookie: alice.cookie },
+      it('answers 404 for an account that does not exist', async () => {
+        const { alice } = await twoPlayers();
+        const res = await ctx.app.inject({
+          method: 'GET',
+          url: '/users/nobody',
+          headers: { cookie: alice.cookie },
+        });
+        expect(res.statusCode).toBe(404);
       });
-      expect(res.statusCode).toBe(400);
-    });
 
-    it('caps an oversized limit instead of refusing it', async () => {
-      const { alice, bob } = await twoPlayers();
-      await archiveGame('r1', { white: alice, black: bob }, 1000);
+      it('answers zeroes for a player who has finished nothing', async () => {
+        const { alice } = await twoPlayers();
 
-      expect((await listed(alice.cookie, '?limit=5000')).items).toHaveLength(1);
+        const profile = await profileOf(alice.cookie, alice.id);
+        expect(profile).toMatchObject({
+          userId: alice.id,
+          name: expect.any(String),
+          memberSince: expect.any(Number),
+        });
+        expect(profile.record.overall).toEqual({
+          played: 0,
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          winRate: 0,
+        });
+        expect(profile.record.lastPlayedAt).toBeNull();
+      });
+
+      it('counts a game once for a player who has held both seats', async () => {
+        const { alice, bob } = await twoPlayers();
+        await archiveGame('r1', { white: alice, black: bob }, 2000, { result: 'white-wins' });
+        await archiveGame('r2', { white: bob, black: alice }, 3000, { result: 'black-wins' });
+
+        const record = (await profileOf(bob.cookie, alice.id)).record;
+        expect(record.overall).toMatchObject({ played: 2, wins: 2, losses: 0 });
+        expect(record.asWhite).toMatchObject({ played: 1, wins: 1 });
+        expect(record.asBlack).toMatchObject({ played: 1, wins: 1 });
+        expect(record.longestWinStreak).toBe(2);
+        expect(record.lastPlayedAt).toBe(3000);
+      });
+
+      it('counts a double queen surround as a draw for both players', async () => {
+        const { alice, bob } = await twoPlayers();
+        await archiveGame('r1', { white: alice, black: bob }, 2000, {
+          result: 'draw',
+          endReason: 'queen-surrounded',
+        });
+
+        for (const player of [alice, bob]) {
+          const record = (await profileOf(alice.cookie, player.id)).record;
+          expect(record.overall).toMatchObject({ played: 1, wins: 0, losses: 0, draws: 1 });
+          expect(record.endings).toEqual({ queenSurrounded: 1, resignation: 0 });
+        }
+      });
     });
 
     describe('GET /archived-games/:id', () => {
@@ -310,23 +408,28 @@ describe('REST routes', () => {
         expect(game.state.history).toEqual([]);
       });
 
-      it('answers 404 to a non-participant, the same as an unknown game', async () => {
+      it('opens a game the caller never played, seated from white', async () => {
         const { alice, bob } = await twoPlayers();
         const eve = await ctx.signIn('eve@test.dev');
         await archiveGame('r1', { white: alice, black: bob }, 4000);
 
-        const theirs = await ctx.app.inject({
+        const res = await ctx.app.inject({
           method: 'GET',
           url: '/archived-games/r1',
           headers: { cookie: eve.cookie },
         });
-        const missing = await ctx.app.inject({
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toMatchObject({ gameId: 'r1', seat: 'white' });
+      });
+
+      it('answers 404 to a game that does not exist', async () => {
+        const { alice } = await twoPlayers();
+        const res = await ctx.app.inject({
           method: 'GET',
           url: '/archived-games/nope',
-          headers: { cookie: eve.cookie },
+          headers: { cookie: alice.cookie },
         });
-        expect([theirs.statusCode, missing.statusCode]).toEqual([404, 404]);
-        expect(theirs.json()).toEqual(missing.json());
+        expect(res.statusCode).toBe(404);
       });
 
       it('returns 401 without an auth cookie', async () => {
