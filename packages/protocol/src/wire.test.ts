@@ -103,14 +103,27 @@ describe('message schemas', () => {
 
   it('parses each ServerMessage variant', () => {
     const state = toWire(createGame());
+    const seated = { status: 'connected', userId: 'u2', name: 'Amber Beetle' };
     const samples = [
       { type: 'connected', playerId: 'p1' },
-      { type: 'gameJoined', roomId: 'r1', playerColor: 'black', state, opponent: 'empty' },
-      { type: 'gameJoined', roomId: 'r1', playerColor: 'black', state, opponent: 'connected' },
-      { type: 'gameJoined', roomId: 'r1', playerColor: 'black', state, opponent: 'disconnected' },
+      {
+        type: 'gameJoined',
+        roomId: 'r1',
+        playerColor: 'black',
+        state,
+        opponent: { status: 'empty' },
+      },
+      { type: 'gameJoined', roomId: 'r1', playerColor: 'black', state, opponent: seated },
+      {
+        type: 'gameJoined',
+        roomId: 'r1',
+        playerColor: 'black',
+        state,
+        opponent: { ...seated, status: 'disconnected' },
+      },
       { type: 'stateUpdated', roomId: 'r1', state },
-      { type: 'presenceUpdate', roomId: 'r1', opponent: 'connected' },
-      { type: 'presenceUpdate', roomId: 'r1', opponent: 'disconnected' },
+      { type: 'presenceUpdate', roomId: 'r1', opponent: seated },
+      { type: 'presenceUpdate', roomId: 'r1', opponent: { ...seated, status: 'disconnected' } },
       { type: 'error', message: 'oops' },
       { type: 'error', message: 'oops', requestKind: 'makeMove' },
     ];
@@ -124,8 +137,21 @@ describe('message schemas', () => {
     // presenceUpdate carrying it would imply a vacate-but-room-still-alive
     // transition, which nothing in the protocol produces.
     expect(
-      ServerMessageSchema.safeParse({ type: 'presenceUpdate', roomId: 'r1', opponent: 'empty' })
-        .success,
+      ServerMessageSchema.safeParse({
+        type: 'presenceUpdate',
+        roomId: 'r1',
+        opponent: { status: 'empty' },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a seated opponent with no id to link to', () => {
+    expect(
+      ServerMessageSchema.safeParse({
+        type: 'presenceUpdate',
+        roomId: 'r1',
+        opponent: { status: 'connected', name: 'Amber Beetle' },
+      }).success,
     ).toBe(false);
   });
 

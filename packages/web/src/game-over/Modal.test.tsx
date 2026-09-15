@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { type GameState, createGame, resign } from '@termitary/engine';
+import type { OpponentPresence } from '@termitary/protocol';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -8,10 +9,16 @@ import { RoomProvider } from '../controller/RoomContext.js';
 import { gameStore } from '../store/store.js';
 import { Modal } from './Modal.js';
 
-const show = (myColor: 'white' | 'black' | null) =>
+const OPPONENT: OpponentPresence = {
+  status: 'connected',
+  userId: 'u2',
+  name: 'Amber Beetle',
+};
+
+const show = (myColor: 'white' | 'black' | null, opponent: OpponentPresence = OPPONENT) =>
   render(
     <MemoryRouter>
-      <RoomProvider myColor={myColor}>
+      <RoomProvider myColor={myColor} opponent={opponent}>
         <Modal />
       </RoomProvider>
     </MemoryRouter>,
@@ -37,8 +44,29 @@ describe('game-over Modal', () => {
     load(resigned());
     show('black');
 
-    expect(screen.getByText('Black wins')).toBeDefined();
     expect(screen.getByText('White resigned')).toBeDefined();
+  });
+
+  it('names you as the winner rather than your colour', () => {
+    load(resigned());
+    show('black');
+
+    expect(screen.getByText('You win')).toBeDefined();
+  });
+
+  it('links the winning opponent to their profile', () => {
+    load(resigned());
+    show('white');
+
+    const link = screen.getByText('Amber Beetle');
+    expect(link.getAttribute('href')).toBe('/u/u2');
+  });
+
+  it('keeps colours in hot-seat, where neither seat is yours', () => {
+    load(resigned());
+    show(null, { status: 'empty' });
+
+    expect(screen.getByText('Black wins')).toBeDefined();
   });
 
   it('names the surrounded queen when the game ended on the board', () => {
@@ -57,12 +85,13 @@ describe('game-over Modal', () => {
     load(resigned());
     show('black');
 
+    expect(screen.getByText('You win')).toBeDefined();
     fireEvent.click(screen.getByText('Review board'));
-    expect(screen.queryByText('Black wins')).toBeNull();
+    expect(screen.queryByText('You win')).toBeNull();
 
     // What a reconnect does: the same result arrives as a fresh object.
     load(resigned());
-    expect(screen.queryByText('Black wins')).toBeNull();
+    expect(screen.queryByText('You win')).toBeNull();
   });
 
   it('reopens for the next game once one starts', () => {

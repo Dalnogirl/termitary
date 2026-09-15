@@ -5,6 +5,7 @@ import type { ConnectionLifecycle, Sender } from '../domain/connection-registry.
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { otherPlayer } from '../domain/room.js';
+import { seatedPresence } from '../usecases/seated-presence.js';
 import { dispatchClientMessage } from './dispatcher.js';
 import { parseInbound } from './inbound.js';
 
@@ -95,6 +96,6 @@ const notifyOpponentOfDisconnect = async (playerId: string, ports: Ports): Promi
   await ports.connections.sendTo(opp.playerId, {
     type: 'presenceUpdate',
     roomId,
-    opponent: 'disconnected',
+    opponent: await seatedPresence(ports.users, playerId, 'disconnected'),
   });
 };

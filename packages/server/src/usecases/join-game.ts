@@ -1,9 +1,11 @@
-import type { ClientJoinGame } from '@termitary/protocol';
+import type { ClientJoinGame, OpponentPresence } from '@termitary/protocol';
 import { toWire } from '@termitary/protocol';
 import type { ConnectionRegistry } from '../domain/connection-registry.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { colorOf, isFull, otherPlayer, seatPlayer, touch } from '../domain/room.js';
+import type { UserStore } from '../domain/user-store.js';
+import { seatedPresence } from './seated-presence.js';
 import { sendError } from './send-error.js';
 
 // Computes the snapshot presence of `opponentId` for inclusion in
@@ -14,18 +16,19 @@ import { sendError } from './send-error.js';
 // from the joiner's POV the opponent is functionally absent from here.
 const presenceOf = async (
   connections: ConnectionRegistry,
+  users: UserStore,
   opponentId: string | undefined,
   roomId: string,
-): Promise<'empty' | 'connected' | 'disconnected'> => {
-  if (opponentId === undefined) return 'empty';
+): Promise<OpponentPresence> => {
+  if (opponentId === undefined) return { status: 'empty' };
   const bound = await connections.findRoomByPlayerId(opponentId);
-  return bound === roomId ? 'connected' : 'disconnected';
+  return seatedPresence(users, opponentId, bound === roomId ? 'connected' : 'disconnected');
 };
 
 export const joinGame = async (
   identity: Identity,
   msg: ClientJoinGame,
-  { rooms, connections }: Ports,
+  { rooms, connections, users }: Ports,
 ): Promise<void> => {
   const room = await rooms.get(msg.roomId);
   if (room === undefined) {
@@ -46,7 +49,7 @@ export const joinGame = async (
     // is enforced here.
     const fresh = (await rooms.get(room.id)) ?? room;
     const opponent = otherPlayer(fresh, identity.playerId);
-    const opponentPresence = await presenceOf(connections, opponent?.playerId, fresh.id);
+    const opponentPresence = await presenceOf(connections, users, opponent?.playerId, fresh.id);
     await connections.sendTo(identity.playerId, {
       type: 'gameJoined',
       roomId: fresh.id,
@@ -58,7 +61,7 @@ export const joinGame = async (
       await connections.sendTo(opponent.playerId, {
         type: 'presenceUpdate',
         roomId: fresh.id,
-        opponent: 'connected',
+        opponent: await seatedPresence(users, identity.playerId, 'connected'),
       });
     }
     return;
@@ -80,7 +83,7 @@ export const joinGame = async (
 
   const wireState = toWire(updated.state);
   const opponent = otherPlayer(updated, identity.playerId);
-  const opponentPresence = await presenceOf(connections, opponent?.playerId, updated.id);
+  const opponentPresence = await presenceOf(connections, users, opponent?.playerId, updated.id);
   await connections.sendTo(identity.playerId, {
     type: 'gameJoined',
     roomId: updated.id,
@@ -94,18 +97,22 @@ export const joinGame = async (
     // delivering one must not block the other — particularly important
     // because a dropped opponent socket will surface as a sendTo failure
     // here, but the opponent's own close handler will run shortly and
-    // self-heal the joiner's presence view via presenceUpdate.
+    // self-heal the joiner's presence view via presenceUpdate. The name
+    // lookup belongs inside for the same reason: it can only cost the
+    // presence message, never the state the opponent's board needs.
     await Promise.allSettled([
       connections.sendTo(opponent.playerId, {
         type: 'stateUpdated',
         roomId: updated.id,
         state: wireState,
       }),
-      connections.sendTo(opponent.playerId, {
-        type: 'presenceUpdate',
-        roomId: updated.id,
-        opponent: 'connected',
-      }),
+      seatedPresence(users, identity.playerId, 'connected').then((joiner) =>
+        connections.sendTo(opponent.playerId, {
+          type: 'presenceUpdate',
+          roomId: updated.id,
+          opponent: joiner,
+        }),
+      ),
     ]);
   }
 };

@@ -88,17 +88,34 @@ describe('joinGame', () => {
     if (bobMsg.type !== 'gameJoined') throw new Error('unreachable');
     expect(bobMsg.playerColor).toBe('black');
     expect(bobMsg.roomId).toBe(roomId);
-    expect(bobMsg.opponent).toBe('connected');
+    expect(bobMsg.opponent).toEqual({ status: 'connected', userId: 'alice', name: 'Alice' });
 
     const aliceKinds = alice.messages.map((m) => m.type);
     expect(aliceKinds).toContain('stateUpdated');
     expect(aliceKinds).toContain('presenceUpdate');
     const alicePresence = alice.messages.find((m) => m.type === 'presenceUpdate');
     if (alicePresence?.type !== 'presenceUpdate') throw new Error('unreachable');
-    expect(alicePresence.opponent).toBe('connected');
+    expect(alicePresence.opponent).toEqual({ status: 'connected', userId: 'bob', name: 'Bob' });
 
     const stored = await ports.rooms.get(roomId);
     expect(stored?.players.black?.playerId).toBe('bob');
+  });
+
+  it('still sends the seated opponent state when the name lookup fails', async () => {
+    // The name rides on the presence channel, so losing it must not cost the
+    // opponent the board they are about to play on. Only the joiner's own
+    // name fails here; the lookup for the joiner's gameJoined still works.
+    const failing: Ports = {
+      ...ports,
+      users: {
+        ...ports.users,
+        namesOf: async (ids) =>
+          ids.includes('bob') ? Promise.reject(new Error('db down')) : ports.users.namesOf(ids),
+      },
+    };
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, failing);
+
+    expect(alice.messages.map((m) => m.type)).toContain('stateUpdated');
   });
 
   it('reports opponent=empty in gameJoined when joining a one-seat room alone', async () => {
@@ -106,7 +123,7 @@ describe('joinGame', () => {
     // message she received from that initial joinGame call.
     const aliceJoined = alice.messages.find((m) => m.type === 'gameJoined');
     if (aliceJoined?.type !== 'gameJoined') throw new Error('unreachable');
-    expect(aliceJoined.opponent).toBe('empty');
+    expect(aliceJoined.opponent).toEqual({ status: 'empty' });
   });
 
   it('reports opponent=disconnected on re-attach when peer has no live socket', async () => {
@@ -119,7 +136,7 @@ describe('joinGame', () => {
     await joinGame(ident('alice'), { type: 'joinGame', roomId }, ports);
     const msg = lastOf(alice);
     if (msg.type !== 'gameJoined') throw new Error('unreachable');
-    expect(msg.opponent).toBe('disconnected');
+    expect(msg.opponent).toEqual({ status: 'disconnected', userId: 'bob', name: 'Bob' });
   });
 
   it('errors when the room does not exist', async () => {
@@ -162,7 +179,7 @@ describe('joinGame', () => {
     expect(bob.messages.map((m) => m.type)).toEqual(['presenceUpdate']);
     const msg = bob.messages[0];
     if (msg?.type !== 'presenceUpdate') throw new Error('unreachable');
-    expect(msg.opponent).toBe('connected');
+    expect(msg.opponent).toEqual({ status: 'connected', userId: 'alice', name: 'Alice' });
   });
 });
 
