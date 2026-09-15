@@ -1,13 +1,13 @@
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQuery } from '@tanstack/react-query';
-import type { RoomSummaryDto } from '@termitary/protocol';
+import type { RoomSummaryDto, SeatChoice } from '@termitary/protocol';
 import type * as React from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { fetchMyRooms, fetchRooms } from '../network/rooms-api.js';
 import { useCreateRoom } from '../network/use-create-room.js';
+import { CreateRoomDialog } from '../rooms/CreateRoomDialog.js';
 import { RoomRow, myRoomAction, myRoomDetail } from '../rooms/RoomRow.js';
 import { paths } from './paths.js';
 
@@ -57,22 +57,26 @@ export const LobbyPage = () => {
   const createRoom = useCreateRoom();
   const openRoom = (roomId: string) => void navigate(paths.play(roomId), { viewTransition: true });
 
-  const handleCreate = (): void => {
-    createRoom.mutate(undefined, {
-      onSuccess: ({ roomId }) => openRoom(roomId),
-      onError: (err) => {
-        toast.error(err instanceof Error ? err.message : 'Could not create game');
-      },
-    });
+  const handleCreate = async (seat: SeatChoice): Promise<boolean> => {
+    try {
+      const { roomId } = await createRoom.mutateAsync(seat);
+      openRoom(roomId);
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not create game');
+      return false;
+    }
   };
 
   return (
     <div className="flex flex-col flex-1 min-h-0 p-6 gap-6 max-w-3xl mx-auto w-full">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Lobby</h1>
-        <Button onClick={handleCreate} disabled={createRoom.isPending}>
-          {createRoom.isPending ? 'Creating…' : 'Create new game'}
-        </Button>
+        <CreateRoomDialog
+          triggerLabel="Create new game"
+          isPending={createRoom.isPending}
+          onCreate={handleCreate}
+        />
       </div>
 
       <Tabs value={tab} onValueChange={showTab} className="gap-3">

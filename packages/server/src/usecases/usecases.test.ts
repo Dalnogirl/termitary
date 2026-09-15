@@ -60,7 +60,12 @@ const lastOf = (inbox: Inbox): ServerMessage => {
 // creator's WS joinGame (re-attach branch, which adds them to the connection
 // registry so subsequent broadcasts reach them).
 const provisionRoom = async (ports: Ports, creator: string): Promise<string> => {
-  const { roomId } = await createRoom(ident(creator), ports.rooms);
+  const { roomId } = await createRoom(
+    ident(creator),
+    { seat: 'white' },
+    ports.rooms,
+    () => 'white',
+  );
   await joinGame(ident(creator), { type: 'joinGame', roomId }, ports);
   return roomId;
 };

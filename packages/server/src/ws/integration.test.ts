@@ -25,10 +25,14 @@ describe('ws integration', () => {
     return (res.json() as { name: string }).name;
   };
 
-  const createRoomViaRest = async (cookie: string): Promise<string> => {
+  const createRoomViaRest = async (
+    cookie: string,
+    seat: 'white' | 'black' | 'random' = 'white',
+  ): Promise<string> => {
     const res = await ctx.app.inject({
       method: 'POST',
       url: '/rooms',
+      payload: { seat },
       headers: { cookie },
     });
     const body = res.json() as { roomId: string };
@@ -104,6 +108,29 @@ describe('ws integration', () => {
       expect(finished.state.result).toBe('black-wins');
       expect(finished.state.endReason).toBe('resignation');
     }
+
+    await aliceWs.close();
+    await bobWs.close();
+  });
+
+  it('seats the joiner white when the creator took black', async () => {
+    const roomId = await createRoomViaRest(alice.cookie, 'black');
+
+    const aliceWs = await connect(wsUrl, alice.userId, alice.cookie);
+    const bobWs = await connect(wsUrl, bob.userId, bob.cookie);
+    expectKind(await aliceWs.next(), 'connected');
+    expectKind(await bobWs.next(), 'connected');
+
+    aliceWs.send({ type: 'joinGame', roomId });
+    const aliceJoined = expectKind(
+      await aliceWs.next((m) => m.type === 'gameJoined'),
+      'gameJoined',
+    );
+    expect(aliceJoined.playerColor).toBe('black');
+
+    bobWs.send({ type: 'joinGame', roomId });
+    const bobJoined = expectKind(await bobWs.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    expect(bobJoined.playerColor).toBe('white');
 
     await aliceWs.close();
     await bobWs.close();

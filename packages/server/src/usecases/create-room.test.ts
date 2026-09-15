@@ -2,10 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { createTestStores } from '../testing/stores.js';
 import { createRoom } from './create-room.js';
 
+const always = (seat: 'white' | 'black') => () => seat;
+
 describe('createRoom use case', () => {
-  it('creates a room, seats the caller as white, returns the id', async () => {
+  it('creates a room, seats the caller in the seat they asked for, returns the id', async () => {
     const { rooms } = createTestStores(['alice']);
-    const { roomId } = await createRoom({ playerId: 'alice' }, rooms);
+    const { roomId } = await createRoom(
+      { playerId: 'alice' },
+      { seat: 'white' },
+      rooms,
+      always('black'),
+    );
 
     const stored = await rooms.get(roomId);
     expect(stored).toBeDefined();
@@ -14,10 +21,51 @@ describe('createRoom use case', () => {
     expect(stored?.state.status).toBe('in_progress');
   });
 
+  it('seats the caller black and leaves white free', async () => {
+    const { rooms } = createTestStores(['alice']);
+    const { roomId } = await createRoom(
+      { playerId: 'alice' },
+      { seat: 'black' },
+      rooms,
+      always('white'),
+    );
+
+    const stored = await rooms.get(roomId);
+    expect(stored?.players.black?.playerId).toBe('alice');
+    expect(stored?.players.white).toBeUndefined();
+  });
+
+  it('resolves `random` through the picker, not Math.random', async () => {
+    const { rooms } = createTestStores(['alice']);
+    const { roomId } = await createRoom(
+      { playerId: 'alice' },
+      { seat: 'random' },
+      rooms,
+      always('black'),
+    );
+
+    const stored = await rooms.get(roomId);
+    expect(stored?.players.black?.playerId).toBe('alice');
+    expect(stored?.players.white).toBeUndefined();
+  });
+
+  it('calls the picker only for `random`', async () => {
+    const { rooms } = createTestStores(['alice']);
+    let calls = 0;
+    const counting = () => {
+      calls += 1;
+      return 'white' as const;
+    };
+    await createRoom({ playerId: 'alice' }, { seat: 'white' }, rooms, counting);
+    expect(calls).toBe(0);
+    await createRoom({ playerId: 'alice' }, { seat: 'random' }, rooms, counting);
+    expect(calls).toBe(1);
+  });
+
   it('returns a distinct roomId on each invocation', async () => {
     const { rooms } = createTestStores(['alice']);
-    const a = await createRoom({ playerId: 'alice' }, rooms);
-    const b = await createRoom({ playerId: 'alice' }, rooms);
+    const a = await createRoom({ playerId: 'alice' }, { seat: 'white' }, rooms, always('white'));
+    const b = await createRoom({ playerId: 'alice' }, { seat: 'white' }, rooms, always('white'));
     expect(a.roomId).not.toBe(b.roomId);
   });
 
@@ -26,6 +74,6 @@ describe('createRoom use case', () => {
     // future change re-introduces a connections dependency, this test will
     // fail to compile.
     const { rooms } = createTestStores(['alice']);
-    await createRoom({ playerId: 'alice' }, rooms);
+    await createRoom({ playerId: 'alice' }, { seat: 'white' }, rooms, always('white'));
   });
 });

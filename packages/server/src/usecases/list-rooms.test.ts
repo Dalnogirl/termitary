@@ -20,14 +20,14 @@ const overviewOf = (room: Room): RoomOverview => ({
 describe('summarize', () => {
   it('counts an empty room as 0 players', () => {
     const empty = overviewOf({
-      ...createRoom('r1', ident('alice'), NOW),
+      ...createRoom('r1', ident('alice'), 'white', NOW),
       players: { white: undefined, black: undefined },
     });
     expect(summarize(empty)).toEqual({ roomId: 'r1', playerCount: 0, status: 'in_progress' });
   });
 
   it('counts a single-seated room as 1 player', () => {
-    expect(summarize(overviewOf(createRoom('r1', ident('alice'), NOW)))).toEqual({
+    expect(summarize(overviewOf(createRoom('r1', ident('alice'), 'white', NOW)))).toEqual({
       roomId: 'r1',
       playerCount: 1,
       status: 'in_progress',
@@ -35,7 +35,7 @@ describe('summarize', () => {
   });
 
   it('counts a fully-seated room as 2 players', () => {
-    const full = seatPlayer(createRoom('r1', ident('alice'), NOW), ident('bob'));
+    const full = seatPlayer(createRoom('r1', ident('alice'), 'white', NOW), ident('bob'));
     expect(summarize(overviewOf(full))).toEqual({
       roomId: 'r1',
       playerCount: 2,
@@ -44,7 +44,7 @@ describe('summarize', () => {
   });
 
   it('reflects finished game status', () => {
-    const base = createRoom('r1', ident('alice'), NOW);
+    const base = createRoom('r1', ident('alice'), 'white', NOW);
     // Hand-craft a finished state — exhaustively playing to a queen-surround
     // here is overkill. We mutate via the type.
     const finished = {
@@ -63,7 +63,7 @@ describe('summarize', () => {
 describe('listRooms', () => {
   it('does not sweep: reading the lobby writes nothing', async () => {
     const { rooms: store } = createTestStores(PLAYERS);
-    await store.create(createRoom('r1', ident('alice'), new Date(0)));
+    await store.create(createRoom('r1', ident('alice'), 'white', new Date(0)));
 
     expect(await listRooms(ident('bob'), store)).toHaveLength(1);
   });
@@ -75,8 +75,8 @@ describe('listRooms', () => {
 
   it('returns a summary per open room', async () => {
     const { rooms: store } = createTestStores(PLAYERS);
-    await store.create(createRoom('r1', ident('alice'), NOW));
-    await store.create(createRoom('r2', ident('carol'), NOW));
+    await store.create(createRoom('r1', ident('alice'), 'white', NOW));
+    await store.create(createRoom('r2', ident('carol'), 'white', NOW));
     const result = await listRooms(ident('bob'), store);
     expect(result.map((r) => ({ roomId: r.roomId, playerCount: r.playerCount }))).toEqual(
       expect.arrayContaining([
@@ -89,29 +89,29 @@ describe('listRooms', () => {
 
   it('omits rooms the caller is already seated in', async () => {
     const { rooms: store } = createTestStores(PLAYERS);
-    await store.create(createRoom('mine', ident('alice'), NOW));
-    await store.create(createRoom('theirs', ident('bob'), NOW));
+    await store.create(createRoom('mine', ident('alice'), 'white', NOW));
+    await store.create(createRoom('theirs', ident('bob'), 'white', NOW));
     expect((await listRooms(ident('alice'), store)).map((r) => r.roomId)).toEqual(['theirs']);
   });
 
   it('omits full rooms', async () => {
     const { rooms: store } = createTestStores(PLAYERS);
-    await store.create(seatPlayer(createRoom('r1', ident('alice'), NOW), ident('bob')));
+    await store.create(seatPlayer(createRoom('r1', ident('alice'), 'white', NOW), ident('bob')));
     expect(await listRooms(ident('carol'), store)).toEqual([]);
   });
 
   it('does not expose playerIds', async () => {
     const { rooms: store } = createTestStores(PLAYERS);
-    await store.create(createRoom('r1', ident('alice-secret'), NOW));
+    await store.create(createRoom('r1', ident('alice-secret'), 'white', NOW));
     const result = await listRooms(ident('bob'), store);
     expect(JSON.stringify(result)).not.toContain('alice-secret');
   });
 
   it('summary status follows the game state', async () => {
     const { rooms: store } = createTestStores(PLAYERS);
-    await store.create(createRoom('r1', ident('alice'), NOW));
+    await store.create(createRoom('r1', ident('alice'), 'white', NOW));
     // Advance one engine move to confirm the wrapper passes through cleanly.
-    const r2 = createRoom('r2', ident('alice'), NOW);
+    const r2 = createRoom('r2', ident('alice'), 'white', NOW);
     const firstMove = listValidMoves(r2.state)[0];
     if (!firstMove) throw new Error('no first move');
     await store.create({ ...r2, state: applyMove(r2.state, firstMove) });

@@ -17,7 +17,7 @@ import type { Identity } from './domain/identity.js';
 import type { Ports } from './domain/ports.js';
 import { env } from './env.js';
 import { type CancelRoomResult, cancelRoom } from './usecases/cancel-room.js';
-import { createRoom } from './usecases/create-room.js';
+import { CreateRoomBodySchema, coinFlip, createRoom } from './usecases/create-room.js';
 import { getArchivedGame } from './usecases/get-archived-game.js';
 import { getProfile } from './usecases/get-profile.js';
 import { listMyRooms } from './usecases/list-my-rooms.js';
@@ -94,7 +94,11 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
   app.get('/rooms/mine', { preHandler: gate }, async (req) =>
     listMyRooms(requireIdentity(req), rooms),
   );
-  app.post('/rooms', { preHandler: gate }, async (req) => createRoom(requireIdentity(req), rooms));
+  app.post('/rooms', { preHandler: gate }, async (req, reply) => {
+    const body = CreateRoomBodySchema.safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'invalid-seat' });
+    return createRoom(requireIdentity(req), body.data, rooms, coinFlip);
+  });
   app.delete<{ Params: { id: string } }>('/rooms/:id', { preHandler: gate }, async (req, reply) => {
     const outcome = await cancelRoom(requireIdentity(req), req.params.id, rooms);
     return reply.code(CANCEL_ROOM_STATUS[outcome]).send();

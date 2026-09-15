@@ -18,7 +18,7 @@ const seedUser = (db: DbHandle, id: string): void => {
 const FINISHED = { status: 'finished', result: 'draw', endReason: 'queen-surrounded' } as const;
 
 const finishedGame = (id: string) => {
-  const seated = seatPlayer(createRoom(id, { playerId: 'p1' }, new Date(1000)), {
+  const seated = seatPlayer(createRoom(id, { playerId: 'p1' }, 'white', new Date(1000)), {
     playerId: 'p2',
   });
   const room = touch({ ...seated, state: { ...seated.state, ...FINISHED } }, new Date(2000));
