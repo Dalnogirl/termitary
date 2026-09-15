@@ -3,6 +3,7 @@ import { createAuth } from '../adapters/auth/better-auth.js';
 import { type DbHandle, createDb } from '../adapters/db/client.js';
 import { createDrizzleUserStore } from '../adapters/drizzle-user-store.js';
 import { buildApp } from '../app.js';
+import { silentLog } from './stores.js';
 
 export type SignInResult = {
   readonly userId: string;
@@ -23,7 +24,7 @@ export type TestApp = {
 export const createTestApp = async (existing?: DbHandle): Promise<TestApp> => {
   const otps: Array<{ email: string; otp: string }> = [];
   const db = existing ?? createDb(':memory:');
-  const auth = createAuth(db.db, createDrizzleUserStore(db.db), {
+  const auth = createAuth(db.db, createDrizzleUserStore(db.db), silentLog, {
     sendOtp: async ({ email, otp }) => {
       otps.push({ email, otp });
     },

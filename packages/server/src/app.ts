@@ -35,7 +35,7 @@ declare module 'fastify' {
 }
 
 export type BuildAppOptions = {
-  logger?: FastifyServerOptions['logger'];
+  loggerInstance?: FastifyServerOptions['loggerInstance'];
   /** 0 disables the periodic sweep. */
   roomSweepIntervalMs?: number;
   // Test seam: callers may inject a pre-built db + auth (e.g. an in-memory
@@ -45,7 +45,14 @@ export type BuildAppOptions = {
 };
 
 export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyInstance> => {
-  const app = Fastify({ logger: options.logger ?? false });
+  const app = Fastify({
+    ...(options.loggerInstance ? { loggerInstance: options.loggerInstance } : { logger: false }),
+    // Fastify logs every request twice, as multi-line req/res dumps. The
+    // onResponse hook below replaces both with one line.
+    disableRequestLogging: true,
+  });
+
+  app.addHook('onResponse', logRequest);
 
   const dbHandle = options.db ?? createDb(env.databaseUrl);
   const rooms = createDrizzleRoomStore(dbHandle.db);
@@ -54,9 +61,11 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
   const users = createDrizzleUserStore(dbHandle.db);
 
   // Before `createAuth`, which writes a profile through this port on sign-up.
-  const auth = options.auth ?? createAuth(dbHandle.db, users);
+  const auth = options.auth ?? createAuth(dbHandle.db, users, app.log);
   const extractIdentity = createIdentityExtractor(auth);
-  const ports: Ports = { rooms, connections, archive, users };
+  // app.log is the Logger port's adapter: pino when index.ts injects one,
+  // and Fastify's no-op logger otherwise, which is what keeps tests quiet.
+  const ports: Ports = { rooms, connections, archive, users, log: app.log };
 
   app.decorateRequest('identity', null);
 
@@ -139,6 +148,19 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
   });
 
   return app;
+};
+
+// Status picks the level so pino-pretty colours the line: 2xx green, 4xx
+// yellow, 5xx red. The fields repeat the message so JSON output stays queryable
+// and the pretty transport ignores them.
+const logRequest = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+  const status = reply.statusCode;
+  const ms = Math.round(reply.elapsedTime * 10) / 10;
+  const level = status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info';
+  req.log[level](
+    { method: req.method, url: req.url, status, ms },
+    `${req.method} ${req.url} ${status} ${ms}ms`,
+  );
 };
 
 const CANCEL_ROOM_STATUS: Record<CancelRoomResult, number> = {

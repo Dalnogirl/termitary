@@ -5,6 +5,7 @@ import { createDrizzleArchivedGameStore } from '../adapters/drizzle-archived-gam
 import { createDrizzleRoomStore } from '../adapters/drizzle-room-store.js';
 import { createDrizzleUserStore } from '../adapters/drizzle-user-store.js';
 import type { ArchivedGameStore } from '../domain/archived-game-store.js';
+import type { Logger } from '../domain/logger.js';
 import type { RoomStore } from '../domain/room-store.js';
 import type { UserStore } from '../domain/user-store.js';
 
@@ -12,8 +13,11 @@ export type TestStores = {
   readonly rooms: RoomStore;
   readonly archive: ArchivedGameStore;
   readonly users: UserStore;
+  readonly log: Logger;
   readonly close: () => void;
 };
+
+export const silentLog: Logger = { info: () => {}, warn: () => {}, error: () => {} };
 
 export type TestPlayer = string | { readonly id: string; readonly name: string };
 
@@ -43,6 +47,7 @@ export const createTestStores = (players: readonly TestPlayer[] = []): TestStore
     rooms: createDrizzleRoomStore(db.db),
     archive: createDrizzleArchivedGameStore(db.db),
     users: createDrizzleUserStore(db.db),
+    log: silentLog,
     close: () => db.close(),
   };
 };
