@@ -12,6 +12,19 @@ describe('ws integration', () => {
   let alice: { userId: string; cookie: string };
   let bob: { userId: string; cookie: string };
 
+  // The generated name, read back the way the web client reads it.
+  const nameOf = async ({
+    userId,
+    cookie,
+  }: { userId: string; cookie: string }): Promise<string> => {
+    const res = await ctx.app.inject({
+      method: 'GET',
+      url: `/users/${userId}`,
+      headers: { cookie },
+    });
+    return (res.json() as { name: string }).name;
+  };
+
   const createRoomViaRest = async (cookie: string): Promise<string> => {
     const res = await ctx.app.inject({
       method: 'POST',
@@ -115,7 +128,7 @@ describe('ws integration', () => {
     bobWs.send({ type: 'joinGame', roomId });
     const joined = expectKind(await bobWs.next((m) => m.type === 'gameJoined'), 'gameJoined');
     expect(joined.playerColor).toBe('black');
-    expect(joined.opponent).toBe('connected');
+    expect(joined.opponent.status).toBe('connected');
 
     // The superseded close must not report bob as away either.
     aliceWs.send({ type: 'joinGame', roomId });
@@ -123,7 +136,7 @@ describe('ws integration', () => {
       await aliceWs.next((m) => m.type === 'gameJoined'),
       'gameJoined',
     );
-    expect(aliceRejoined.opponent).toBe('connected');
+    expect(aliceRejoined.opponent.status).toBe('connected');
 
     await aliceWs.close();
     await bobWs.close();
@@ -172,7 +185,11 @@ describe('ws integration', () => {
       await aliceWs.next((m) => m.type === 'presenceUpdate'),
       'presenceUpdate',
     );
-    expect(reconnect.opponent).toBe('connected');
+    expect(reconnect.opponent).toEqual({
+      status: 'connected',
+      userId: bob.userId,
+      name: await nameOf(bob),
+    });
 
     await aliceWs.close();
     await bobWs.close();
@@ -196,14 +213,20 @@ describe('ws integration', () => {
       await aliceWs.next((m) => m.type === 'presenceUpdate'),
       'presenceUpdate',
     );
-    expect(aliceSawBobConnect.opponent).toBe('connected');
+    expect(aliceSawBobConnect.opponent.status).toBe('connected');
 
     await bobWs.close();
     const aliceSawBobDisconnect = expectKind(
       await aliceWs.next((m) => m.type === 'presenceUpdate'),
       'presenceUpdate',
     );
-    expect(aliceSawBobDisconnect.opponent).toBe('disconnected');
+    // The name rides on the event, so a client that never saw bob connect
+    // still has someone to show next to the disconnected state.
+    expect(aliceSawBobDisconnect.opponent).toEqual({
+      status: 'disconnected',
+      userId: bob.userId,
+      name: await nameOf(bob),
+    });
     expect(aliceSawBobDisconnect.roomId).toBe(roomId);
 
     await aliceWs.close();

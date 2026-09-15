@@ -20,7 +20,7 @@ export const INITIAL_ROOM_STATE: RoomState = {
   status: 'connecting',
   myColor: null,
   errorMsg: null,
-  opponent: 'empty',
+  opponent: { status: 'empty' },
 };
 
 export type RoomController = Controller & {

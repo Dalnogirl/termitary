@@ -77,7 +77,7 @@ const parseSent = (socket: FakeWebSocket): ClientMessage[] =>
 const PRESENCE: ServerMessage = {
   type: 'presenceUpdate',
   roomId: 'r1',
-  opponent: 'connected',
+  opponent: { status: 'connected', userId: 'u2', name: 'Amber Beetle' },
 };
 
 // Mirrors the constants in client.ts: 500ms doubling to a 10s ceiling, 8 tries.

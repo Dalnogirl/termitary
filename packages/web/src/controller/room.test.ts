@@ -59,7 +59,7 @@ const setup = () => {
     roomId: 'r1',
     playerColor: 'white',
     state: toWire(createGame()),
-    opponent: 'connected',
+    opponent: { status: 'connected', userId: 'u2', name: 'Amber Beetle' },
   });
   return controller;
 };

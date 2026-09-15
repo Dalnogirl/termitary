@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useQueryClient } from '@tanstack/react-query';
 import type { OpponentPresence } from '@termitary/protocol';
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
 import { InputProvider } from '../controller/InputProvider.js';
 import { RoomProvider } from '../controller/RoomContext.js';
@@ -23,22 +23,28 @@ import { useGameStore } from '../store/store.js';
 import { GameLayout } from './GameLayout.js';
 import { paths } from './paths.js';
 
-const PRESENCE_DOT: Record<OpponentPresence, string> = {
+const PRESENCE_DOT: Record<OpponentPresence['status'], string> = {
   empty: 'bg-muted-foreground/40',
   connected: 'bg-emerald-500',
   disconnected: 'bg-amber-500',
 };
 
-const PRESENCE_LABEL: Record<OpponentPresence, string> = {
-  empty: 'Waiting for opponent…',
-  connected: 'Opponent connected',
-  disconnected: 'Opponent disconnected',
-};
-
 const PresenceBadge = ({ opponent }: { opponent: OpponentPresence }) => (
   <span className="inline-flex items-center gap-1.5">
-    <span className={`inline-block size-2 rounded-full ${PRESENCE_DOT[opponent]}`} />
-    <span>{PRESENCE_LABEL[opponent]}</span>
+    <span className={`inline-block size-2 rounded-full ${PRESENCE_DOT[opponent.status]}`} />
+    {opponent.status === 'empty' ? (
+      <span>Waiting for opponent…</span>
+    ) : (
+      <span>
+        <Link
+          to={paths.profile(opponent.userId)}
+          className="no-underline text-foreground hover:underline"
+        >
+          {opponent.name}
+        </Link>
+        {opponent.status === 'disconnected' && ' disconnected'}
+      </span>
+    )}
   </span>
 );
 
@@ -69,7 +75,7 @@ export const PlayPage = () => {
   // Nobody has taken the other seat, so there is no game to lose: the room is
   // cancelled outright rather than resigned. Presence only means that once the
   // handshake has answered; before it, 'empty' is just the initial reading.
-  const alone = room.status === 'in-room' && room.opponent === 'empty';
+  const alone = room.status === 'in-room' && room.opponent.status === 'empty';
 
   const handleConfirmQuit = (): void => {
     setShowQuitDialog(false);
@@ -107,7 +113,7 @@ export const PlayPage = () => {
   const gameOver = gameStatus === 'finished';
 
   return (
-    <RoomProvider myColor={room.myColor}>
+    <RoomProvider myColor={room.myColor} opponent={room.opponent}>
       <InputProvider controller={room.controller}>
         <div className="flex flex-col flex-1 min-h-0">
           <div className="flex items-center justify-between gap-4 px-5 py-2 border-b border-border text-xs text-muted-foreground">
