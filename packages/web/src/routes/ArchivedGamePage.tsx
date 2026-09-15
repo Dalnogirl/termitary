@@ -25,6 +25,7 @@ const Notice = ({ children }: { readonly children: React.ReactNode }) => (
     <p className="text-muted-foreground">{children}</p>
     <Link
       to={paths.lobby}
+      viewTransition
       className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'no-underline')}
     >
       Play online
@@ -46,7 +47,7 @@ const Review = ({ game }: { readonly game: ArchivedGameDetailDto }) => {
               {archivedDetail(game)}
             </span>
             {owner !== null && (
-              <Link to={owner} className="no-underline hover:text-foreground">
+              <Link to={owner} viewTransition className="no-underline hover:text-foreground">
                 All past games
               </Link>
             )}

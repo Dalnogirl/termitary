@@ -60,7 +60,11 @@ const Title = ({
   if (opponent.status === 'empty') return <>{TITLE[result]}</>;
   return (
     <>
-      <Link to={paths.profile(opponent.userId)} className="no-underline hover:underline">
+      <Link
+        to={paths.profile(opponent.userId)}
+        viewTransition
+        className="no-underline hover:underline"
+      >
         {opponent.name}
       </Link>{' '}
       wins
@@ -100,7 +104,7 @@ export const Modal = () => {
           {hotseat ? (
             <AlertDialogAction onClick={reset}>New game</AlertDialogAction>
           ) : (
-            <AlertDialogAction onClick={() => void navigate(paths.lobby)}>
+            <AlertDialogAction onClick={() => void navigate(paths.lobby, { viewTransition: true })}>
               Back to lobby
             </AlertDialogAction>
           )}

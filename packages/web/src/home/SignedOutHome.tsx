@@ -54,11 +54,16 @@ export const SignedOutHome = () => (
         A board game with no board. Bring out your queen, then bury the other one under six pieces.
       </p>
       <div className="flex flex-wrap gap-2">
-        <Link to={paths.hotseat} className={cn(buttonVariants({ size: 'lg' }), 'no-underline')}>
+        <Link
+          to={paths.hotseat}
+          viewTransition
+          className={cn(buttonVariants({ size: 'lg' }), 'no-underline')}
+        >
           Play on this device
         </Link>
         <Link
           to={paths.lobby}
+          viewTransition
           className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'no-underline')}
         >
           Play online

@@ -38,6 +38,7 @@ const PresenceBadge = ({ opponent }: { opponent: OpponentPresence }) => (
       <span>
         <Link
           to={paths.profile(opponent.userId)}
+          viewTransition
           className="no-underline text-foreground hover:underline"
         >
           {opponent.name}
@@ -88,7 +89,7 @@ export const PlayPage = () => {
     void cancelRoom(roomId)
       .then(() => {
         void queryClient.invalidateQueries({ queryKey: ['rooms'] });
-        void navigate(paths.lobby);
+        void navigate(paths.lobby, { viewTransition: true });
       })
       .catch((err: unknown) => {
         toast.error(err instanceof Error ? err.message : 'Could not cancel the game');
@@ -98,7 +99,7 @@ export const PlayPage = () => {
   useEffect(() => {
     if (room.status !== 'error') return;
     toast.error(room.errorMsg ?? 'Unknown error');
-    void navigate(paths.lobby);
+    void navigate(paths.lobby, { viewTransition: true });
   }, [room.status, room.errorMsg, navigate]);
 
   if (room.status === 'error') return null;

@@ -20,7 +20,7 @@ export const SignedInHome = () => {
   const mine = useQuery({ queryKey: ['rooms', 'mine'], queryFn: fetchMyRooms });
   const createRoom = useCreateRoom();
 
-  const openRoom = (roomId: string) => void navigate(paths.play(roomId));
+  const openRoom = (roomId: string) => void navigate(paths.play(roomId), { viewTransition: true });
 
   const handleCreate = (): void => {
     createRoom.mutate(undefined, {
@@ -74,6 +74,7 @@ export const SignedInHome = () => {
         </Button>
         <Link
           to={paths.hotseat}
+          viewTransition
           className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'no-underline')}
         >
           Play on this device
@@ -81,12 +82,16 @@ export const SignedInHome = () => {
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
-        <Link to={paths.lobby} className={`${linkClass} text-xs`}>
+        <Link to={paths.lobby} viewTransition className={`${linkClass} text-xs`}>
           {rooms.length > SHOWN ? `All ${rooms.length} of your games` : 'Open games'} and free seats
           →
         </Link>
         {session && (
-          <Link to={paths.profile(session.user.id)} className={`${linkClass} text-xs`}>
+          <Link
+            to={paths.profile(session.user.id)}
+            viewTransition
+            className={`${linkClass} text-xs`}
+          >
             Your profile and past games →
           </Link>
         )}

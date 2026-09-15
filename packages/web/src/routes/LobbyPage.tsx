@@ -55,7 +55,7 @@ export const LobbyPage = () => {
   };
 
   const createRoom = useCreateRoom();
-  const openRoom = (roomId: string) => void navigate(paths.play(roomId));
+  const openRoom = (roomId: string) => void navigate(paths.play(roomId), { viewTransition: true });
 
   const handleCreate = (): void => {
     createRoom.mutate(undefined, {
