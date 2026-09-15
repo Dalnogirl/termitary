@@ -21,6 +21,7 @@ import { useRoomConnection } from '../controller/use-room-connection.js';
 import { cancelRoom } from '../network/rooms-api.js';
 import { useGameStore } from '../store/store.js';
 import { GameLayout } from './GameLayout.js';
+import { paths } from './paths.js';
 
 const PRESENCE_DOT: Record<OpponentPresence, string> = {
   empty: 'bg-muted-foreground/40',
@@ -81,7 +82,7 @@ export const PlayPage = () => {
     void cancelRoom(roomId)
       .then(() => {
         void queryClient.invalidateQueries({ queryKey: ['rooms'] });
-        void navigate('/lobby');
+        void navigate(paths.lobby);
       })
       .catch((err: unknown) => {
         toast.error(err instanceof Error ? err.message : 'Could not cancel the game');
@@ -91,7 +92,7 @@ export const PlayPage = () => {
   useEffect(() => {
     if (room.status !== 'error') return;
     toast.error(room.errorMsg ?? 'Unknown error');
-    void navigate('/lobby');
+    void navigate(paths.lobby);
   }, [room.status, room.errorMsg, navigate]);
 
   if (room.status === 'error') return null;

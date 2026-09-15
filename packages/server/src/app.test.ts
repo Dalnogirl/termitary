@@ -243,7 +243,10 @@ describe('REST routes', () => {
             {
               gameId: 'newer',
               seat: 'black',
-              players: { white: 'Bob', black: 'Alice' },
+              players: {
+                white: { userId: bob.id, name: 'Bob' },
+                black: { userId: alice.id, name: 'Alice' },
+              },
               result: 'white-wins',
               endReason: 'resignation',
               startedAt: 1000,
@@ -387,6 +390,53 @@ describe('REST routes', () => {
       });
     });
 
+    describe('PATCH /profile', () => {
+      const patchName = async (cookie: string, name: unknown) =>
+        ctx.app.inject({
+          method: 'PATCH',
+          url: '/profile',
+          headers: { cookie },
+          payload: { name },
+        });
+
+      it('returns 401 without an auth cookie', async () => {
+        const res = await ctx.app.inject({ method: 'PATCH', url: '/profile', payload: {} });
+        expect(res.statusCode).toBe(401);
+      });
+
+      it('renames the caller and answers with the whole profile', async () => {
+        const { alice } = await twoPlayers();
+
+        const res = await patchName(alice.cookie, '  Ada   Lovelace ');
+        expect(res.statusCode).toBe(200);
+        expect(res.json() as ProfileDto).toMatchObject({
+          userId: alice.id,
+          name: 'Ada Lovelace',
+          record: { overall: { played: 0 } },
+        });
+        expect((await profileOf(alice.cookie, alice.id)).name).toBe('Ada Lovelace');
+      });
+
+      it('rejects a name the schema refuses, with the message the form shows', async () => {
+        const { alice } = await twoPlayers();
+        const before = await profileOf(alice.cookie, alice.id);
+
+        const res = await patchName(alice.cookie, 'a');
+        expect(res.statusCode).toBe(400);
+        expect((res.json() as { error: string }).error).toMatch(/characters/);
+        expect((await profileOf(alice.cookie, alice.id)).name).toBe(before.name);
+      });
+
+      it('leaves the name an archived game snapshotted', async () => {
+        const { alice, bob } = await twoPlayers();
+        await archiveGame('r1', { white: alice, black: bob }, 2000);
+
+        expect((await patchName(alice.cookie, 'Renamed')).statusCode).toBe(200);
+        const page = await listed(alice.cookie, alice.id);
+        expect(page.items[0]?.players.white).toEqual({ userId: alice.id, name: 'Alice' });
+      });
+    });
+
     describe('GET /archived-games/:id', () => {
       it('returns the game with the state a replay needs', async () => {
         const { alice, bob } = await twoPlayers();
@@ -402,7 +452,10 @@ describe('REST routes', () => {
         expect(game).toMatchObject({
           gameId: 'r1',
           seat: 'black',
-          players: { white: 'Alice', black: 'Bob' },
+          players: {
+            white: { userId: alice.id, name: 'Alice' },
+            black: { userId: bob.id, name: 'Bob' },
+          },
           finishedAt: 4000,
         });
         expect(game.state.history).toEqual([]);

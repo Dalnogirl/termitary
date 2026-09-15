@@ -4,6 +4,7 @@ import type { Piece, PieceType } from '@termitary/engine';
 import { Link } from 'react-router';
 import { type ClusterCell, HexCluster } from '../board/HexCluster.js';
 import { Logo } from '../brand/Logo.js';
+import { paths } from '../routes/paths.js';
 import { HomeHero } from './HomeHero.js';
 
 const w = (type: PieceType): Piece => ({ type, color: 'white' });
@@ -53,11 +54,11 @@ export const SignedOutHome = () => (
         A board game with no board. Bring out your queen, then bury the other one under six pieces.
       </p>
       <div className="flex flex-wrap gap-2">
-        <Link to="/hotseat" className={cn(buttonVariants({ size: 'lg' }), 'no-underline')}>
+        <Link to={paths.hotseat} className={cn(buttonVariants({ size: 'lg' }), 'no-underline')}>
           Play on this device
         </Link>
         <Link
-          to="/lobby"
+          to={paths.lobby}
           className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'no-underline')}
         >
           Play online

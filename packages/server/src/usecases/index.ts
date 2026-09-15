@@ -16,4 +16,9 @@ export {
   sweepAbandonedRooms,
 } from './sweep-abandoned-rooms.js';
 export { makeMove } from './make-move.js';
+export {
+  RenameProfileBodySchema,
+  type RenameProfileResult,
+  renameProfile,
+} from './rename-profile.js';
 export { resign } from './resign.js';

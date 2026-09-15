@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { fetchMyRooms, fetchRooms } from '../network/rooms-api.js';
 import { useCreateRoom } from '../network/use-create-room.js';
 import { RoomRow, myRoomAction, myRoomDetail } from '../rooms/RoomRow.js';
+import { paths } from './paths.js';
 
 type Tab = 'mine' | 'open';
 
@@ -54,7 +55,7 @@ export const LobbyPage = () => {
   };
 
   const createRoom = useCreateRoom();
-  const openRoom = (roomId: string) => void navigate(`/play/${roomId}`);
+  const openRoom = (roomId: string) => void navigate(paths.play(roomId));
 
   const handleCreate = (): void => {
     createRoom.mutate(undefined, {
