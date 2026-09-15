@@ -23,14 +23,14 @@ const setup = (): SweepPorts =>
   ]);
 
 const finishedGame = (id: string, writtenAt: Date) => {
-  const room = seatPlayer(createRoom(id, ident('alice'), at(0)), ident('bob'));
+  const room = seatPlayer(createRoom(id, ident('alice'), 'white', at(0)), ident('bob'));
   return touch({ ...room, state: { ...room.state, ...FINISHED } }, writtenAt);
 };
 
 describe('sweepAbandonedRooms', () => {
   it('keeps a room that reached the cutoff exactly', async () => {
     const ports = setup();
-    await ports.rooms.create(createRoom('r1', ident('alice'), at(0)));
+    await ports.rooms.create(createRoom('r1', ident('alice'), 'white', at(0)));
 
     expect(await sweepAbandonedRooms(ports, at(ABANDONED_ROOM_TTL_MS))).toBe(0);
     expect(await ports.rooms.get('r1')).toBeDefined();
@@ -38,7 +38,7 @@ describe('sweepAbandonedRooms', () => {
 
   it('removes a room with a free seat once it is past the cutoff', async () => {
     const ports = setup();
-    await ports.rooms.create(createRoom('r1', ident('alice'), at(0)));
+    await ports.rooms.create(createRoom('r1', ident('alice'), 'white', at(0)));
 
     expect(await sweepAbandonedRooms(ports, PAST_CUTOFF)).toBe(1);
     expect(await ports.rooms.get('r1')).toBeUndefined();
@@ -46,7 +46,9 @@ describe('sweepAbandonedRooms', () => {
 
   it('leaves a full game in progress alone however old', async () => {
     const ports = setup();
-    await ports.rooms.create(seatPlayer(createRoom('r1', ident('alice'), at(0)), ident('bob')));
+    await ports.rooms.create(
+      seatPlayer(createRoom('r1', ident('alice'), 'white', at(0)), ident('bob')),
+    );
 
     expect(await sweepAbandonedRooms(ports, at(ABANDONED_ROOM_TTL_MS * 365))).toBe(0);
     expect(await ports.rooms.get('r1')).toBeDefined();
@@ -54,8 +56,8 @@ describe('sweepAbandonedRooms', () => {
 
   it('counts every room it removes', async () => {
     const ports = setup();
-    await ports.rooms.create(createRoom('r1', ident('alice'), at(0)));
-    await ports.rooms.create(createRoom('r2', ident('bob'), at(0)));
+    await ports.rooms.create(createRoom('r1', ident('alice'), 'white', at(0)));
+    await ports.rooms.create(createRoom('r2', ident('bob'), 'white', at(0)));
     await ports.rooms.create(finishedGame('r3', at(0)));
 
     expect(await sweepAbandonedRooms(ports, PAST_CUTOFF)).toBe(3);

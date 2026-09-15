@@ -22,7 +22,10 @@ const gameOf = (
   id: string,
   { white = 'p1', black = 'p2', startedAt = 1000, finishedAt = 2000 } = {},
 ): ArchivedGame => {
-  const seated = seatPlayer(createRoom(id, ident(white), new Date(startedAt)), ident(black));
+  const seated = seatPlayer(
+    createRoom(id, ident(white), 'white', new Date(startedAt)),
+    ident(black),
+  );
   const room = touch({ ...seated, state: { ...seated.state, ...FINISHED } }, new Date(finishedAt));
   if (!isFinished(room)) throw new Error('unreachable: the room was just finished');
   return toArchivedGame(

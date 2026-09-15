@@ -55,7 +55,7 @@ describe('DrizzleRoomStore', () => {
   it('round-trips a played game, board and history included', async () =>
     withStore(async ({ store }) => {
       const room = {
-        ...createRoom('r1', { playerId: 'p1' }, new Date(1000)),
+        ...createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)),
         state: placeAnt(0, 0),
       };
       await store.create(room);
@@ -69,13 +69,13 @@ describe('DrizzleRoomStore', () => {
 
   it('mirrors state.status into its own column', async () =>
     withStore(async ({ db, store }) => {
-      await store.create(createRoom('r1', { playerId: 'p1' }, new Date(1000)));
+      await store.create(createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)));
       expect(rowOf(db, 'r1')?.status).toBe('in_progress');
     }));
 
   it('increments version on every save and leaves created_at alone', async () =>
     withStore(async ({ db, store }) => {
-      const room = createRoom('r1', { playerId: 'p1' }, new Date(1000));
+      const room = createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000));
       await store.create(room);
       expect(rowOf(db, 'r1')?.version).toBe(1);
 
@@ -91,13 +91,13 @@ describe('DrizzleRoomStore', () => {
 
   it('stamps the current state payload version', async () =>
     withStore(async ({ db, store }) => {
-      await store.create(createRoom('r1', { playerId: 'p1' }, new Date(1000)));
+      await store.create(createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)));
       expect(rowOf(db, 'r1')?.stateVersion).toBe(CURRENT_STATE_VERSION);
     }));
 
   it('rejects a state payload it cannot parse', async () =>
     withStore(async ({ db, store }) => {
-      await store.create(createRoom('r1', { playerId: 'p1' }, new Date(1000)));
+      await store.create(createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)));
       db.db
         .update(roomsTable)
         .set({ state: { status: 'in_progress' } as never })
@@ -108,8 +108,8 @@ describe('DrizzleRoomStore', () => {
 
   it('lists a room whose state cannot be parsed', async () =>
     withStore(async ({ db, store }) => {
-      await store.create(createRoom('r1', { playerId: 'p1' }, new Date(1000)));
-      await store.create(createRoom('r2', { playerId: 'p2' }, new Date(1000)));
+      await store.create(createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)));
+      await store.create(createRoom('r2', { playerId: 'p2' }, 'white', new Date(1000)));
       db.db
         .update(roomsTable)
         .set({ state: { status: 'in_progress' } as never })
@@ -126,7 +126,7 @@ describe('DrizzleRoomStore', () => {
   it('unseats a player when their account is deleted', async () =>
     withStore(async ({ db, store }) => {
       await store.create({
-        ...createRoom('r1', { playerId: 'p1' }, new Date(1000)),
+        ...createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)),
         players: { white: { playerId: 'p1' }, black: { playerId: 'p2' } },
       });
 
@@ -141,7 +141,7 @@ describe('DrizzleRoomStore', () => {
     try {
       const path = join(dir, 'test.db');
       const room = {
-        ...createRoom('r1', { playerId: 'p1' }, new Date(1000)),
+        ...createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)),
         state: placeAnt(0, 0),
       };
 

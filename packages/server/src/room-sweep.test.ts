@@ -6,7 +6,7 @@ import { createTestApp } from './testing/auth-helper.js';
 import { ABANDONED_ROOM_TTL_MS } from './usecases/sweep-abandoned-rooms.js';
 
 const writeRoomAt = (db: DbHandle, id: string, ownerId: string, at: Date): Promise<void> =>
-  createDrizzleRoomStore(db.db).create(createRoom(id, { playerId: ownerId }, at));
+  createDrizzleRoomStore(db.db).create(createRoom(id, { playerId: ownerId }, 'white', at));
 
 describe('room sweep on boot', () => {
   it('removes a stale room with no request made', async () => {

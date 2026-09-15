@@ -1,8 +1,10 @@
+import { z } from 'zod';
 import type { WireGameState } from './wire.js';
 
-// REST bodies. Plain types, no zod: nothing untrusted crosses these. The
-// server has no REST request body to parse, and both sides import the same
-// declaration, so responses are checked at compile time.
+// REST bodies. Responses are plain types: both sides import the same
+// declaration, so the compiler checks them. A request body is input nobody
+// controls, so the field schemas it is built from live here and the object the
+// route parses is assembled next to the use case that takes it.
 export type RoomSummaryDto = {
   readonly roomId: string;
   readonly playerCount: 0 | 1 | 2;
@@ -11,6 +13,15 @@ export type RoomSummaryDto = {
 
 export type CreateRoomResponseDto = {
   readonly roomId: string;
+};
+
+/** The seat a creator asks for. `random` is resolved during creation. */
+export const SeatChoiceSchema = z.enum(['white', 'black', 'random']);
+export type SeatChoice = z.infer<typeof SeatChoiceSchema>;
+
+/** The server parses it with `CreateRoomBodySchema`. */
+export type CreateRoomRequestDto = {
+  readonly seat: SeatChoice;
 };
 
 // A room the caller holds a seat in. Every row is in progress and seated by

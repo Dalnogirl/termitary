@@ -16,13 +16,15 @@ export type FinishedRoom = Room & { readonly state: Extract<GameState, { status:
 
 export const isFinished = (room: Room): room is FinishedRoom => room.state.status === 'finished';
 
-// White is the first seat filled, which makes the room creator white.
+// The order `seatPlayer` fills free seats in. The creator picks their own
+// seat, so this only decides where a joiner lands in an empty room.
 const SEAT_ORDER = ['white', 'black'] as const;
 
-export const createRoom = (id: string, creator: Identity, now: Date): Room => ({
+export const createRoom = (id: string, creator: Identity, seat: Color, now: Date): Room => ({
   id,
   state: createGame(),
-  players: { white: creator, black: undefined },
+  players:
+    seat === 'white' ? { white: creator, black: undefined } : { white: undefined, black: creator },
   createdAt: now,
   updatedAt: now,
 });

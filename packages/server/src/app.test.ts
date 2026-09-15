@@ -28,6 +28,7 @@ describe('REST routes', () => {
       const res = await ctx.app.inject({
         method: 'POST',
         url: '/rooms',
+        payload: { seat: 'white' },
         headers: { cookie },
       });
       expect(res.statusCode).toBe(200);
@@ -40,11 +41,60 @@ describe('REST routes', () => {
       expect(res.statusCode).toBe(401);
     });
 
+    it('seats the creator black and leaves white free', async () => {
+      const { cookie } = await ctx.signIn('alice@test.dev');
+      const created = await ctx.app.inject({
+        method: 'POST',
+        url: '/rooms',
+        payload: { seat: 'black' },
+        headers: { cookie },
+      });
+      expect(created.statusCode).toBe(200);
+      const { roomId } = created.json() as { roomId: string };
+
+      const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
+      expect(mine.json()).toEqual([
+        { roomId, seat: 'black', playerCount: 1, updatedAt: expect.any(Number) },
+      ]);
+    });
+
+    it('resolves `random` to one of the two seats', async () => {
+      const { cookie } = await ctx.signIn('alice@test.dev');
+      const created = await ctx.app.inject({
+        method: 'POST',
+        url: '/rooms',
+        payload: { seat: 'random' },
+        headers: { cookie },
+      });
+      expect(created.statusCode).toBe(200);
+
+      const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
+      const [room] = mine.json() as Array<{ seat: string }>;
+      expect(['white', 'black']).toContain(room?.seat);
+    });
+
+    it('rejects a missing body and a seat the schema does not know', async () => {
+      const { cookie } = await ctx.signIn('alice@test.dev');
+      for (const payload of [undefined, {}, { seat: 'green' }, { seat: null }]) {
+        const res = await ctx.app.inject({
+          method: 'POST',
+          url: '/rooms',
+          ...(payload === undefined ? {} : { payload }),
+          headers: { cookie },
+        });
+        expect(res.statusCode).toBe(400);
+      }
+
+      const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
+      expect(mine.json()).toEqual([]);
+    });
+
     it('the created room shows up in GET /rooms for everyone else', async () => {
       const { cookie } = await ctx.signIn('alice@test.dev');
       const created = await ctx.app.inject({
         method: 'POST',
         url: '/rooms',
+        payload: { seat: 'white' },
         headers: { cookie },
       });
       const { roomId } = created.json() as { roomId: string };
@@ -65,6 +115,7 @@ describe('REST routes', () => {
       const created = await ctx.app.inject({
         method: 'POST',
         url: '/rooms',
+        payload: { seat: 'white' },
         headers: { cookie },
       });
       const { roomId } = created.json() as { roomId: string };
@@ -82,7 +133,12 @@ describe('REST routes', () => {
 
   describe('DELETE /rooms/:id', () => {
     const createRoom = async (cookie: string): Promise<string> => {
-      const res = await ctx.app.inject({ method: 'POST', url: '/rooms', headers: { cookie } });
+      const res = await ctx.app.inject({
+        method: 'POST',
+        url: '/rooms',
+        payload: { seat: 'white' },
+        headers: { cookie },
+      });
       return (res.json() as { roomId: string }).roomId;
     };
 
@@ -143,7 +199,12 @@ describe('REST routes', () => {
 
     it('is empty for a player seated nowhere', async () => {
       const { cookie } = await ctx.signIn('alice@test.dev');
-      await ctx.app.inject({ method: 'POST', url: '/rooms', headers: { cookie } });
+      await ctx.app.inject({
+        method: 'POST',
+        url: '/rooms',
+        payload: { seat: 'white' },
+        headers: { cookie },
+      });
 
       const bob = await ctx.signIn('bob@test.dev');
       const mine = await ctx.app.inject({
@@ -167,9 +228,12 @@ describe('REST routes', () => {
         endReason?: 'queen-surrounded' | 'resignation';
       } = {},
     ): Promise<void> => {
-      const seated = seatPlayer(newRoom(id, { playerId: seats.white.id }, new Date(1000)), {
-        playerId: seats.black.id,
-      });
+      const seated = seatPlayer(
+        newRoom(id, { playerId: seats.white.id }, 'white', new Date(1000)),
+        {
+          playerId: seats.black.id,
+        },
+      );
       const room = touch(
         {
           ...seated,

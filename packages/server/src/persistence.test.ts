@@ -49,6 +49,7 @@ describe('room persistence across a restart', () => {
       const created = await first.ctx.app.inject({
         method: 'POST',
         url: '/rooms',
+        payload: { seat: 'white' },
         headers: { cookie },
       });
       expect(created.statusCode).toBe(200);

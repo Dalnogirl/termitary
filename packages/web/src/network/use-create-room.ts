@@ -1,12 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { CreateRoomResponseDto } from '@termitary/protocol';
+import type { CreateRoomRequestDto, CreateRoomResponseDto, SeatChoice } from '@termitary/protocol';
 import { getApiUrl } from './url.js';
 
-const createRoom = async (): Promise<CreateRoomResponseDto> => {
-  // No body: the server seats req.identity, taken from the session cookie.
+const createRoom = async (seat: SeatChoice): Promise<CreateRoomResponseDto> => {
+  // The creator is req.identity, taken from the session cookie; the body
+  // carries only the seat they asked for.
+  const body: CreateRoomRequestDto = { seat };
   const res = await fetch(`${getApiUrl()}/rooms`, {
     method: 'POST',
     credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`POST /rooms returned ${res.status}`);
   return (await res.json()) as CreateRoomResponseDto;

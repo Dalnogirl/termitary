@@ -14,7 +14,8 @@ const at = (ms: number) => new Date(ms);
 
 // Rooms carry their own timestamps, so a store that stamped its own clock
 // would fail every ordering and sweep case below.
-const roomAt = (id: string, owner: string, ms: number) => createRoom(id, ident(owner), at(ms));
+const roomAt = (id: string, owner: string, ms: number) =>
+  createRoom(id, ident(owner), 'white', at(ms));
 
 // Playing to a real queen surround here would say nothing about the store.
 const FINISHED = { status: 'finished', result: 'draw', endReason: 'queen-surrounded' } as const;
