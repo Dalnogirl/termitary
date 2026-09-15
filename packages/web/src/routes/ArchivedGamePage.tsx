@@ -53,7 +53,7 @@ export const ArchivedGamePage = () => {
         </div>
       );
     case 'missing':
-      return <Notice>This game does not exist, or you did not play in it.</Notice>;
+      return <Notice>This game does not exist.</Notice>;
     case 'error':
       return <Notice>Could not load this game: {view.message}</Notice>;
     case 'ready':

@@ -100,6 +100,26 @@ export const createDrizzleArchivedGameStore = (db: Db): ArchivedGameStore => ({
       .all()
       .map(toOverview),
 
+  outcomesForPlayer: async (playerId) =>
+    db
+      .select({
+        whiteUserId: archivedGames.whiteUserId,
+        result: archivedGames.result,
+        endReason: archivedGames.endReason,
+        moveCount: archivedGames.moveCount,
+        finishedAt: archivedGames.finishedAt,
+      })
+      .from(archivedGames)
+      .where(or(eq(archivedGames.whiteUserId, playerId), eq(archivedGames.blackUserId, playerId)))
+      .all()
+      .map((row) => ({
+        seat: row.whiteUserId === playerId ? ('white' as const) : ('black' as const),
+        result: row.result,
+        endReason: row.endReason,
+        moveCount: row.moveCount,
+        finishedAt: row.finishedAt,
+      })),
+
   get: async (id) => {
     const row = db.select().from(archivedGames).where(eq(archivedGames.id, id)).get();
     return row === undefined ? undefined : toGame(row);

@@ -19,8 +19,9 @@ import { env } from './env.js';
 import { type CancelRoomResult, cancelRoom } from './usecases/cancel-room.js';
 import { createRoom } from './usecases/create-room.js';
 import { getArchivedGame } from './usecases/get-archived-game.js';
-import { ArchivedGamesQuerySchema, listArchivedGames } from './usecases/list-archived-games.js';
+import { getProfile } from './usecases/get-profile.js';
 import { listMyRooms } from './usecases/list-my-rooms.js';
+import { ArchivedGamesQuerySchema, listPlayerGames } from './usecases/list-player-games.js';
 import { listRooms } from './usecases/list-rooms.js';
 import { type SweepPorts, sweepAbandonedRooms } from './usecases/sweep-abandoned-rooms.js';
 import { handleConnection } from './ws/connection.js';
@@ -88,11 +89,24 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
     const outcome = await cancelRoom(requireIdentity(req), req.params.id, rooms);
     return reply.code(CANCEL_ROOM_STATUS[outcome]).send();
   });
-  app.get('/archived-games', { preHandler: gate }, async (req, reply) => {
-    const query = ArchivedGamesQuerySchema.safeParse(req.query);
-    if (!query.success) return reply.code(400).send({ error: 'invalid query' });
-    return listArchivedGames(requireIdentity(req), query.data, archive);
-  });
+  app.get<{ Params: { userId: string } }>(
+    '/users/:userId',
+    { preHandler: gate },
+    async (req, reply) => {
+      const profile = await getProfile(req.params.userId, ports);
+      if (profile === undefined) return reply.code(404).send({ error: 'not-found' });
+      return profile;
+    },
+  );
+  app.get<{ Params: { userId: string } }>(
+    '/users/:userId/games',
+    { preHandler: gate },
+    async (req, reply) => {
+      const query = ArchivedGamesQuerySchema.safeParse(req.query);
+      if (!query.success) return reply.code(400).send({ error: 'invalid query' });
+      return listPlayerGames(req.params.userId, query.data, archive);
+    },
+  );
   app.get<{ Params: { id: string } }>(
     '/archived-games/:id',
     { preHandler: gate },

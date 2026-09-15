@@ -2,10 +2,13 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router';
 import { ArchivedGameRow } from '../archive/ArchivedGameRow.js';
 import { useArchivedGames } from '../archive/use-archived-games.js';
+import { useSession } from '../network/auth-client.js';
 
 export const ArchivedGamesPage = () => {
   const navigate = useNavigate();
-  const games = useArchivedGames();
+  // RequireAuth gates this route, so the session is there by the time it renders.
+  const { data } = useSession();
+  const games = useArchivedGames(data?.user.id ?? '');
 
   return (
     <div className="flex flex-col flex-1 min-h-0 p-6 gap-6 max-w-3xl mx-auto w-full">

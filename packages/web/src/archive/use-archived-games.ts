@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { ArchivedGameSummaryDto } from '@termitary/protocol';
-import { fetchArchivedGames } from '../network/archived-games-api.js';
+import { fetchPlayerGames } from '../network/archived-games-api.js';
 
 export type ArchivedGamesList = {
   readonly items: readonly ArchivedGameSummaryDto[];
@@ -13,10 +13,10 @@ export type ArchivedGamesList = {
   readonly loadMore: () => void;
 };
 
-export const useArchivedGames = (): ArchivedGamesList => {
+export const useArchivedGames = (userId: string): ArchivedGamesList => {
   const query = useInfiniteQuery({
-    queryKey: ['archived-games'],
-    queryFn: ({ pageParam }) => fetchArchivedGames(pageParam),
+    queryKey: ['player-games', userId],
+    queryFn: ({ pageParam }) => fetchPlayerGames(userId, pageParam),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor,
   });
