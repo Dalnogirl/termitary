@@ -28,8 +28,8 @@ type Inbox = { messages: ServerMessage[] };
 
 const setup = () => {
   const connections = createInMemoryConnectionRegistry();
-  const { rooms, archive, users } = createTestStores(PLAYERS);
-  const ports: Ports = { rooms, connections, archive, users };
+  const { rooms, archive, users, log } = createTestStores(PLAYERS);
+  const ports: Ports = { rooms, connections, archive, users, log };
   const inboxes = new Map<string, Inbox>();
   const senders = new Map<string, Sender>();
   const connect = (playerId: string): Inbox => {

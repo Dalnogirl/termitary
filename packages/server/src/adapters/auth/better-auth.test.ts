@@ -15,6 +15,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../app.js';
 import type { UserStore } from '../../domain/user-store.js';
+import { silentLog } from '../../testing/stores.js';
 import { user } from '../db/auth-schema.js';
 import { type DbHandle, createDb } from '../db/client.js';
 import { profiles } from '../db/schema.js';
@@ -40,7 +41,7 @@ describe('better-auth email OTP', () => {
         return real.ensure(userId, now);
       },
     };
-    const auth = createAuth(dbHandle.db, users, {
+    const auth = createAuth(dbHandle.db, users, silentLog, {
       sendOtp: async ({ email, otp }) => {
         otps.push({ email, otp });
       },

@@ -10,7 +10,7 @@ import { sendError } from './send-error.js';
 export const makeMove = async (
   identity: Identity,
   msg: ClientMakeMove,
-  { rooms, connections, archive, users }: Ports,
+  { rooms, connections, archive, users, log }: Ports,
 ): Promise<void> => {
   const room = await rooms.get(msg.roomId);
   if (room === undefined) {
@@ -53,6 +53,6 @@ export const makeMove = async (
   try {
     await archiveFinished(updated, { archive, users });
   } catch (err) {
-    console.error('archiving a finished game failed', { roomId: updated.id, err });
+    log.error({ roomId: updated.id, err }, 'archiving a finished game failed');
   }
 };

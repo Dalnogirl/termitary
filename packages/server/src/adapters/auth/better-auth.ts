@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { emailOTP } from 'better-auth/plugins';
+import type { Logger } from '../../domain/logger.js';
 import type { UserStore } from '../../domain/user-store.js';
 import { env } from '../../env.js';
 import * as authSchema from '../db/auth-schema.js';
@@ -14,12 +15,19 @@ export type SendOtp = (args: {
   type: 'sign-in' | 'email-verification' | 'forget-password' | 'change-email';
 }) => Promise<void>;
 
-const defaultSendOtp: SendOtp = async ({ email, otp, type }) => {
-  // Phase 4 dev: print OTPs. Phase 7 swaps in real SMTP/SES.
-  console.log(`[auth] OTP for ${email} (${type}): ${otp}`);
-};
+// Phase 4 dev: print OTPs. Phase 7 swaps in real SMTP/SES.
+const printOtp =
+  (log: Logger): SendOtp =>
+  async ({ email, otp, type }) => {
+    log.info({ email, type }, `OTP ${otp}`);
+  };
 
-export const createAuth = (db: Db, users: UserStore, opts: { sendOtp?: SendOtp } = {}) =>
+export const createAuth = (
+  db: Db,
+  users: UserStore,
+  log: Logger,
+  opts: { sendOtp?: SendOtp } = {},
+) =>
   betterAuth({
     database: drizzleAdapter(db, { provider: 'sqlite', schema: authSchema }),
     secret: env.authSecret,
@@ -48,11 +56,11 @@ export const createAuth = (db: Db, users: UserStore, opts: { sendOtp?: SendOtp }
             try {
               await users.ensure(session.userId, new Date());
             } catch (err) {
-              console.error('[auth] profile write failed', { userId: session.userId, err });
+              log.error({ userId: session.userId, err }, 'profile write failed');
             }
           },
         },
       },
     },
-    plugins: [emailOTP({ sendVerificationOTP: opts.sendOtp ?? defaultSendOtp })],
+    plugins: [emailOTP({ sendVerificationOTP: opts.sendOtp ?? printOtp(log) })],
   });
