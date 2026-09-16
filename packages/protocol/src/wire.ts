@@ -1,9 +1,10 @@
 import {
   BASE_RULESET,
   type Board,
+  type Color,
   type GameState,
-  type Hand,
   type Move,
+  type PieceType,
   type Ruleset,
 } from '@termitary/engine';
 import { z } from 'zod';
@@ -22,34 +23,28 @@ export type WirePiece = z.infer<typeof WirePieceSchema>;
 export const WireBoardSchema = z.record(z.string(), z.array(WirePieceSchema));
 export type WireBoard = z.infer<typeof WireBoardSchema>;
 
-const WireHandSchema = z
-  .object({
-    queen: z.number().int().min(0),
-    ant: z.number().int().min(0),
-    beetle: z.number().int().min(0),
-    spider: z.number().int().min(0),
-    grasshopper: z.number().int().min(0),
-  })
-  .strict();
+const pieceCounts = (min: number) =>
+  z
+    .object({
+      queen: z.number().int().min(min),
+      ant: z.number().int().min(min),
+      beetle: z.number().int().min(min),
+      spider: z.number().int().min(min),
+      grasshopper: z.number().int().min(min),
+    })
+    .partial()
+    .strict();
+
+// A hand keeps a key at zero once its pieces are all placed, so absent means
+// the ruleset never included the type, not that the player ran out.
+const WireHandSchema = pieceCounts(0);
+type WireHand = z.infer<typeof WireHandSchema>;
 
 const WireHandsSchema = z.object({ white: WireHandSchema, black: WireHandSchema }).strict();
 
 // Counts start at 1: a piece the ruleset does not include has no key at all,
 // so a zero would be a second way to say absent.
-export const WireRulesetSchema = z
-  .object({
-    pieces: z
-      .object({
-        queen: z.number().int().min(1),
-        ant: z.number().int().min(1),
-        beetle: z.number().int().min(1),
-        spider: z.number().int().min(1),
-        grasshopper: z.number().int().min(1),
-      })
-      .partial()
-      .strict(),
-  })
-  .strict();
+export const WireRulesetSchema = z.object({ pieces: pieceCounts(1) }).strict();
 export type WireRuleset = z.infer<typeof WireRulesetSchema>;
 
 const WireTurnNumbersSchema = z
@@ -83,6 +78,9 @@ const WireEndReasonSchema = z.enum(['queen-surrounded', 'resignation']);
 
 const inProgressShape = {
   status: z.literal('in_progress'),
+  // Optional rather than defaulted: a state stored before the wire carried a
+  // ruleset has none, and `fromWire` reads that absence as base.
+  ruleset: WireRulesetSchema.optional(),
   board: WireBoardSchema,
   hands: WireHandsSchema,
   currentPlayer: WireColorSchema,
@@ -92,6 +90,7 @@ const inProgressShape = {
 
 const finishedShape = {
   status: z.literal('finished'),
+  ruleset: WireRulesetSchema.optional(),
   result: WireFinishedResultSchema,
   endReason: WireEndReasonSchema,
   board: WireBoardSchema,
@@ -101,10 +100,31 @@ const finishedShape = {
   history: z.array(WireMoveSchema),
 } as const;
 
-export const WireGameStateSchema = z.discriminatedUnion('status', [
-  z.object(inProgressShape).strict(),
-  z.object(finishedShape).strict(),
-]);
+// A hand holding a type the ruleset never dealt would be a piece nobody can
+// account for, and the engine would happily let it be placed.
+const handsFitRuleset = (
+  wire: { readonly ruleset?: WireRuleset | undefined; readonly hands: Record<Color, WireHand> },
+  ctx: z.RefinementCtx,
+): void => {
+  const dealt = new Set(Object.keys(wire.ruleset?.pieces ?? BASE_RULESET.pieces));
+  for (const color of ['white', 'black'] as const) {
+    for (const type of Object.keys(wire.hands[color])) {
+      if (dealt.has(type)) continue;
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['hands', color, type],
+        message: `${color} holds a ${type}, which this ruleset does not include`,
+      });
+    }
+  }
+};
+
+export const WireGameStateSchema = z
+  .discriminatedUnion('status', [
+    z.object(inProgressShape).strict(),
+    z.object(finishedShape).strict(),
+  ])
+  .superRefine(handsFitRuleset);
 export type WireGameState = z.infer<typeof WireGameStateSchema>;
 
 const boardToWire = (board: Board): WireBoard => {
@@ -121,8 +141,12 @@ const boardFromWire = (wire: WireBoard): Board => {
   return { cells };
 };
 
-const definedCounts = (pieces: WireRuleset['pieces']): Ruleset['pieces'] =>
-  Object.fromEntries(Object.entries(pieces).filter(([, count]) => count !== undefined));
+// zod's `.partial()` gives every key an explicit `| undefined`, which
+// `exactOptionalPropertyTypes` will not assign to an optional property.
+const definedCounts = (
+  counts: Readonly<Partial<Record<PieceType, number | undefined>>>,
+): Partial<Record<PieceType, number>> =>
+  Object.fromEntries(Object.entries(counts).filter(([, count]) => count !== undefined));
 
 export const toWireRuleset = (ruleset: Ruleset): WireRuleset => ({ pieces: { ...ruleset.pieces } });
 
@@ -133,20 +157,13 @@ export const fromWireRuleset = (wire: WireRuleset): Ruleset => ({
 export const toWireMove = (move: Move): WireMove => move;
 export const fromWireMove = (wire: WireMove): Move => wire;
 
-const toWireHand = (h: Hand): z.infer<typeof WireHandSchema> => ({
-  queen: h.queen ?? 0,
-  ant: h.ant ?? 0,
-  beetle: h.beetle ?? 0,
-  spider: h.spider ?? 0,
-  grasshopper: h.grasshopper ?? 0,
-});
-
 export const toWire = (state: GameState): WireGameState => {
   const common = {
+    ruleset: toWireRuleset(state.ruleset),
     board: boardToWire(state.board),
     hands: {
-      white: toWireHand(state.hands.white),
-      black: toWireHand(state.hands.black),
+      white: { ...state.hands.white },
+      black: { ...state.hands.black },
     },
     currentPlayer: state.currentPlayer,
     turnNumbers: { ...state.turnNumbers },
@@ -158,14 +175,16 @@ export const toWire = (state: GameState): WireGameState => {
   return { status: 'in_progress', ...common };
 };
 
-export const fromWire = (wire: WireGameState): GameState => {
+// `ruleset` overrides whatever the state carries, for the one caller that has a
+// better source: a room stores its ruleset in its own column, and a row written
+// before the state carried one has it nowhere else.
+export const fromWire = (wire: WireGameState, ruleset?: Ruleset): GameState => {
   const common = {
-    // The wire does not carry a ruleset yet, so every stored state is base (S-6.4).
-    ruleset: BASE_RULESET,
+    ruleset: ruleset ?? (wire.ruleset === undefined ? BASE_RULESET : fromWireRuleset(wire.ruleset)),
     board: boardFromWire(wire.board),
     hands: {
-      white: { ...wire.hands.white },
-      black: { ...wire.hands.black },
+      white: definedCounts(wire.hands.white),
+      black: definedCounts(wire.hands.black),
     },
     currentPlayer: wire.currentPlayer,
     turnNumbers: { ...wire.turnNumbers },

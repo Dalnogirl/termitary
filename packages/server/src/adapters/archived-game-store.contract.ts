@@ -1,3 +1,4 @@
+import { BASE_RULESET, type Ruleset } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import type { ArchivedGameStore } from '../domain/archived-game-store.js';
 import type { ArchivedGame } from '../domain/archived-game.js';
@@ -18,12 +19,26 @@ const ALL = { limit: 100 };
 // Playing to a real queen surround here would say nothing about the archive.
 const FINISHED = { status: 'finished', result: 'draw', endReason: 'queen-surrounded' } as const;
 
+const SPIDERLESS: Ruleset = { pieces: { queen: 1, ant: 3, beetle: 2, grasshopper: 3 } };
+
 const gameOf = (
   id: string,
-  { white = 'p1', black = 'p2', startedAt = 1000, finishedAt = 2000 } = {},
+  {
+    white = 'p1',
+    black = 'p2',
+    startedAt = 1000,
+    finishedAt = 2000,
+    ruleset = BASE_RULESET,
+  }: {
+    white?: string;
+    black?: string;
+    startedAt?: number;
+    finishedAt?: number;
+    ruleset?: Ruleset;
+  } = {},
 ): ArchivedGame => {
   const seated = seatPlayer(
-    createRoom(id, ident(white), 'white', new Date(startedAt)),
+    createRoom(id, ident(white), 'white', new Date(startedAt), ruleset),
     ident(black),
   );
   const room = touch({ ...seated, state: { ...seated.state, ...FINISHED } }, new Date(finishedAt));
@@ -65,6 +80,17 @@ export const describeArchivedGameStoreContract = (
         const stored = await archive.get('r1');
         expect(stored).toEqual(game);
         expect(stored?.state.history).toEqual(game.state.history);
+      }));
+
+    it('snapshots the ruleset the game was played under', async () =>
+      withArchive(async ({ archive }) => {
+        await archive.record(gameOf('r1', { ruleset: SPIDERLESS }));
+
+        // A replay renders from the archived state alone, so a ruleset the
+        // room can no longer supply has to survive here.
+        const stored = await archive.get('r1');
+        expect(stored?.state.ruleset).toEqual(SPIDERLESS);
+        expect(stored?.state.hands.white).not.toHaveProperty('spider');
       }));
 
     it('get on a game never recorded returns undefined', async () =>

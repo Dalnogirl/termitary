@@ -1,3 +1,5 @@
+import { BASE_RULESET, replayFrames } from '@termitary/engine';
+import { type WireGameState, toWire } from '@termitary/protocol';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { toArchivedGame } from '../domain/archived-game.js';
@@ -59,6 +61,23 @@ describe('DrizzleArchivedGameStore', () => {
 
       const row = db.db.select().from(archivedGames).where(eq(archivedGames.id, 'r1')).get();
       expect(row?.stateVersion).toBe(CURRENT_ARCHIVE_STATE_VERSION);
+    }));
+
+  it('replays a game archived before the state carried a ruleset', async () =>
+    withArchive(async (db) => {
+      const archive = createDrizzleArchivedGameStore(db.db);
+      const game = finishedGame('r1');
+      await archive.record(game);
+      const { ruleset: _dropped, ...legacy } = toWire(game.state);
+      db.db
+        .update(archivedGames)
+        .set({ state: legacy as WireGameState })
+        .where(eq(archivedGames.id, 'r1'))
+        .run();
+
+      const stored = await archive.get('r1');
+      expect(stored?.state.ruleset).toEqual(BASE_RULESET);
+      expect(replayFrames(stored?.state.history ?? [], BASE_RULESET)).toHaveLength(1);
     }));
 
   it('keeps a deleted account out of the seat but keeps the name it played under', async () =>

@@ -57,7 +57,7 @@ const liveView = (
 // depend on the rebuild, so the live board keeps going and only scrubbing dies.
 const buildFrames = (state: StoreState): readonly GameState[] | null => {
   try {
-    return replayFrames(state.liveGame.history);
+    return replayFrames(state.liveGame.history, state.liveGame.ruleset);
   } catch (error) {
     console.error(error);
     toast.error('This game\u2019s history could not be rebuilt', { id: 'replay-failed' });

@@ -1,7 +1,8 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BASE_RULESET, applyMove, createGame } from '@termitary/engine';
+import { BASE_RULESET, applyMove, createGame, replayFrames } from '@termitary/engine';
+import { type WireGameState, toWire } from '@termitary/protocol';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import type { RoomStore } from '../domain/room-store.js';
@@ -102,6 +103,27 @@ describe('DrizzleRoomStore', () => {
       db.db.update(roomsTable).set({ ruleset: null }).where(eq(roomsTable.id, 'r1')).run();
 
       expect((await store.get('r1'))?.ruleset).toEqual(BASE_RULESET);
+    }));
+
+  it('replays a state stored before it carried a ruleset', async () =>
+    withStore(async ({ db, store }) => {
+      const room = {
+        ...createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)),
+        state: placeAnt(0, 0),
+      };
+      await store.create(room);
+      const { ruleset: _dropped, ...legacy } = toWire(room.state);
+      db.db
+        .update(roomsTable)
+        .set({ state: legacy as WireGameState, ruleset: null })
+        .where(eq(roomsTable.id, 'r1'))
+        .run();
+
+      const stored = await store.get('r1');
+      expect(stored?.state.ruleset).toEqual(BASE_RULESET);
+      expect(replayFrames(stored?.state.history ?? [], BASE_RULESET).at(-1)?.board.cells).toEqual(
+        stored?.state.board.cells,
+      );
     }));
 
   it('rejects a state payload it cannot parse', async () =>

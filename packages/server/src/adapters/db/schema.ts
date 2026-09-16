@@ -43,6 +43,8 @@ export const rooms = sqliteTable(
     // The pieces themselves, not a preset name: a named preset that later
     // changed its contents would rewrite the rules of games already stored
     // under it. Null is a row written before the column, and reads as base.
+    // `state` carries its own copy since S-6.4; this column is the one a query
+    // can reach, and the room store takes it as the authority on read.
     ruleset: text('ruleset', { mode: 'json' }).$type<WireRuleset>(),
     // Incremented, never compared: this is not working optimistic concurrency.
     // See the TODO in domain/room-store.ts.

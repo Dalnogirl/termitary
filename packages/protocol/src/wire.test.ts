@@ -1,4 +1,12 @@
-import { BASE_RULESET, applyMove, createGame, listValidMoves, resign } from '@termitary/engine';
+import {
+  BASE_RULESET,
+  type Ruleset,
+  applyMove,
+  createGame,
+  listValidMoves,
+  replayFrames,
+  resign,
+} from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import { ClientMessageSchema } from './client-messages.js';
 import { ServerMessageSchema } from './server-messages.js';
@@ -11,8 +19,10 @@ import {
   toWireRuleset,
 } from './wire.js';
 
-const playN = (n: number) => {
-  let state = createGame();
+const SPIDERLESS: Ruleset = { pieces: { queen: 1, ant: 3, beetle: 2, grasshopper: 3 } };
+
+const playN = (n: number, ruleset: Ruleset = BASE_RULESET) => {
+  let state = createGame(ruleset);
   for (let i = 0; i < n; i++) {
     const moves = listValidMoves(state);
     const move = moves[0];
@@ -74,6 +84,56 @@ describe('wire serialization', () => {
     if (finished.status !== 'finished') throw new Error('unreachable');
     const { endReason: _dropped, ...missing } = finished;
     expect(WireGameStateSchema.safeParse(missing).success).toBe(false);
+  });
+
+  it('round-trips a ruleset the game was played under, and the sparse hands it deals', () => {
+    const state = playN(8, SPIDERLESS);
+    const reparsed = WireGameStateSchema.parse(JSON.parse(JSON.stringify(toWire(state))));
+    const restored = fromWire(reparsed);
+
+    expect(restored.ruleset).toEqual(SPIDERLESS);
+    expect(restored.hands).toEqual(state.hands);
+    expect(restored.hands.white).not.toHaveProperty('spider');
+  });
+
+  it('reads a state stored before the wire carried a ruleset as base', () => {
+    const { ruleset: _dropped, ...legacy } = toWire(playN(4));
+    const restored = fromWire(WireGameStateSchema.parse(JSON.parse(JSON.stringify(legacy))));
+
+    expect(restored.ruleset).toEqual(BASE_RULESET);
+    expect(replayFrames(restored.history, restored.ruleset).at(-1)?.board.cells).toEqual(
+      restored.board.cells,
+    );
+  });
+
+  it('keeps an exhausted piece type as a zero rather than dropping the key', () => {
+    const hand = { ...createGame().hands.white, queen: 0 };
+    const wire = toWire({ ...createGame(), hands: { white: hand, black: hand } });
+
+    expect(WireGameStateSchema.safeParse(wire).success).toBe(true);
+    expect(fromWire(WireGameStateSchema.parse(wire)).hands.white.queen).toBe(0);
+  });
+
+  it('rejects a hand holding a piece type the ruleset does not include', () => {
+    const wire = toWire(createGame(SPIDERLESS));
+    const smuggled = {
+      ...wire,
+      hands: { ...wire.hands, black: { ...wire.hands.black, spider: 2 } },
+    };
+
+    expect(WireGameStateSchema.safeParse(smuggled).success).toBe(false);
+  });
+
+  it('judges a hand against base when the state carries no ruleset', () => {
+    const { ruleset: _dropped, ...legacy } = toWire(createGame());
+
+    expect(WireGameStateSchema.safeParse(legacy).success).toBe(true);
+    expect(
+      WireGameStateSchema.safeParse({
+        ...legacy,
+        hands: { ...legacy.hands, white: { ...legacy.hands.white, ladybug: 1 } },
+      }).success,
+    ).toBe(false);
   });
 
   it('rejects board entries with extra fields via strict piece schema', () => {
