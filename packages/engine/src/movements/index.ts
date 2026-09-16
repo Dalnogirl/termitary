@@ -5,6 +5,7 @@ import { antMovement } from './ant.js';
 import { beetleMovement } from './beetle.js';
 import { grasshopperMovement } from './grasshopper.js';
 import { ladybugMovement } from './ladybug.js';
+import { mosquitoMovement } from './mosquito.js';
 import { queenMovement } from './queen.js';
 import { spiderMovement } from './spider.js';
 
@@ -17,4 +18,5 @@ export const movements = {
   spider: spiderMovement,
   beetle: beetleMovement,
   ladybug: ladybugMovement,
+  mosquito: mosquitoMovement,
 } satisfies Record<PieceType, MovementFn>;

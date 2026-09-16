@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { applyMove, createGame, listValidMoves } from './coordinator.js';
-import { BASE_RULESET, IllegalRulesetError, LADYBUG_RULESET, type Ruleset } from './ruleset.js';
+import {
+  BASE_RULESET,
+  IllegalRulesetError,
+  LADYBUG_RULESET,
+  MOSQUITO_RULESET,
+  type Ruleset,
+} from './ruleset.js';
 
 const without = (type: 'spider' | 'ant'): Ruleset => {
   const { [type]: _dropped, ...rest } = BASE_RULESET.pieces;
@@ -83,5 +89,24 @@ describe('the ladybug expansion', () => {
   it('offers the ladybug as an opening placement', () => {
     const opening = listValidMoves(createGame(LADYBUG_RULESET));
     expect(opening.some((m) => m.kind === 'place' && m.piece.type === 'ladybug')).toBe(true);
+  });
+});
+
+describe('the mosquito expansion', () => {
+  it('is one piece on top of the base set, and not in the base set itself', () => {
+    expect(BASE_RULESET.pieces.mosquito).toBeUndefined();
+    expect(createGame(MOSQUITO_RULESET).hands.white).toEqual({
+      queen: 1,
+      ant: 3,
+      beetle: 2,
+      spider: 2,
+      grasshopper: 3,
+      mosquito: 1,
+    });
+  });
+
+  it('offers the mosquito as an opening placement', () => {
+    const opening = listValidMoves(createGame(MOSQUITO_RULESET));
+    expect(opening.some((m) => m.kind === 'place' && m.piece.type === 'mosquito')).toBe(true);
   });
 });

@@ -16,11 +16,14 @@ const LETTERS: Record<PieceType, string> = {
   spider: 'S',
   grasshopper: 'G',
   ladybug: 'L',
+  mosquito: 'M',
 };
 
 // One hue per piece type, in the saturated mid register the physical tiles use,
 // which is what lets a single tone sit on both an ivory tile and a black one.
 // The deep tone is for 'per-tile', where the ivory side can afford a darker ink.
+// The mosquito is the exception: a near-neutral, because the six hues had spent
+// every part of the wheel that stays clear of its neighbours under dichromacy.
 const PIECE_INK: Record<PieceType, { readonly light: string; readonly dark: string }> = {
   queen: { light: '#e8b41e', dark: '#8f6e05' },
   ant: { light: '#5aa7cf', dark: '#1d5f80' },
@@ -28,6 +31,7 @@ const PIECE_INK: Record<PieceType, { readonly light: string; readonly dark: stri
   spider: { light: '#a46a3f', dark: '#5e3a1d' },
   grasshopper: { light: '#57b24b', dark: '#2f6b1f' },
   ladybug: { light: '#d9534a', dark: '#8c2b23' },
+  mosquito: { light: '#8a9299', dark: '#454b50' },
 };
 
 export const pieceLetter = (type: PieceType): string => LETTERS[type];

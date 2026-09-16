@@ -13,6 +13,7 @@ const PIECE_TYPES_ALL: readonly PieceType[] = [
   'spider',
   'grasshopper',
   'ladybug',
+  'mosquito',
 ];
 
 // Every type a ruleset may deal, at the count it is dealt at when present.
@@ -23,10 +24,11 @@ const COUNTS: Record<PieceType, number> = {
   spider: 2,
   grasshopper: 3,
   ladybug: 1,
+  mosquito: 1,
 };
 
-// Every subset of the five optional piece types.
-const NUM_GAMES = 2 ** 5;
+// Every subset of the six optional piece types.
+const NUM_GAMES = 2 ** 6;
 const MAX_MOVES_PER_GAME = 80;
 
 const pickRandom = <T>(arr: readonly T[]): T => {

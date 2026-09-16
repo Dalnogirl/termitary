@@ -10,7 +10,15 @@ import {
 import { z } from 'zod';
 
 const WireColorSchema = z.enum(['white', 'black']);
-const WirePieceTypeSchema = z.enum(['queen', 'ant', 'beetle', 'spider', 'grasshopper', 'ladybug']);
+const WirePieceTypeSchema = z.enum([
+  'queen',
+  'ant',
+  'beetle',
+  'spider',
+  'grasshopper',
+  'ladybug',
+  'mosquito',
+]);
 
 export const WireHexCoordSchema = z.object({ q: z.number().int(), r: z.number().int() }).strict();
 export type WireHexCoord = z.infer<typeof WireHexCoordSchema>;
@@ -32,6 +40,7 @@ const pieceCounts = (min: number) =>
       spider: z.number().int().min(min),
       grasshopper: z.number().int().min(min),
       ladybug: z.number().int().min(min),
+      mosquito: z.number().int().min(min),
     })
     .partial()
     .strict();

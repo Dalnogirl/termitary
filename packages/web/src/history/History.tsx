@@ -11,6 +11,7 @@ const PIECE_NAME: Record<PieceType, string> = {
   spider: 'Spider',
   grasshopper: 'Grasshopper',
   ladybug: 'Ladybug',
+  mosquito: 'Mosquito',
 };
 
 const formatCoord = (c: HexCoord): string => `(${c.q},${c.r})`;
