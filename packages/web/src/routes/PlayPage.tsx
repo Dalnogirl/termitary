@@ -19,6 +19,7 @@ import { RoomProvider } from '../controller/RoomContext.js';
 import type { RoomStatus } from '../controller/room.js';
 import { useRoomConnection } from '../controller/use-room-connection.js';
 import { cancelRoom } from '../network/rooms-api.js';
+import { CopyInviteButton } from '../rooms/CopyInviteButton.js';
 import { useGameStore } from '../store/store.js';
 import { GameLayout } from './GameLayout.js';
 import { paths } from './paths.js';
@@ -119,9 +120,7 @@ export const PlayPage = () => {
         <div className="flex flex-col flex-1 min-h-0">
           <div className="flex items-center justify-between gap-4 px-5 py-2 border-b border-border text-xs text-muted-foreground">
             <span className="flex items-center gap-3">
-              <span>
-                Room <span className="font-mono">{roomId}</span> — share this URL to invite.
-              </span>
+              <CopyInviteButton />
               <ConnectionBadge status={room.status} opponent={room.opponent} />
             </span>
             {!gameOver && (
