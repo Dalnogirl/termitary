@@ -2,9 +2,12 @@ import { cn } from '@/lib/utils';
 import type { Color, PieceType } from '@termitary/engine';
 import { PieceMark } from './PieceMark.js';
 
+// Only the dark tile carries an edge, so it is an inset ring rather than a
+// border: a ring paints inside the box and cannot measure differently from the
+// tile beside it.
 const tileClass: Record<Color, string> = {
   white: 'bg-(--piece-white-fill)',
-  black: 'bg-(--piece-black-fill) border border-border',
+  black: 'bg-(--piece-black-fill) inset-ring-1 inset-ring-border',
 };
 
 // The radius goes with the box: `rounded-lg` is 8px, which on a 20px tile is
@@ -19,11 +22,17 @@ type Props = {
   readonly size?: keyof typeof tileSize;
 };
 
+// shrink-0 because a tile is a flex item wherever it lands, and one that
+// compresses beside one that does not is an uneven pair.
 /** A piece on its own square, for the places outside a game that show one. */
 export const PieceTile = ({ type, color, size = 'md' }: Props) => (
   <span
     aria-hidden="true"
-    className={cn('inline-flex items-center justify-center', tileSize[size], tileClass[color])}
+    className={cn(
+      'inline-flex shrink-0 items-center justify-center',
+      tileSize[size],
+      tileClass[color],
+    )}
   >
     <PieceMark type={type} color={color} size={markSize[size]} />
   </span>
