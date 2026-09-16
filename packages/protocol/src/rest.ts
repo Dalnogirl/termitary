@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { WireGameState } from './wire.js';
+import type { WireGameState, WireRuleset } from './wire.js';
 
 // REST bodies. Responses are plain types: both sides import the same
 // declaration, so the compiler checks them. A request body is input nobody
@@ -9,6 +9,7 @@ export type RoomSummaryDto = {
   readonly roomId: string;
   readonly playerCount: 0 | 1 | 2;
   readonly status: 'in_progress' | 'finished';
+  readonly ruleset: WireRuleset;
 };
 
 export type CreateRoomResponseDto = {
@@ -22,6 +23,8 @@ export type SeatChoice = z.infer<typeof SeatChoiceSchema>;
 /** The server parses it with `CreateRoomBodySchema`. */
 export type CreateRoomRequestDto = {
   readonly seat: SeatChoice;
+  /** Absent means base, the same absence `WireGameState.ruleset` uses. */
+  readonly ruleset?: WireRuleset;
 };
 
 // A room the caller holds a seat in. Every row is in progress and seated by
@@ -32,6 +35,7 @@ export type MyRoomSummaryDto = {
   readonly playerCount: 1 | 2;
   /** Epoch milliseconds, rendered as a relative time. */
   readonly updatedAt: number;
+  readonly ruleset: WireRuleset;
 };
 
 // A keyset page. `nextCursor` is the cursor for the page after this one, and

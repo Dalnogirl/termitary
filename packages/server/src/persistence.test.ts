@@ -1,12 +1,14 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { listValidMoves } from '@termitary/engine';
+import { BASE_RULESET, listValidMoves } from '@termitary/engine';
 import { fromWire, toWireMove } from '@termitary/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type DbHandle, createDb } from './adapters/db/client.js';
 import { type TestApp, createTestApp } from './testing/auth-helper.js';
 import { connect, expectKind } from './testing/ws-client.js';
+
+const BASE_WIRE = { pieces: { ...BASE_RULESET.pieces } };
 
 // Phase 4's goal: a game outlives the process that created it.
 describe('room persistence across a restart', () => {
@@ -80,7 +82,13 @@ describe('room persistence across a restart', () => {
       });
       expect(listed.statusCode).toBe(200);
       expect(listed.json()).toEqual([
-        { roomId, seat: 'white', playerCount: 1, updatedAt: expect.any(Number) },
+        {
+          roomId,
+          seat: 'white',
+          playerCount: 1,
+          updatedAt: expect.any(Number),
+          ruleset: BASE_WIRE,
+        },
       ]);
 
       // The board, not just the summary: the move made before the restart is

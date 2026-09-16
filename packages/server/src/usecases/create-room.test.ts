@@ -1,3 +1,4 @@
+import { BASE_RULESET, IllegalRulesetError } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import { createTestStores } from '../testing/stores.js';
 import { createRoom } from './create-room.js';
@@ -60,6 +61,45 @@ describe('createRoom use case', () => {
     expect(calls).toBe(0);
     await createRoom({ playerId: 'alice' }, { seat: 'random' }, rooms, counting);
     expect(calls).toBe(1);
+  });
+
+  it('stores the ruleset the creator asked for, in the room and in the hands', async () => {
+    const { rooms } = createTestStores(['alice']);
+    const { roomId } = await createRoom(
+      { playerId: 'alice' },
+      { seat: 'white', ruleset: { pieces: { ...BASE_RULESET.pieces, ladybug: 1 } } },
+      rooms,
+      always('white'),
+    );
+
+    const stored = await rooms.get(roomId);
+    expect(stored?.ruleset.pieces.ladybug).toBe(1);
+    expect(stored?.state.hands.white.ladybug).toBe(1);
+    expect(stored?.state.hands.black.ladybug).toBe(1);
+  });
+
+  it('creates a base game when the body names no ruleset', async () => {
+    const { rooms } = createTestStores(['alice']);
+    const { roomId } = await createRoom(
+      { playerId: 'alice' },
+      { seat: 'white' },
+      rooms,
+      always('white'),
+    );
+
+    expect((await rooms.get(roomId))?.ruleset).toEqual(BASE_RULESET);
+  });
+
+  it('refuses a ruleset the engine calls illegal rather than storing it', async () => {
+    const { rooms } = createTestStores(['alice']);
+    await expect(
+      createRoom(
+        { playerId: 'alice' },
+        { seat: 'white', ruleset: { pieces: { ant: 3 } } },
+        rooms,
+        always('white'),
+      ),
+    ).rejects.toThrow(IllegalRulesetError);
   });
 
   it('returns a distinct roomId on each invocation', async () => {

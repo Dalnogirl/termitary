@@ -1,4 +1,4 @@
-import type { MyRoomSummaryDto } from '@termitary/protocol';
+import { type MyRoomSummaryDto, toWireRuleset } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { RoomOverview, RoomStore } from '../domain/room-store.js';
 import { seatOf } from '../domain/room.js';
@@ -14,6 +14,7 @@ const summarizeMine = (playerId: string, room: RoomOverview): MyRoomSummaryDto |
     seat,
     playerCount: white !== undefined && black !== undefined ? 2 : 1,
     updatedAt: room.updatedAt.getTime(),
+    ruleset: toWireRuleset(room.ruleset),
   };
 };
 

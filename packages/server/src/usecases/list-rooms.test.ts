@@ -1,4 +1,10 @@
-import { applyMove, createGame, listValidMoves } from '@termitary/engine';
+import {
+  BASE_RULESET,
+  type Ruleset,
+  applyMove,
+  createGame,
+  listValidMoves,
+} from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import type { Identity } from '../domain/identity.js';
 import type { RoomOverview } from '../domain/room-store.js';
@@ -15,7 +21,11 @@ const overviewOf = (room: Room): RoomOverview => ({
   players: room.players,
   status: room.state.status,
   updatedAt: new Date(0),
+  ruleset: room.ruleset,
 });
+
+const BASE_WIRE = { pieces: { ...BASE_RULESET.pieces } };
+const LADYBUG: Ruleset = { pieces: { ...BASE_RULESET.pieces, ladybug: 1 } };
 
 describe('summarize', () => {
   it('counts an empty room as 0 players', () => {
@@ -23,7 +33,12 @@ describe('summarize', () => {
       ...createRoom('r1', ident('alice'), 'white', NOW),
       players: { white: undefined, black: undefined },
     });
-    expect(summarize(empty)).toEqual({ roomId: 'r1', playerCount: 0, status: 'in_progress' });
+    expect(summarize(empty)).toEqual({
+      roomId: 'r1',
+      playerCount: 0,
+      status: 'in_progress',
+      ruleset: BASE_WIRE,
+    });
   });
 
   it('counts a single-seated room as 1 player', () => {
@@ -31,6 +46,7 @@ describe('summarize', () => {
       roomId: 'r1',
       playerCount: 1,
       status: 'in_progress',
+      ruleset: BASE_WIRE,
     });
   });
 
@@ -40,7 +56,13 @@ describe('summarize', () => {
       roomId: 'r1',
       playerCount: 2,
       status: 'in_progress',
+      ruleset: BASE_WIRE,
     });
+  });
+
+  it('carries the room ruleset, so the lobby can badge it', () => {
+    const room = createRoom('r1', ident('alice'), 'white', NOW, LADYBUG);
+    expect(summarize(overviewOf(room)).ruleset).toEqual({ pieces: LADYBUG.pieces });
   });
 
   it('reflects finished game status', () => {

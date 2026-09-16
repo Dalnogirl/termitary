@@ -1,3 +1,4 @@
+import { BASE_RULESET } from '@termitary/engine';
 import type {
   ArchivedGameDetailDto,
   ArchivedGameSummaryDto,
@@ -9,6 +10,8 @@ import { createDrizzleArchivedGameStore } from './adapters/drizzle-archived-game
 import { toArchivedGame } from './domain/archived-game.js';
 import { isFinished, createRoom as newRoom, seatPlayer, touch } from './domain/room.js';
 import { type TestApp, createTestApp } from './testing/auth-helper.js';
+
+const BASE_WIRE = { pieces: { ...BASE_RULESET.pieces } };
 
 describe('REST routes', () => {
   let ctx: TestApp;
@@ -41,6 +44,50 @@ describe('REST routes', () => {
       expect(res.statusCode).toBe(401);
     });
 
+    it('deals the expansion pieces the body asked for, to both hands', async () => {
+      const { cookie } = await ctx.signIn('alice@test.dev');
+      const ladybug = { pieces: { ...BASE_RULESET.pieces, ladybug: 1 } };
+      const created = await ctx.app.inject({
+        method: 'POST',
+        url: '/rooms',
+        payload: { seat: 'white', ruleset: ladybug },
+        headers: { cookie },
+      });
+      expect(created.statusCode).toBe(200);
+      const { roomId } = created.json() as { roomId: string };
+
+      const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
+      expect(mine.json()).toEqual([
+        { roomId, seat: 'white', playerCount: 1, updatedAt: expect.any(Number), ruleset: ladybug },
+      ]);
+    });
+
+    it('rejects a piece type it does not know rather than creating the room', async () => {
+      const { cookie } = await ctx.signIn('alice@test.dev');
+      const res = await ctx.app.inject({
+        method: 'POST',
+        url: '/rooms',
+        payload: { seat: 'white', ruleset: { pieces: { ...BASE_RULESET.pieces, wasp: 1 } } },
+        headers: { cookie },
+      });
+      expect(res.statusCode).toBe(400);
+
+      const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
+      expect(mine.json()).toEqual([]);
+    });
+
+    it('rejects a queenless ruleset, which parses but cannot be played', async () => {
+      const { cookie } = await ctx.signIn('alice@test.dev');
+      const res = await ctx.app.inject({
+        method: 'POST',
+        url: '/rooms',
+        payload: { seat: 'white', ruleset: { pieces: { ant: 3 } } },
+        headers: { cookie },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toEqual({ error: 'invalid-ruleset' });
+    });
+
     it('seats the creator black and leaves white free', async () => {
       const { cookie } = await ctx.signIn('alice@test.dev');
       const created = await ctx.app.inject({
@@ -54,7 +101,13 @@ describe('REST routes', () => {
 
       const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
       expect(mine.json()).toEqual([
-        { roomId, seat: 'black', playerCount: 1, updatedAt: expect.any(Number) },
+        {
+          roomId,
+          seat: 'black',
+          playerCount: 1,
+          updatedAt: expect.any(Number),
+          ruleset: BASE_WIRE,
+        },
       ]);
     });
 
@@ -126,7 +179,13 @@ describe('REST routes', () => {
       const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
       expect(mine.statusCode).toBe(200);
       expect(mine.json()).toEqual([
-        { roomId, seat: 'white', playerCount: 1, updatedAt: expect.any(Number) },
+        {
+          roomId,
+          seat: 'white',
+          playerCount: 1,
+          updatedAt: expect.any(Number),
+          ruleset: BASE_WIRE,
+        },
       ]);
     });
   });

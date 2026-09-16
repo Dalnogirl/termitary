@@ -126,6 +126,20 @@ describe('DrizzleRoomStore', () => {
       );
     }));
 
+  it('lists a room whose ruleset cannot be parsed, as base', async () =>
+    withStore(async ({ db, store }) => {
+      await store.create(createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)));
+      db.db
+        .update(roomsTable)
+        .set({ ruleset: { pieces: { queen: 'lots' } } as never })
+        .where(eq(roomsTable.id, 'r1'))
+        .run();
+
+      const [listed] = await store.listOpenExcluding('nobody');
+      expect(listed?.ruleset).toEqual(BASE_RULESET);
+      await expect(store.get('r1')).rejects.toThrow();
+    }));
+
   it('rejects a state payload it cannot parse', async () =>
     withStore(async ({ db, store }) => {
       await store.create(createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)));

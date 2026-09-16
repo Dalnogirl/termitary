@@ -1,4 +1,4 @@
-import type { GameState } from '@termitary/engine';
+import type { GameState, Ruleset } from '@termitary/engine';
 import type { Room, Seats } from './room.js';
 
 // What the lobby needs. The listing queries return this rather than whole
@@ -9,6 +9,7 @@ export type RoomOverview = {
   readonly players: Seats;
   readonly status: GameState['status'];
   readonly updatedAt: Date;
+  readonly ruleset: Ruleset;
 };
 
 // TODO: `save` is last-write-wins, and the race is application-level rather

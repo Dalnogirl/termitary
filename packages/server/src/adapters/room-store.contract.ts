@@ -60,6 +60,13 @@ export const describeRoomStoreContract = (
         expect((await store.get('r1'))?.ruleset).toEqual(NO_SPIDERS);
       }));
 
+    it('a listing carries each room ruleset, so the lobby can badge it', async () =>
+      withStore(async ({ store }) => {
+        await store.create(createRoom('r1', ident('p1'), 'white', at(1000), NO_SPIDERS));
+        const [listed] = await store.listSeatedBy('p1');
+        expect(listed?.ruleset).toEqual(NO_SPIDERS);
+      }));
+
     it('save preserves the ruleset', async () =>
       withStore(async ({ store }) => {
         const room = createRoom('r1', ident('p1'), 'white', at(1000), NO_SPIDERS);
@@ -127,12 +134,14 @@ export const describeRoomStoreContract = (
             players: { white: ident('p1'), black: undefined },
             status: 'in_progress',
             updatedAt: new Date(1000),
+            ruleset: BASE_RULESET,
           },
           {
             id: 'r2',
             players: { white: ident('p2'), black: ident('p1') },
             status: 'in_progress',
             updatedAt: new Date(1000),
+            ruleset: BASE_RULESET,
           },
         ]);
       }));
