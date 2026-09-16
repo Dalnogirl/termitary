@@ -1,4 +1,4 @@
-import type { WireGameState } from '@termitary/protocol';
+import type { WireGameState, WireRuleset } from '@termitary/protocol';
 import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { user } from './auth-schema.js';
 
@@ -40,6 +40,10 @@ export const rooms = sqliteTable(
     status: text('status', { enum: ['in_progress', 'finished'] }).notNull(),
     state: text('state', { mode: 'json' }).$type<WireGameState>().notNull(),
     stateVersion: integer('state_version').notNull(),
+    // The pieces themselves, not a preset name: a named preset that later
+    // changed its contents would rewrite the rules of games already stored
+    // under it. Null is a row written before the column, and reads as base.
+    ruleset: text('ruleset', { mode: 'json' }).$type<WireRuleset>(),
     // Incremented, never compared: this is not working optimistic concurrency.
     // See the TODO in domain/room-store.ts.
     version: integer('version').notNull(),

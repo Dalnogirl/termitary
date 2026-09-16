@@ -426,6 +426,7 @@ describe('archiving a finished game', () => {
   const seatedRoom = async (ports: Ports, state: GameState): Promise<string> => {
     await ports.rooms.create({
       id: 'r1',
+      ruleset: BASE_RULESET,
       state,
       players: { white: ident('alice'), black: ident('bob') },
       createdAt: new Date(1000),

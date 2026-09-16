@@ -1,4 +1,4 @@
-import { type GameState, createGame } from '@termitary/engine';
+import { BASE_RULESET, type GameState, type Ruleset, createGame } from '@termitary/engine';
 import type { Color } from '@termitary/engine';
 import type { Identity } from './identity.js';
 
@@ -6,6 +6,7 @@ export type Seats = Readonly<Record<Color, Identity | undefined>>;
 
 export type Room = {
   readonly id: string;
+  readonly ruleset: Ruleset;
   readonly state: GameState;
   readonly players: Seats;
   readonly createdAt: Date;
@@ -20,9 +21,16 @@ export const isFinished = (room: Room): room is FinishedRoom => room.state.statu
 // seat, so this only decides where a joiner lands in an empty room.
 const SEAT_ORDER = ['white', 'black'] as const;
 
-export const createRoom = (id: string, creator: Identity, seat: Color, now: Date): Room => ({
+export const createRoom = (
+  id: string,
+  creator: Identity,
+  seat: Color,
+  now: Date,
+  ruleset: Ruleset = BASE_RULESET,
+): Room => ({
   id,
-  state: createGame(),
+  ruleset,
+  state: createGame(ruleset),
   players:
     seat === 'white' ? { white: creator, black: undefined } : { white: undefined, black: creator },
   createdAt: now,

@@ -1,4 +1,11 @@
-import { BASE_RULESET, type Board, type GameState, type Hand, type Move } from '@termitary/engine';
+import {
+  BASE_RULESET,
+  type Board,
+  type GameState,
+  type Hand,
+  type Move,
+  type Ruleset,
+} from '@termitary/engine';
 import { z } from 'zod';
 
 const WireColorSchema = z.enum(['white', 'black']);
@@ -26,6 +33,24 @@ const WireHandSchema = z
   .strict();
 
 const WireHandsSchema = z.object({ white: WireHandSchema, black: WireHandSchema }).strict();
+
+// Counts start at 1: a piece the ruleset does not include has no key at all,
+// so a zero would be a second way to say absent.
+export const WireRulesetSchema = z
+  .object({
+    pieces: z
+      .object({
+        queen: z.number().int().min(1),
+        ant: z.number().int().min(1),
+        beetle: z.number().int().min(1),
+        spider: z.number().int().min(1),
+        grasshopper: z.number().int().min(1),
+      })
+      .partial()
+      .strict(),
+  })
+  .strict();
+export type WireRuleset = z.infer<typeof WireRulesetSchema>;
 
 const WireTurnNumbersSchema = z
   .object({
@@ -95,6 +120,15 @@ const boardFromWire = (wire: WireBoard): Board => {
   }
   return { cells };
 };
+
+const definedCounts = (pieces: WireRuleset['pieces']): Ruleset['pieces'] =>
+  Object.fromEntries(Object.entries(pieces).filter(([, count]) => count !== undefined));
+
+export const toWireRuleset = (ruleset: Ruleset): WireRuleset => ({ pieces: { ...ruleset.pieces } });
+
+export const fromWireRuleset = (wire: WireRuleset): Ruleset => ({
+  pieces: definedCounts(wire.pieces),
+});
 
 export const toWireMove = (move: Move): WireMove => move;
 export const fromWireMove = (wire: WireMove): Move => wire;

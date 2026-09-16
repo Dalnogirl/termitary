@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { applyMove, createGame } from '@termitary/engine';
+import { BASE_RULESET, applyMove, createGame } from '@termitary/engine';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import type { RoomStore } from '../domain/room-store.js';
@@ -93,6 +93,15 @@ describe('DrizzleRoomStore', () => {
     withStore(async ({ db, store }) => {
       await store.create(createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)));
       expect(rowOf(db, 'r1')?.stateVersion).toBe(CURRENT_STATE_VERSION);
+    }));
+
+  it('reads a null ruleset column as base', async () =>
+    withStore(async ({ db, store }) => {
+      await store.create(createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)));
+      // What a row written before the column looks like.
+      db.db.update(roomsTable).set({ ruleset: null }).where(eq(roomsTable.id, 'r1')).run();
+
+      expect((await store.get('r1'))?.ruleset).toEqual(BASE_RULESET);
     }));
 
   it('rejects a state payload it cannot parse', async () =>
