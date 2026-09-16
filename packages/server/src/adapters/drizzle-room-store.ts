@@ -18,14 +18,19 @@ const seat = (userId: string | null) => (userId === null ? undefined : { playerI
 const rulesetOf = (stored: RoomRow['ruleset']) =>
   stored === null ? BASE_RULESET : fromWireRuleset(WireRulesetSchema.parse(stored));
 
-const toRoom = (row: RoomRow): Room => ({
-  id: row.id,
-  ruleset: rulesetOf(row.ruleset),
-  state: fromWire(WireGameStateSchema.parse(row.state)),
-  players: { white: seat(row.whiteUserId), black: seat(row.blackUserId) },
-  createdAt: row.createdAt,
-  updatedAt: row.updatedAt,
-});
+// The column wins over the copy inside `state`: a room stored between S-6.3
+// and S-6.4 has its ruleset in the column and nowhere else.
+const toRoom = (row: RoomRow): Room => {
+  const ruleset = rulesetOf(row.ruleset);
+  return {
+    id: row.id,
+    ruleset,
+    state: fromWire(WireGameStateSchema.parse(row.state), ruleset),
+    players: { white: seat(row.whiteUserId), black: seat(row.blackUserId) },
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+};
 
 const overviewColumns = {
   id: roomsTable.id,

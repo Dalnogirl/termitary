@@ -9,6 +9,7 @@ import {
 import type { HexCoord } from './hex.js';
 import type { Piece } from './piece.js';
 import { replayFrames } from './replay.js';
+import { BASE_RULESET, type Ruleset } from './ruleset.js';
 
 const WQ: Piece = { type: 'queen', color: 'white' };
 const WA: Piece = { type: 'ant', color: 'white' };
@@ -30,30 +31,48 @@ const SCRIPT: readonly Move[] = [
 
 const played = (): GameState => SCRIPT.reduce(applyMove, createGame());
 
+const SPIDERLESS: Ruleset = { pieces: { queen: 1, ant: 3, beetle: 2, grasshopper: 3 } };
+
 describe('replayFrames', () => {
   it('returns one frame per move plus the opening position', () => {
-    const frames = replayFrames(SCRIPT);
+    const frames = replayFrames(SCRIPT, BASE_RULESET);
     expect(frames).toHaveLength(SCRIPT.length + 1);
     expect(frames[0]).toEqual(createGame());
   });
 
   it('rebuilds the state the moves were taken from', () => {
-    expect(replayFrames(SCRIPT).at(-1)).toEqual(played());
+    expect(replayFrames(SCRIPT, BASE_RULESET).at(-1)).toEqual(played());
   });
 
   it('grows the history by one move per frame', () => {
-    const frames = replayFrames(SCRIPT);
+    const frames = replayFrames(SCRIPT, BASE_RULESET);
     expect(frames.map((f) => f.history.length)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(frames[3]?.history).toEqual(SCRIPT.slice(0, 3));
   });
 
   it('returns just the opening position for an empty history', () => {
-    expect(replayFrames([])).toEqual([createGame()]);
+    expect(replayFrames([], BASE_RULESET)).toEqual([createGame()]);
+  });
+
+  it('replays under the ruleset it is given, not the base one', () => {
+    const frames = replayFrames(SCRIPT, SPIDERLESS);
+
+    expect(frames[0]).toEqual(createGame(SPIDERLESS));
+    expect(frames.at(-1)?.hands.white).not.toHaveProperty('spider');
+  });
+
+  it('rejects a history playing a piece the ruleset never dealt', () => {
+    const withSpider: Move[] = [
+      { kind: 'place', piece: WQ, to: ORIGIN },
+      { kind: 'place', piece: BQ, to: E },
+      { kind: 'place', piece: { type: 'spider', color: 'white' }, to: W },
+    ];
+    expect(() => replayFrames(withSpider, SPIDERLESS)).toThrow(IllegalMoveError);
   });
 
   it('throws on a history that no longer validates', () => {
     const tampered: Move[] = [...SCRIPT];
     tampered[2] = { kind: 'place', piece: WA, to: { q: 5, r: 5 } };
-    expect(() => replayFrames(tampered)).toThrow(IllegalMoveError);
+    expect(() => replayFrames(tampered, BASE_RULESET)).toThrow(IllegalMoveError);
   });
 });
