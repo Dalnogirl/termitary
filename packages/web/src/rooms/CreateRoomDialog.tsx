@@ -8,8 +8,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import type { Color, PieceType } from '@termitary/engine';
 import type { CreateRoomRequestDto, SeatChoice } from '@termitary/protocol';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, type ReactNode, useState } from 'react';
 import { PieceMark } from '../board/PieceMark.js';
 import { usePrefsStore } from '../store/prefs.js';
 import { EXPANSIONS, type ExpansionPiece, rulesetFor } from './expansions.js';
@@ -23,6 +24,94 @@ const SEATS: readonly {
   { value: 'black', name: 'Black', note: 'Your opponent opens.' },
   { value: 'random', name: 'Random', note: 'Decided now, before anyone joins.' },
 ];
+
+const tileClass: Record<Color, string> = {
+  white: 'bg-(--piece-white-fill)',
+  black: 'bg-(--piece-black-fill) border border-border',
+};
+
+const Tile = ({
+  type,
+  color,
+  half = false,
+}: {
+  readonly type: PieceType;
+  readonly color: Color;
+  /** Two of these side by side take the width of one whole tile. */
+  readonly half?: boolean;
+}) => (
+  <span
+    aria-hidden="true"
+    className={cn(
+      'inline-flex items-center justify-center rounded-lg',
+      half ? 'size-6' : 'size-9',
+      tileClass[color],
+    )}
+  >
+    <PieceMark type={type} color={color} size={half ? 18 : 30} />
+  </span>
+);
+
+// Random overlaps its two tiles by half, so every row starts its text in the
+// same column whichever seat it offers.
+const SEAT_GLYPH: Record<SeatChoice, ReactNode> = {
+  white: <Tile type="queen" color="white" />,
+  black: <Tile type="queen" color="black" />,
+  random: (
+    <span className="flex items-center">
+      <Tile type="queen" color="white" half />
+      <span className="-ml-3">
+        <Tile type="queen" color="black" half />
+      </span>
+    </span>
+  ),
+};
+
+const OptionRow = ({
+  control,
+  group,
+  value,
+  selected,
+  glyph,
+  name,
+  note,
+  onSelect,
+}: {
+  readonly control: 'radio' | 'checkbox';
+  readonly group: string;
+  readonly value: string;
+  readonly selected: boolean;
+  readonly glyph: ReactNode;
+  readonly name: string;
+  readonly note: string;
+  readonly onSelect: () => void;
+}) => (
+  <label
+    className={cn(
+      'flex w-full items-center gap-3 rounded-lg border p-3 text-left cursor-pointer',
+      'transition-colors focus-within:ring-2 focus-within:ring-foreground/30',
+      selected ? 'border-foreground bg-muted/50' : 'border-border hover:bg-muted/30',
+    )}
+  >
+    <input
+      type={control}
+      name={group}
+      value={value}
+      checked={selected}
+      onChange={onSelect}
+      className="sr-only"
+    />
+    <span
+      className={cn('flex shrink-0 transition-opacity', selected ? 'opacity-100' : 'opacity-45')}
+    >
+      {glyph}
+    </span>
+    <span className="flex flex-col gap-1">
+      <span className="text-sm font-medium">{name}</span>
+      <span className="text-xs text-muted-foreground">{note}</span>
+    </span>
+  </label>
+);
 
 type Props = {
   readonly triggerLabel: string;
@@ -79,66 +168,33 @@ export const CreateRoomDialog = ({
           <fieldset className="grid gap-2 border-0 p-0 m-0">
             <legend className="sr-only">Your seat</legend>
             {SEATS.map(({ value, name, note }) => (
-              <label
+              <OptionRow
                 key={value}
-                className={cn(
-                  'flex w-full flex-col gap-1 rounded-lg border p-3 text-left cursor-pointer',
-                  'transition-colors focus-within:ring-2 focus-within:ring-foreground/30',
-                  seat === value
-                    ? 'border-foreground bg-muted/50'
-                    : 'border-border hover:bg-muted/30',
-                )}
-              >
-                <span className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="seat"
-                    value={value}
-                    checked={seat === value}
-                    onChange={() => setSeat(value)}
-                    className="sr-only"
-                  />
-                  <span className="text-sm font-medium">{name}</span>
-                </span>
-                <span className="text-xs text-muted-foreground">{note}</span>
-              </label>
+                control="radio"
+                group="seat"
+                value={value}
+                selected={seat === value}
+                glyph={SEAT_GLYPH[value]}
+                name={name}
+                note={note}
+                onSelect={() => setSeat(value)}
+              />
             ))}
           </fieldset>
           <fieldset className="grid gap-2 border-0 p-0 m-0">
             <legend className="text-xs text-muted-foreground pb-2">Expansion pieces</legend>
             {EXPANSIONS.map(({ piece, label, note }) => (
-              <label
+              <OptionRow
                 key={piece}
-                className={cn(
-                  'flex w-full items-center gap-3 rounded-lg border p-3 text-left cursor-pointer',
-                  'transition-colors focus-within:ring-2 focus-within:ring-foreground/30',
-                  expansions.includes(piece)
-                    ? 'border-foreground bg-muted/50'
-                    : 'border-border hover:bg-muted/30',
-                )}
-              >
-                <input
-                  type="checkbox"
-                  name="expansion"
-                  value={piece}
-                  checked={expansions.includes(piece)}
-                  onChange={() => toggle(piece)}
-                  className="sr-only"
-                />
-                <span
-                  className={cn(
-                    'inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-(--piece-white-fill)',
-                    'transition-opacity',
-                    expansions.includes(piece) ? 'opacity-100' : 'opacity-45',
-                  )}
-                >
-                  <PieceMark type={piece} color="white" size={30} />
-                </span>
-                <span className="flex flex-col gap-1">
-                  <span className="text-sm font-medium">{label}</span>
-                  <span className="text-xs text-muted-foreground">{note}</span>
-                </span>
-              </label>
+                control="checkbox"
+                group="expansion"
+                value={piece}
+                selected={expansions.includes(piece)}
+                glyph={<Tile type={piece} color="white" />}
+                name={label}
+                note={note}
+                onSelect={() => toggle(piece)}
+              />
             ))}
           </fieldset>
           <Button type="submit" disabled={isPending}>
