@@ -1,5 +1,5 @@
 import type { Board, GameState, Piece } from '@termitary/engine';
-import { listValidMoves } from '@termitary/engine';
+import { BASE_RULESET, listValidMoves } from '@termitary/engine';
 import type { ServerMessage } from '@termitary/protocol';
 import { fromWire, toWireMove } from '@termitary/protocol';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -404,6 +404,7 @@ const oneMoveFromSurrounded = (): GameState => {
   };
   return {
     status: 'in_progress',
+    ruleset: BASE_RULESET,
     board,
     hands: {
       white: { queen: 0, ant: 3, beetle: 2, spider: 2, grasshopper: 3 },

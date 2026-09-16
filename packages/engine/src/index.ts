@@ -16,4 +16,9 @@ export {
   listValidMoves,
   resign,
 } from './coordinator.js';
+export {
+  type Ruleset,
+  BASE_RULESET,
+  IllegalRulesetError,
+} from './ruleset.js';
 export { replayFrames } from './replay.js';

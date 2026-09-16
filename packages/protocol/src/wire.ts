@@ -1,4 +1,4 @@
-import type { Board, GameState, Hand, Move } from '@termitary/engine';
+import { BASE_RULESET, type Board, type GameState, type Hand, type Move } from '@termitary/engine';
 import { z } from 'zod';
 
 const WireColorSchema = z.enum(['white', 'black']);
@@ -99,7 +99,13 @@ const boardFromWire = (wire: WireBoard): Board => {
 export const toWireMove = (move: Move): WireMove => move;
 export const fromWireMove = (wire: WireMove): Move => wire;
 
-const toWireHand = (h: Hand): z.infer<typeof WireHandSchema> => ({ ...h });
+const toWireHand = (h: Hand): z.infer<typeof WireHandSchema> => ({
+  queen: h.queen ?? 0,
+  ant: h.ant ?? 0,
+  beetle: h.beetle ?? 0,
+  spider: h.spider ?? 0,
+  grasshopper: h.grasshopper ?? 0,
+});
 
 export const toWire = (state: GameState): WireGameState => {
   const common = {
@@ -120,6 +126,8 @@ export const toWire = (state: GameState): WireGameState => {
 
 export const fromWire = (wire: WireGameState): GameState => {
   const common = {
+    // The wire does not carry a ruleset yet, so every stored state is base (S-6.4).
+    ruleset: BASE_RULESET,
     board: boardFromWire(wire.board),
     hands: {
       white: { ...wire.hands.white },

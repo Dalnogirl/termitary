@@ -3,9 +3,10 @@ import type { HexCoord } from './hex.js';
 import type { Color, Piece, PieceType } from './piece.js';
 import { getValidPlacementCoords } from './placement.js';
 import { type GameResult, getResult } from './result.js';
+import { BASE_RULESET, type Ruleset, assertLegalRuleset, rulesetPieceTypes } from './ruleset.js';
 import { getValidMoves as getPieceValidMoves } from './validator.js';
 
-export type Hand = Record<PieceType, number>;
+export type Hand = Partial<Record<PieceType, number>>;
 
 export type Move =
   | { readonly kind: 'place'; readonly piece: Piece; readonly to: HexCoord }
@@ -19,6 +20,7 @@ export type EndReason = 'queen-surrounded' | 'resignation';
 export type GameState =
   | {
       readonly status: 'in_progress';
+      readonly ruleset: Ruleset;
       readonly board: Board;
       readonly hands: Record<Color, Hand>;
       readonly currentPlayer: Color;
@@ -27,6 +29,7 @@ export type GameState =
     }
   | {
       readonly status: 'finished';
+      readonly ruleset: Ruleset;
       readonly result: FinishedResult;
       readonly endReason: EndReason;
       readonly board: Board;
@@ -43,9 +46,7 @@ export class IllegalMoveError extends Error {
   }
 }
 
-const PIECE_TYPES: readonly PieceType[] = ['queen', 'ant', 'beetle', 'spider', 'grasshopper'];
-
-const INITIAL_HAND: Hand = { queen: 1, ant: 3, beetle: 2, spider: 2, grasshopper: 3 };
+const handFrom = (ruleset: Ruleset): Hand => ({ ...ruleset.pieces });
 
 const cloneHand = (h: Hand): Hand => ({ ...h });
 
@@ -63,31 +64,35 @@ const sameMove = (a: Move, b: Move): boolean => {
   return false;
 };
 
-export const createGame = (): GameState => ({
-  status: 'in_progress',
-  board: empty(),
-  hands: { white: cloneHand(INITIAL_HAND), black: cloneHand(INITIAL_HAND) },
-  currentPlayer: 'white',
-  turnNumbers: { white: 0, black: 0 },
-  history: [],
-});
+export const createGame = (ruleset: Ruleset = BASE_RULESET): GameState => {
+  assertLegalRuleset(ruleset);
+  return {
+    status: 'in_progress',
+    ruleset,
+    board: empty(),
+    hands: { white: handFrom(ruleset), black: handFrom(ruleset) },
+    currentPlayer: 'white',
+    turnNumbers: { white: 0, black: 0 },
+    history: [],
+  };
+};
 
 export const listValidMoves = (state: GameState): Move[] => {
   if (state.status === 'finished') return [];
 
-  const { board, hands, currentPlayer, turnNumbers } = state;
+  const { board, hands, currentPlayer, turnNumbers, ruleset } = state;
   const hand = hands[currentPlayer];
   const turn = turnNumbers[currentPlayer];
-  const queenInHand = hand.queen > 0;
+  const queenInHand = (hand.queen ?? 0) > 0;
   // Queen must be placed by the player's 4th turn (turnNumbers is 0-indexed
   // completed turns, so the 4th turn is when turn === 3).
   const mustPlaceQueen = turn === 3 && queenInHand;
 
   const placementCoords = getValidPlacementCoords(board, currentPlayer, turn);
   const placements: Move[] = [];
-  for (const type of PIECE_TYPES) {
+  for (const type of rulesetPieceTypes(ruleset)) {
     if (mustPlaceQueen && type !== 'queen') continue;
-    if (hand[type] <= 0) continue;
+    if ((hand[type] ?? 0) <= 0) continue;
     for (const to of placementCoords) {
       placements.push({ kind: 'place', piece: { type, color: currentPlayer }, to });
     }
@@ -126,7 +131,7 @@ export const applyMove = (state: GameState, move: Move): GameState => {
   switch (move.kind) {
     case 'place': {
       newBoard = place(newBoard, move.to, move.piece);
-      newHand[move.piece.type] -= 1;
+      newHand[move.piece.type] = (newHand[move.piece.type] ?? 0) - 1;
       break;
     }
     case 'relocate': {
@@ -158,6 +163,7 @@ export const applyMove = (state: GameState, move: Move): GameState => {
   if (result !== 'ongoing') {
     return {
       status: 'finished',
+      ruleset: state.ruleset,
       result,
       endReason: 'queen-surrounded',
       board: newBoard,
@@ -170,6 +176,7 @@ export const applyMove = (state: GameState, move: Move): GameState => {
 
   return {
     status: 'in_progress',
+    ruleset: state.ruleset,
     board: newBoard,
     hands: newHands,
     currentPlayer: nextPlayer,
@@ -184,6 +191,7 @@ export const resign = (state: GameState, color: Color): GameState => {
   }
   return {
     status: 'finished',
+    ruleset: state.ruleset,
     result: color === 'white' ? 'black-wins' : 'white-wins',
     endReason: 'resignation',
     board: state.board,

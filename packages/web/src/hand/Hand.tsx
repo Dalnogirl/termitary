@@ -78,7 +78,7 @@ export const Hand = ({ color, edge }: Props) => {
       </span>
       <div className="flex gap-1.5 md:gap-2">
         {PIECE_ORDER.map((type) => {
-          const count = hand[type];
+          const count = hand[type] ?? 0;
           const enabled = count > 0 && isActive && hasPlacement(type);
           const isSelected = isActive && selection?.kind === 'hand' && selection.piece === type;
           return (
