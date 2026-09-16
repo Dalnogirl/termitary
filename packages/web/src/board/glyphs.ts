@@ -207,6 +207,45 @@ const CHUNKY: Record<PieceType, readonly GlyphShape[]> = {
       hole(61, 71, 5.5),
     ),
   ],
+  // The other winged body is the queen, so the two separate by build: wings
+  // trailing into a V behind a slim body, against wings at the flanks of
+  // stacked ellipses. The single forward spike is the proboscis, where the ant
+  // and the queen fork into two antennae. Legs stay short on purpose. At the
+  // walkers' length they out-draw the wings and this reads as a spider.
+  mosquito: [
+    stroke(
+      5.5,
+      line([
+        [50, 20],
+        [50, 3],
+      ]),
+    ),
+    bothSides(
+      4.5,
+      [
+        [42, 44],
+        [30, 36],
+        [27, 27],
+      ],
+      [
+        [41, 52],
+        [27, 52],
+        [22, 45],
+      ],
+      [
+        [43, 60],
+        [31, 66],
+        [27, 75],
+      ],
+    ),
+    fill(
+      ellipse(33, 62, 9, 24, 34),
+      ellipse(67, 62, 9, 24, -34),
+      ellipse(50, 28, 9.5, 8.5),
+      ellipse(50, 44, 12, 12),
+      ellipse(50, 70, 8.5, 20),
+    ),
+  ],
 };
 
 export const glyphShapes = (type: PieceType): readonly GlyphShape[] => CHUNKY[type];

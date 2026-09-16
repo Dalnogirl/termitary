@@ -1,6 +1,7 @@
 import {
   BASE_RULESET,
   LADYBUG_RULESET,
+  MOSQUITO_RULESET,
   type Ruleset,
   applyMove,
   createGame,
@@ -245,8 +246,10 @@ describe('message schemas', () => {
   });
 
   it('carries an expansion piece', () => {
-    const wire = toWireRuleset(LADYBUG_RULESET);
-    expect(fromWireRuleset(WireRulesetSchema.parse(wire))).toEqual(LADYBUG_RULESET);
+    for (const ruleset of [LADYBUG_RULESET, MOSQUITO_RULESET]) {
+      const wire = toWireRuleset(ruleset);
+      expect(fromWireRuleset(WireRulesetSchema.parse(wire))).toEqual(ruleset);
+    }
   });
 
   it('rejects a zero count rather than reading it as absent', () => {
