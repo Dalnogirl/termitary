@@ -7,13 +7,13 @@ const tileClass: Record<Color, string> = {
   black: 'bg-(--piece-black-fill) border border-border',
 };
 
-const tileSize = { sm: 'size-6', md: 'size-9' } as const;
-const markSize = { sm: 18, md: 30 } as const;
+const tileSize = { sm: 'size-5', md: 'size-9' } as const;
+const markSize = { sm: 14, md: 30 } as const;
 
 type Props = {
   readonly type: PieceType;
   readonly color: Color;
-  /** Two `sm` tiles side by side take the width of one `md`. */
+  /** Two `sm` tiles, overlapping by their corner, take the width of one `md`. */
   readonly size?: keyof typeof tileSize;
 };
 
