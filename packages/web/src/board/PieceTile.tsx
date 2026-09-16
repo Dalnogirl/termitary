@@ -7,7 +7,9 @@ const tileClass: Record<Color, string> = {
   black: 'bg-(--piece-black-fill) border border-border',
 };
 
-const tileSize = { sm: 'size-5', md: 'size-9' } as const;
+// The radius goes with the box: `rounded-lg` is 8px, which on a 20px tile is
+// most of the way to a circle.
+const tileSize = { sm: 'size-5 rounded', md: 'size-9 rounded-lg' } as const;
 const markSize = { sm: 14, md: 30 } as const;
 
 type Props = {
@@ -21,11 +23,7 @@ type Props = {
 export const PieceTile = ({ type, color, size = 'md' }: Props) => (
   <span
     aria-hidden="true"
-    className={cn(
-      'inline-flex items-center justify-center rounded-lg',
-      tileSize[size],
-      tileClass[color],
-    )}
+    className={cn('inline-flex items-center justify-center', tileSize[size], tileClass[color])}
   >
     <PieceMark type={type} color={color} size={markSize[size]} />
   </span>
