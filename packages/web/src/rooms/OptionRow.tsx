@@ -6,6 +6,7 @@ type Props = {
   readonly group: string;
   readonly value: string;
   readonly selected: boolean;
+  /** Null keeps the slot, so every row starts its text in the same column. */
   readonly glyph: ReactNode;
   readonly name: string;
   readonly note: string;

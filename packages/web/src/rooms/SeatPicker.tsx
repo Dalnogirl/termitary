@@ -13,20 +13,12 @@ const SEATS: readonly {
   { value: 'random', name: 'Random', note: 'Decided now, before anyone joins.' },
 ];
 
-// Random overlaps its two tiles by a corner: enough to read as one glyph, not
-// so much that the lower tile's piece is half covered. The pair is as wide as
-// a single tile, so every row starts its text in the same column.
+// Random has no tile: the two seats it stands for are one cream mark and one
+// dark mark, and the same glyph in inverted ink does not read as one pair.
 const SEAT_GLYPH: Record<SeatChoice, ReactNode> = {
   white: <PieceTile type="queen" color="white" />,
   black: <PieceTile type="queen" color="black" />,
-  random: (
-    <span className="flex items-center">
-      <PieceTile type="queen" color="white" size="sm" />
-      <span className="-ml-1">
-        <PieceTile type="queen" color="black" size="sm" />
-      </span>
-    </span>
-  ),
+  random: null,
 };
 
 type Props = {

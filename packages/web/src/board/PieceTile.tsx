@@ -10,30 +10,20 @@ const tileClass: Record<Color, string> = {
   black: 'bg-(--piece-black-fill) inset-ring-1 inset-ring-border',
 };
 
-// The radius goes with the box: `rounded-lg` is 8px, which on a 20px tile is
-// most of the way to a circle.
-const tileSize = { sm: 'size-5 rounded', md: 'size-9 rounded-lg' } as const;
-const markSize = { sm: 14, md: 30 } as const;
-
 type Props = {
   readonly type: PieceType;
   readonly color: Color;
-  /** Two `sm` tiles, overlapping by their corner, take the width of one `md`. */
-  readonly size?: keyof typeof tileSize;
 };
 
-// shrink-0 because a tile is a flex item wherever it lands, and one that
-// compresses beside one that does not is an uneven pair.
 /** A piece on its own square, for the places outside a game that show one. */
-export const PieceTile = ({ type, color, size = 'md' }: Props) => (
+export const PieceTile = ({ type, color }: Props) => (
   <span
     aria-hidden="true"
     className={cn(
-      'inline-flex shrink-0 items-center justify-center',
-      tileSize[size],
+      'inline-flex size-9 shrink-0 items-center justify-center rounded-lg',
       tileClass[color],
     )}
   >
-    <PieceMark type={type} color={color} size={markSize[size]} />
+    <PieceMark type={type} color={color} size={30} />
   </span>
 );
