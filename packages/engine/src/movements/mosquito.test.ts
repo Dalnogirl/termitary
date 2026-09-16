@@ -6,6 +6,7 @@ import { antMovement } from './ant.js';
 import { beetleMovement } from './beetle.js';
 import { grasshopperMovement } from './grasshopper.js';
 import { mosquitoMovement } from './mosquito.js';
+import { queenMovement } from './queen.js';
 
 const WA: Piece = { type: 'ant', color: 'white' };
 const WB: Piece = { type: 'beetle', color: 'white' };
@@ -67,19 +68,23 @@ describe('mosquitoMovement', () => {
     expect(keys(mosquitoMovement(ORIGIN, b))).toEqual(keys(beetleMovement(ORIGIN, b)));
   });
 
-  it('climbs onto a neighbouring stack by copying its beetle', () => {
-    expect(movesFrom([E, WB]).has(key(E))).toBe(true);
+  it('reads its own stack, so a tall neighbour leaves it on the ground', () => {
+    const b = withMosquito([E, WA], [E, WQ]);
+    const asQueen = keys(queenMovement(ORIGIN, b));
+    expect(asQueen.size).toBeGreaterThan(0);
+    expect(keys(mosquitoMovement(ORIGIN, b))).toEqual(asQueen);
+  });
+
+  it('climbs onto a neighbouring stack by copying the beetle on top of it', () => {
+    expect(movesFrom([E, WA], [E, WB]).has(key(E))).toBe(true);
   });
 
   it('is a beetle on top of the hive, even standing beside an ant', () => {
+    // Every neighbour, which up here is the five empty cells it can step down
+    // into and the ant it can cross onto. An ant's reach is not among them.
     const b = board([ORIGIN, WQ], [ORIGIN, WM], [E, WA]);
     const moves = mosquitoMovement(ORIGIN, b);
     expect(keys(moves)).toEqual(keys(beetleMovement(ORIGIN, b)));
     expect(keys(moves)).toEqual(new Set(neighbors(ORIGIN).map(key)));
-  });
-
-  it('comes back down off a stack it climbed', () => {
-    const b = board([ORIGIN, WQ], [ORIGIN, WM], [E, WA]);
-    expect(keys(mosquitoMovement(ORIGIN, b)).has(key(NE))).toBe(true);
   });
 });
