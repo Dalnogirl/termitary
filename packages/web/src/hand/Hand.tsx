@@ -1,13 +1,25 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { Color, PieceType } from '@termitary/engine';
+import { type Color, type PieceType, type Ruleset, rulesetPieceTypes } from '@termitary/engine';
 import { PieceMark } from '../board/PieceMark.js';
 import { useInputHandlers } from '../controller/InputProvider.js';
 import { useRoomContext } from '../controller/RoomContext.js';
 import { useGameStore } from '../store/store.js';
 
-const PIECE_ORDER: readonly PieceType[] = ['queen', 'ant', 'beetle', 'spider', 'grasshopper'];
 const COLOR_LABEL: Record<Color, string> = { white: 'White', black: 'Black' };
+
+// A ruleset is a plain object, so its key order is whatever literal built it.
+// The hand reads left to right in a fixed order instead, queen first.
+const SLOT_ORDER: Record<PieceType, number> = {
+  queen: 0,
+  ant: 1,
+  beetle: 2,
+  spider: 3,
+  grasshopper: 4,
+};
+
+const handSlots = (ruleset: Ruleset): readonly PieceType[] =>
+  [...rulesetPieceTypes(ruleset)].sort((a, b) => SLOT_ORDER[a] - SLOT_ORDER[b]);
 
 type Props = {
   readonly color: Color;
@@ -41,6 +53,7 @@ export const Hand = ({ color, edge }: Props) => {
   const controllable = myColor === null || myColor === color;
   const isActive = game.status === 'in_progress' && game.currentPlayer === color && controllable;
   const hand = game.hands[color];
+  const slots = handSlots(game.ruleset);
 
   const hasPlacement = (type: PieceType): boolean =>
     validMoves.some((m) => m.kind === 'place' && m.piece.type === type && m.piece.color === color);
@@ -76,8 +89,8 @@ export const Hand = ({ color, edge }: Props) => {
       >
         {COLOR_LABEL[color]}
       </span>
-      <div className="flex gap-1.5 md:gap-2">
-        {PIECE_ORDER.map((type) => {
+      <div className="flex flex-wrap justify-center gap-1.5 md:gap-2">
+        {slots.map((type) => {
           const count = hand[type] ?? 0;
           const enabled = count > 0 && isActive && hasPlacement(type);
           const isSelected = isActive && selection?.kind === 'hand' && selection.piece === type;

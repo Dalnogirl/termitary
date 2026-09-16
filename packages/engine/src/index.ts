@@ -20,5 +20,6 @@ export {
   type Ruleset,
   BASE_RULESET,
   IllegalRulesetError,
+  rulesetPieceTypes,
 } from './ruleset.js';
 export { replayFrames } from './replay.js';
