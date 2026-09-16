@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { fromCells, occupiedCells } from './board.js';
-import { type GameState, applyMove, createGame, listValidMoves } from './coordinator.js';
+import { type GameState, type Hand, applyMove, createGame, listValidMoves } from './coordinator.js';
 import type { HexCoord } from './hex.js';
 import type { Color, Piece, PieceType } from './piece.js';
 import { getResult } from './result.js';
+import { BASE_RULESET } from './ruleset.js';
 
 const PIECE_TYPES_ALL: readonly PieceType[] = ['queen', 'ant', 'beetle', 'spider', 'grasshopper'];
 
@@ -24,8 +25,7 @@ const countPlacedPieces = (state: GameState): Record<Color, number> => {
   return counts;
 };
 
-const sumHand = (hand: Record<PieceType, number>): number =>
-  PIECE_TYPES_ALL.reduce((acc, t) => acc + hand[t], 0);
+const sumHand = (hand: Hand): number => PIECE_TYPES_ALL.reduce((acc, t) => acc + (hand[t] ?? 0), 0);
 
 const assertInvariants = (state: GameState): void => {
   // Hands + placed pieces must total 11 per color (full base set)
@@ -99,6 +99,7 @@ describe('e2e: scripted endgame scenarios', () => {
 
     const state: GameState = {
       status: 'in_progress',
+      ruleset: BASE_RULESET,
       board,
       hands: {
         white: { queen: 0, ant: 2, beetle: 2, spider: 1, grasshopper: 3 },
@@ -137,6 +138,7 @@ describe('e2e: scripted endgame scenarios', () => {
     // shape for testing the pass branch.
     const state: GameState = {
       status: 'in_progress',
+      ruleset: BASE_RULESET,
       board: fromCells([[{ q: 0, r: 0 }, [WQ]]]),
       hands: {
         white: { queen: 0, ant: 3, beetle: 2, spider: 2, grasshopper: 3 },
@@ -176,6 +178,7 @@ describe('e2e: scripted endgame scenarios', () => {
     ]);
     const state: GameState = {
       status: 'in_progress',
+      ruleset: BASE_RULESET,
       board,
       hands: {
         white: { queen: 0, ant: 2, beetle: 2, spider: 2, grasshopper: 2 },

@@ -11,6 +11,7 @@ import {
 } from './coordinator.js';
 import { type HexCoord, key } from './hex.js';
 import type { Piece } from './piece.js';
+import { BASE_RULESET } from './ruleset.js';
 
 const WQ: Piece = { type: 'queen', color: 'white' };
 const WA: Piece = { type: 'ant', color: 'white' };
@@ -148,6 +149,7 @@ describe('applyMove: finished state rejects further moves', () => {
     // build a minimal finished state inline for this assertion.
     const finished: GameState = {
       status: 'finished',
+      ruleset: BASE_RULESET,
       result: 'black-wins',
       endReason: 'queen-surrounded',
       board: fromCells([]),
@@ -182,6 +184,7 @@ describe('applyMove: transitions to finished when a queen becomes surrounded', (
 
     const state: GameState = {
       status: 'in_progress',
+      ruleset: BASE_RULESET,
       board,
       hands: {
         white: { queen: 0, ant: 0, beetle: 2, spider: 2, grasshopper: 3 },
