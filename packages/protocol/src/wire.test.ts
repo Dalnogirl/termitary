@@ -1,8 +1,15 @@
-import { applyMove, createGame, listValidMoves, resign } from '@termitary/engine';
+import { BASE_RULESET, applyMove, createGame, listValidMoves, resign } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import { ClientMessageSchema } from './client-messages.js';
 import { ServerMessageSchema } from './server-messages.js';
-import { WireGameStateSchema, fromWire, toWire } from './wire.js';
+import {
+  WireGameStateSchema,
+  WireRulesetSchema,
+  fromWire,
+  fromWireRuleset,
+  toWire,
+  toWireRuleset,
+} from './wire.js';
 
 const playN = (n: number) => {
   let state = createGame();
@@ -160,5 +167,23 @@ describe('message schemas', () => {
     // is rejected ensures the protocol surface stays minimal.
     expect(ClientMessageSchema.safeParse({ type: 'createGame' }).success).toBe(false);
     expect(ClientMessageSchema.safeParse({ type: 'ping' }).success).toBe(false);
+  });
+
+  it('round-trips a ruleset through JSON', () => {
+    const ruleset = { pieces: { queen: 1, ant: 3, beetle: 2, grasshopper: 3 } };
+    const parsed = WireRulesetSchema.parse(JSON.parse(JSON.stringify(toWireRuleset(ruleset))));
+
+    expect(fromWireRuleset(parsed)).toEqual(ruleset);
+    expect(fromWireRuleset(WireRulesetSchema.parse(toWireRuleset(BASE_RULESET)))).toEqual(
+      BASE_RULESET,
+    );
+  });
+
+  it('rejects a ruleset naming a piece type it does not know', () => {
+    expect(WireRulesetSchema.safeParse({ pieces: { queen: 1, ladybug: 1 } }).success).toBe(false);
+  });
+
+  it('rejects a zero count rather than reading it as absent', () => {
+    expect(WireRulesetSchema.safeParse({ pieces: { queen: 1, spider: 0 } }).success).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+import { BASE_RULESET, type Ruleset } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import { RoomAlreadyExistsError, type RoomStore } from '../domain/room-store.js';
 import { createRoom, seatPlayer, touch } from '../domain/room.js';
@@ -16,6 +17,10 @@ const at = (ms: number) => new Date(ms);
 // would fail every ordering and sweep case below.
 const roomAt = (id: string, owner: string, ms: number) =>
   createRoom(id, ident(owner), 'white', at(ms));
+
+// One piece short of base, so a store that quietly rebuilt a base game passes
+// nothing below.
+const NO_SPIDERS: Ruleset = { pieces: { queen: 1, ant: 3, beetle: 2, grasshopper: 3 } };
 
 // Playing to a real queen surround here would say nothing about the store.
 const FINISHED = { status: 'finished', result: 'draw', endReason: 'queen-surrounded' } as const;
@@ -43,6 +48,32 @@ export const describeRoomStoreContract = (
         const room = roomAt('r1', 'p1', 1000);
         await store.create(room);
         expect(await store.get('r1')).toEqual(room);
+      }));
+
+    it('create + get preserves a non-base ruleset', async () =>
+      withStore(async ({ store }) => {
+        const room = createRoom('r1', ident('p1'), 'white', at(1000), NO_SPIDERS);
+        await store.create(room);
+
+        // Only the room's own ruleset: the hand inside `state` still goes over
+        // the wire as five fixed keys, and stays base until S-6.4.
+        expect((await store.get('r1'))?.ruleset).toEqual(NO_SPIDERS);
+      }));
+
+    it('save preserves the ruleset', async () =>
+      withStore(async ({ store }) => {
+        const room = createRoom('r1', ident('p1'), 'white', at(1000), NO_SPIDERS);
+        await store.create(room);
+
+        await store.save(touch(seatPlayer(room, ident('p2')), at(2000)));
+
+        expect((await store.get('r1'))?.ruleset).toEqual(NO_SPIDERS);
+      }));
+
+    it('a room created without a ruleset is base', async () =>
+      withStore(async ({ store }) => {
+        await store.create(roomAt('r1', 'p1', 1000));
+        expect((await store.get('r1'))?.ruleset).toEqual(BASE_RULESET);
       }));
 
     it('create rejects duplicate ids', async () =>

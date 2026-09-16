@@ -1,4 +1,12 @@
-import { WireGameStateSchema, fromWire, toWire } from '@termitary/protocol';
+import { BASE_RULESET } from '@termitary/engine';
+import {
+  WireGameStateSchema,
+  WireRulesetSchema,
+  fromWire,
+  fromWireRuleset,
+  toWire,
+  toWireRuleset,
+} from '@termitary/protocol';
 import { and, desc, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import { RoomAlreadyExistsError, type RoomOverview, type RoomStore } from '../domain/room-store.js';
 import type { Room } from '../domain/room.js';
@@ -7,8 +15,12 @@ import { CURRENT_STATE_VERSION, type RoomRow, rooms as roomsTable } from './db/s
 
 const seat = (userId: string | null) => (userId === null ? undefined : { playerId: userId });
 
+const rulesetOf = (stored: RoomRow['ruleset']) =>
+  stored === null ? BASE_RULESET : fromWireRuleset(WireRulesetSchema.parse(stored));
+
 const toRoom = (row: RoomRow): Room => ({
   id: row.id,
+  ruleset: rulesetOf(row.ruleset),
   state: fromWire(WireGameStateSchema.parse(row.state)),
   players: { white: seat(row.whiteUserId), black: seat(row.blackUserId) },
   createdAt: row.createdAt,
@@ -38,6 +50,7 @@ const mutableColumns = (room: Room) => ({
   status: room.state.status,
   state: toWire(room.state),
   stateVersion: CURRENT_STATE_VERSION,
+  ruleset: toWireRuleset(room.ruleset),
 });
 
 const insertColumns = (room: Room) => ({
