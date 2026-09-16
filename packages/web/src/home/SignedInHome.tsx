@@ -1,7 +1,7 @@
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
-import type { SeatChoice } from '@termitary/protocol';
+import type { CreateRoomRequestDto } from '@termitary/protocol';
 import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { useSession } from '../network/auth-client.js';
@@ -9,6 +9,7 @@ import { fetchMyRooms } from '../network/rooms-api.js';
 import { useCreateRoom } from '../network/use-create-room.js';
 import { CreateRoomDialog } from '../rooms/CreateRoomDialog.js';
 import { RoomRow, myRoomAction, myRoomDetail } from '../rooms/RoomRow.js';
+import { expansionsIn } from '../rooms/expansions.js';
 import { paths } from '../routes/paths.js';
 import { HomeHero } from './HomeHero.js';
 
@@ -24,9 +25,9 @@ export const SignedInHome = () => {
 
   const openRoom = (roomId: string) => void navigate(paths.play(roomId), { viewTransition: true });
 
-  const handleCreate = async (seat: SeatChoice): Promise<boolean> => {
+  const handleCreate = async (request: CreateRoomRequestDto): Promise<boolean> => {
     try {
-      const { roomId } = await createRoom.mutateAsync(seat);
+      const { roomId } = await createRoom.mutateAsync(request);
       openRoom(roomId);
       return true;
     } catch (err) {
@@ -65,6 +66,7 @@ export const SignedInHome = () => {
               key={room.roomId}
               roomId={room.roomId}
               detail={myRoomDetail(room)}
+              badges={expansionsIn(room.ruleset).map((e) => e.label)}
               action={myRoomAction(room)}
               onOpen={() => openRoom(room.roomId)}
             />

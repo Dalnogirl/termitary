@@ -1,3 +1,4 @@
+import { BASE_RULESET } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import type { Identity } from '../domain/identity.js';
 import { createRoom, seatPlayer } from '../domain/room.js';
@@ -7,6 +8,7 @@ import { listMyRooms } from './list-my-rooms.js';
 const ident = (id: string): Identity => ({ playerId: id });
 const NOW = new Date(1234);
 const PLAYERS = ['alice', 'bob', 'bob-secret'];
+const BASE_WIRE = { pieces: { ...BASE_RULESET.pieces } };
 
 describe('listMyRooms', () => {
   it('is empty when the player sits nowhere', async () => {
@@ -25,8 +27,20 @@ describe('listMyRooms', () => {
     const mine = await listMyRooms(ident('alice'), store);
     expect(mine).toEqual(
       expect.arrayContaining([
-        { roomId: 'white-room', seat: 'white', playerCount: 1, updatedAt: 1234 },
-        { roomId: 'black-room', seat: 'black', playerCount: 2, updatedAt: 1234 },
+        {
+          roomId: 'white-room',
+          seat: 'white',
+          playerCount: 1,
+          updatedAt: 1234,
+          ruleset: BASE_WIRE,
+        },
+        {
+          roomId: 'black-room',
+          seat: 'black',
+          playerCount: 2,
+          updatedAt: 1234,
+          ruleset: BASE_WIRE,
+        },
       ]),
     );
     expect(mine).toHaveLength(2);

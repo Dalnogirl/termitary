@@ -1,4 +1,4 @@
-import { BASE_RULESET } from '@termitary/engine';
+import { BASE_RULESET, type Ruleset } from '@termitary/engine';
 import {
   WireGameStateSchema,
   WireRulesetSchema,
@@ -17,6 +17,16 @@ const seat = (userId: string | null) => (userId === null ? undefined : { playerI
 
 const rulesetOf = (stored: RoomRow['ruleset']) =>
   stored === null ? BASE_RULESET : fromWireRuleset(WireRulesetSchema.parse(stored));
+
+// The listing never throws over one room: an unreadable ruleset costs that row
+// its badge, where `rulesetOf` would cost everyone the lobby.
+const overviewRulesetOf = (stored: RoomRow['ruleset']): Ruleset => {
+  try {
+    return rulesetOf(stored);
+  } catch {
+    return BASE_RULESET;
+  }
+};
 
 // The column wins over the copy inside `state`: a room stored between S-6.3
 // and S-6.4 has its ruleset in the column and nowhere else.
@@ -38,15 +48,20 @@ const overviewColumns = {
   blackUserId: roomsTable.blackUserId,
   status: roomsTable.status,
   updatedAt: roomsTable.updatedAt,
+  ruleset: roomsTable.ruleset,
 };
 
-type OverviewRow = Pick<RoomRow, 'id' | 'whiteUserId' | 'blackUserId' | 'status' | 'updatedAt'>;
+type OverviewRow = Pick<
+  RoomRow,
+  'id' | 'whiteUserId' | 'blackUserId' | 'status' | 'updatedAt' | 'ruleset'
+>;
 
 const toOverview = (row: OverviewRow): RoomOverview => ({
   id: row.id,
   players: { white: seat(row.whiteUserId), black: seat(row.blackUserId) },
   status: row.status,
   updatedAt: row.updatedAt,
+  ruleset: overviewRulesetOf(row.ruleset),
 });
 
 const mutableColumns = (room: Room) => ({

@@ -1,5 +1,6 @@
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
+import { IllegalRulesetError } from '@termitary/engine';
 import Fastify, {
   type FastifyInstance,
   type FastifyReply,
@@ -96,8 +97,18 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
   );
   app.post('/rooms', { preHandler: gate }, async (req, reply) => {
     const body = CreateRoomBodySchema.safeParse(req.body);
-    if (!body.success) return reply.code(400).send({ error: 'invalid-seat' });
-    return createRoom(requireIdentity(req), body.data, rooms, coinFlip);
+    if (!body.success) return reply.code(400).send({ error: 'invalid-body' });
+    try {
+      return await createRoom(requireIdentity(req), body.data, rooms, coinFlip);
+    } catch (err) {
+      // A ruleset the schema accepts can still be unplayable, queenless being
+      // the one that matters. The engine owns that judgement, so the route
+      // waits for it rather than repeating the rule.
+      if (err instanceof IllegalRulesetError) {
+        return reply.code(400).send({ error: 'invalid-ruleset' });
+      }
+      throw err;
+    }
   });
   app.delete<{ Params: { id: string } }>('/rooms/:id', { preHandler: gate }, async (req, reply) => {
     const outcome = await cancelRoom(requireIdentity(req), req.params.id, rooms);

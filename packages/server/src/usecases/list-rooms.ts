@@ -1,4 +1,4 @@
-import type { RoomSummaryDto } from '@termitary/protocol';
+import { type RoomSummaryDto, toWireRuleset } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { RoomOverview, RoomStore } from '../domain/room-store.js';
 
@@ -13,6 +13,7 @@ export const summarize = (room: RoomOverview): RoomSummaryDto => ({
   roomId: room.id,
   playerCount: countPlayers(room),
   status: room.status,
+  ruleset: toWireRuleset(room.ruleset),
 });
 
 export const listRooms = async (
