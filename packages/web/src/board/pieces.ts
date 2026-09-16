@@ -15,6 +15,7 @@ const LETTERS: Record<PieceType, string> = {
   beetle: 'B',
   spider: 'S',
   grasshopper: 'G',
+  ladybug: 'L',
 };
 
 // One hue per piece type, in the saturated mid register the physical tiles use,
@@ -26,6 +27,7 @@ const PIECE_INK: Record<PieceType, { readonly light: string; readonly dark: stri
   beetle: { light: '#8b7fd0', dark: '#4a3392' },
   spider: { light: '#a46a3f', dark: '#5e3a1d' },
   grasshopper: { light: '#57b24b', dark: '#2f6b1f' },
+  ladybug: { light: '#d9534a', dark: '#8c2b23' },
 };
 
 export const pieceLetter = (type: PieceType): string => LETTERS[type];

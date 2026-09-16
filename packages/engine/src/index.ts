@@ -19,6 +19,7 @@ export {
 export {
   type Ruleset,
   BASE_RULESET,
+  LADYBUG_RULESET,
   IllegalRulesetError,
   rulesetPieceTypes,
 } from './ruleset.js';

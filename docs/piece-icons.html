@@ -71,8 +71,8 @@
 <div class="wrap">
   <h1>Piece icons: the three finalists</h1>
   <p class="lede">
-    What survived the cull. Each row is the same five pieces (queen, ant, beetle, spider,
-    grasshopper) on a black tile and a white one, then repeated at covered-piece chip size and in a
+    What survived the cull. Each row is the same six pieces (queen, ant, beetle, spider,
+    grasshopper, ladybug) on a black tile and a white one, then repeated at covered-piece chip size and in a
     hand slot, which is where options go to die. <strong>Ink</strong> switches the two hue-coded
     sets between a per-tile pair and one tone used on both. <strong>Show guides</strong> draws each
     glyph's ink box and the clear-space hex and prints the measurements, which is how the padding
@@ -98,9 +98,9 @@
 <script>
 const round = (v) => Math.round(v * 100) / 100;
 const BOX = 100;
-const TYPES = ['queen', 'ant', 'beetle', 'spider', 'grasshopper'];
-const COUNTS = { queen: 1, ant: 3, beetle: 2, spider: 2, grasshopper: 3 };
-const LETTERS = { queen: 'Q', ant: 'A', beetle: 'B', spider: 'S', grasshopper: 'G' };
+const TYPES = ['queen', 'ant', 'beetle', 'spider', 'grasshopper', 'ladybug'];
+const COUNTS = { queen: 1, ant: 3, beetle: 2, spider: 2, grasshopper: 3, ladybug: 1 };
+const LETTERS = { queen: 'Q', ant: 'A', beetle: 'B', spider: 'S', grasshopper: 'G', ladybug: 'L' };
 
 // ---------- primitives ----------
 const ellipse = (cx, cy, rx, ry, rot = 0) => {
@@ -111,6 +111,14 @@ const ellipse = (cx, cy, rx, ry, rot = 0) => {
   return `M${round(cx - dx)} ${round(cy - dy)}${arc} ${round(2 * dx)} ${round(2 * dy)}${arc} ${round(-2 * dx)} ${round(-2 * dy)}`;
 };
 const circle = (cx, cy, r) => ellipse(cx, cy, r, r);
+// The same outline wound the other way, which subtracts under the nonzero rule.
+// Only valid inside the shape it cuts: outside one it fills like anything else.
+const holeEllipse = (cx, cy, rx, ry) =>
+  `M${round(cx - rx)} ${round(cy)}a${round(rx)} ${round(ry)} 0 1 1 ${round(2 * rx)} 0a${round(rx)} ${round(ry)} 0 1 1 ${round(-2 * rx)} 0`;
+const hole = (cx, cy, r) => holeEllipse(cx, cy, r, r);
+// A round-capped slot: an ellipse would come to a point, and nothing else here does.
+const holeSlot = (cx, cy, r, half) =>
+  `M${round(cx - r)} ${round(cy - half)}A${round(r)} ${round(r)} 0 0 1 ${round(cx + r)} ${round(cy - half)}L${round(cx + r)} ${round(cy + half)}A${round(r)} ${round(r)} 0 0 1 ${round(cx - r)} ${round(cy + half)}Z`;
 const line = (pts) => pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${round(x)} ${round(y)}`).join('');
 const mirrorPts = (pts) => pts.map(([x, y]) => [BOX - x, y]);
 
@@ -179,6 +187,16 @@ const CHUNKY = {
     fill(circle(16, 58, 11)),
     stroke(4.5, 'M10 48C15 28 36 20 54 22'),
   ],
+  // The expansion piece, on the same terms: one round mass, six knee-bent legs
+  // at the walkers' width, no horns to trade places with the beetle. The spots
+  // and the elytra seam are cut out of the body, since a mark drawn in one ink
+  // has no second colour to put them in — which means a spot must clear the leg
+  // roots running under the body, not just the body edge.
+  ladybug: [
+    bothSides(5, [[46, 20], [38, 6]]),
+    bothSides(5, [[30, 45], [18, 38], [15, 27]], [[26, 60], [13, 59], [10, 67]], [[30, 74], [19, 82], [16, 91]]),
+    fill(ellipse(50, 60, 25, 26), ellipse(50, 28, 13, 10), holeSlot(50, 61, 2.5, 19), hole(39, 48, 5.5), hole(61, 48, 5.5), hole(39, 71, 5.5), hole(61, 71, 5.5)),
+  ],
 };
 
 // ---------- palettes ----------
@@ -191,6 +209,7 @@ const PALETTE_LADDER = {
   spider: { light: '#3f9d95', dark: '#3f9d95' },
   ant: { light: '#c25a48', dark: '#c25a48' },
   beetle: { light: '#3a2c5c', dark: '#3a2c5c' },
+  ladybug: { light: '#c0392b', dark: '#c0392b' },
 };
 
 // B: ink for a mark drawn on a monochrome tile. Three tones per hue, because the
@@ -201,6 +220,7 @@ const PALETTE_INK = {
   beetle: { light: '#b9a4ef', dark: '#4a3392', mid: '#8467d8' },
   spider: { light: '#c08a55', dark: '#6b4423', mid: '#96693c' },
   grasshopper: { light: '#b7e06a', dark: '#456213', mid: '#7fae35' },
+  ladybug: { light: '#f08a82', dark: '#8c2b23', mid: '#d9534a' },
 };
 
 // pair: a light tone for dark tiles and a deep one for light tiles, fitted per
