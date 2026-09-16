@@ -25,7 +25,8 @@ const COUNTS: Record<PieceType, number> = {
   ladybug: 1,
 };
 
-const NUM_GAMES = 30;
+// Every subset of the five optional piece types.
+const NUM_GAMES = 2 ** 5;
 const MAX_MOVES_PER_GAME = 80;
 
 const pickRandom = <T>(arr: readonly T[]): T => {
@@ -44,13 +45,16 @@ const countPlacedPieces = (state: GameState): Record<Color, number> => {
 
 const sumHand = (hand: Hand): number => PIECE_TYPES_ALL.reduce((acc, t) => acc + (hand[t] ?? 0), 0);
 
-// The queen is always dealt; every other type is a coin flip, so a run covers
-// both the base set and each expansion piece against a varying board.
-const randomRuleset = (): Ruleset => {
+const OPTIONAL_TYPES = PIECE_TYPES_ALL.filter((t) => t !== 'queen');
+
+// One subset of the optional types per game, enumerated rather than rolled, so
+// every combination is played exactly once and a failure repeats. Game 0 is a
+// lone queen, the last is the full set. Only the moves are random.
+const rulesetForGame = (game: number): Ruleset => {
   const pieces: Partial<Record<PieceType, number>> = { queen: 1 };
-  for (const type of PIECE_TYPES_ALL) {
-    if (type !== 'queen' && Math.random() < 0.5) pieces[type] = COUNTS[type];
-  }
+  OPTIONAL_TYPES.forEach((type, i) => {
+    if ((game >> i) & 1) pieces[type] = COUNTS[type];
+  });
   return { pieces };
 };
 
@@ -76,7 +80,7 @@ const assertInvariants = (state: GameState): void => {
 describe('e2e: random game fuzzer', () => {
   it(`maintains all invariants across ${NUM_GAMES} random games`, () => {
     for (let g = 0; g < NUM_GAMES; g++) {
-      let state: GameState = createGame(randomRuleset());
+      let state: GameState = createGame(rulesetForGame(g));
       assertInvariants(state);
 
       for (let step = 0; step < MAX_MOVES_PER_GAME; step++) {
