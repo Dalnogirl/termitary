@@ -16,7 +16,14 @@ import { PIECE_SETS, PIECE_SET_IDS, type PieceSet } from '../board/piece-sets.js
 import type { PieceHue } from '../board/pieces.js';
 import { usePrefsStore } from '../store/prefs.js';
 
-const PREVIEW: readonly PieceType[] = ['queen', 'ant', 'beetle', 'spider', 'grasshopper'];
+const PREVIEW: readonly PieceType[] = [
+  'queen',
+  'ant',
+  'beetle',
+  'spider',
+  'grasshopper',
+  'ladybug',
+];
 
 const tileClass: Record<Color, string> = {
   white: 'bg-(--piece-white-fill)',

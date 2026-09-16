@@ -21,6 +21,20 @@ const ellipse = (cx: number, cy: number, rx: number, ry: number, rot = 0): strin
 
 const circle = (cx: number, cy: number, r: number): string => ellipse(cx, cy, r, r);
 
+// The same outline wound the other way. Inside a shape it subtracts under the
+// nonzero rule every render path already uses, which is how a mark drawn in one
+// ink gets a marking. It must stay inside the shape it cuts: outside one, the
+// reversed winding fills like any other subpath.
+const holeEllipse = (cx: number, cy: number, rx: number, ry: number): string =>
+  `M${round(cx - rx)} ${round(cy)}a${round(rx)} ${round(ry)} 0 1 1 ${round(2 * rx)} 0a${round(rx)} ${round(ry)} 0 1 1 ${round(-2 * rx)} 0`;
+
+const hole = (cx: number, cy: number, r: number): string => holeEllipse(cx, cy, r, r);
+
+// A round-capped slot, wound to subtract like `hole`. An ellipse would come to
+// a point at each end, and nothing else in the set has a point.
+const holeSlot = (cx: number, cy: number, r: number, half: number): string =>
+  `M${round(cx - r)} ${round(cy - half)}A${round(r)} ${round(r)} 0 0 1 ${round(cx + r)} ${round(cy - half)}L${round(cx + r)} ${round(cy + half)}A${round(r)} ${round(r)} 0 0 1 ${round(cx - r)} ${round(cy + half)}Z`;
+
 const line = (pts: readonly Pt[]): string =>
   pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${round(x)} ${round(y)}`).join('');
 
@@ -155,6 +169,43 @@ const CHUNKY: Record<PieceType, readonly GlyphShape[]> = {
     fill(ellipse(47, 56, 25, 13, -8)),
     fill(circle(16, 58, 11)),
     stroke(4.5, 'M10 48C15 28 36 20 54 22'),
+  ],
+  // Round mass, no horns, and the only piece with markings: the spots and the
+  // elytra seam are cut out of the body rather than drawn on it. The spots have
+  // to clear the leg roots as well as the body edge — a leg runs under the body,
+  // so a spot over one is a window onto it.
+  ladybug: [
+    bothSides(5, [
+      [46, 20],
+      [38, 6],
+    ]),
+    bothSides(
+      5,
+      [
+        [30, 45],
+        [18, 38],
+        [15, 27],
+      ],
+      [
+        [26, 60],
+        [13, 59],
+        [10, 67],
+      ],
+      [
+        [30, 74],
+        [19, 82],
+        [16, 91],
+      ],
+    ),
+    fill(
+      ellipse(50, 60, 25, 26),
+      ellipse(50, 28, 13, 10),
+      holeSlot(50, 61, 2.5, 19),
+      hole(39, 48, 5.5),
+      hole(61, 48, 5.5),
+      hole(39, 71, 5.5),
+      hole(61, 71, 5.5),
+    ),
   ],
 };
 

@@ -1,5 +1,6 @@
 import {
   BASE_RULESET,
+  LADYBUG_RULESET,
   type Ruleset,
   applyMove,
   createGame,
@@ -240,7 +241,12 @@ describe('message schemas', () => {
   });
 
   it('rejects a ruleset naming a piece type it does not know', () => {
-    expect(WireRulesetSchema.safeParse({ pieces: { queen: 1, ladybug: 1 } }).success).toBe(false);
+    expect(WireRulesetSchema.safeParse({ pieces: { queen: 1, centipede: 1 } }).success).toBe(false);
+  });
+
+  it('carries an expansion piece', () => {
+    const wire = toWireRuleset(LADYBUG_RULESET);
+    expect(fromWireRuleset(WireRulesetSchema.parse(wire))).toEqual(LADYBUG_RULESET);
   });
 
   it('rejects a zero count rather than reading it as absent', () => {

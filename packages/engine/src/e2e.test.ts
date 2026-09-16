@@ -4,9 +4,26 @@ import { type GameState, type Hand, applyMove, createGame, listValidMoves } from
 import type { HexCoord } from './hex.js';
 import type { Color, Piece, PieceType } from './piece.js';
 import { getResult } from './result.js';
-import { BASE_RULESET } from './ruleset.js';
+import { BASE_RULESET, type Ruleset } from './ruleset.js';
 
-const PIECE_TYPES_ALL: readonly PieceType[] = ['queen', 'ant', 'beetle', 'spider', 'grasshopper'];
+const PIECE_TYPES_ALL: readonly PieceType[] = [
+  'queen',
+  'ant',
+  'beetle',
+  'spider',
+  'grasshopper',
+  'ladybug',
+];
+
+// Every type a ruleset may deal, at the count it is dealt at when present.
+const COUNTS: Record<PieceType, number> = {
+  queen: 1,
+  ant: 3,
+  beetle: 2,
+  spider: 2,
+  grasshopper: 3,
+  ladybug: 1,
+};
 
 const NUM_GAMES = 30;
 const MAX_MOVES_PER_GAME = 80;
@@ -27,11 +44,25 @@ const countPlacedPieces = (state: GameState): Record<Color, number> => {
 
 const sumHand = (hand: Hand): number => PIECE_TYPES_ALL.reduce((acc, t) => acc + (hand[t] ?? 0), 0);
 
+// The queen is always dealt; every other type is a coin flip, so a run covers
+// both the base set and each expansion piece against a varying board.
+const randomRuleset = (): Ruleset => {
+  const pieces: Partial<Record<PieceType, number>> = { queen: 1 };
+  for (const type of PIECE_TYPES_ALL) {
+    if (type !== 'queen' && Math.random() < 0.5) pieces[type] = COUNTS[type];
+  }
+  return { pieces };
+};
+
+const rulesetTotal = (ruleset: Ruleset): number =>
+  Object.values(ruleset.pieces).reduce((acc, n) => acc + n, 0);
+
 const assertInvariants = (state: GameState): void => {
-  // Hands + placed pieces must total 11 per color (full base set)
+  // Hands + placed pieces must total what the ruleset dealt, per color
+  const dealt = rulesetTotal(state.ruleset);
   const placed = countPlacedPieces(state);
-  expect(sumHand(state.hands.white) + placed.white).toBe(11);
-  expect(sumHand(state.hands.black) + placed.black).toBe(11);
+  expect(sumHand(state.hands.white) + placed.white).toBe(dealt);
+  expect(sumHand(state.hands.black) + placed.black).toBe(dealt);
   // Turn counters sum to history length
   expect(state.turnNumbers.white + state.turnNumbers.black).toBe(state.history.length);
   // Status-result coherence
@@ -45,7 +76,7 @@ const assertInvariants = (state: GameState): void => {
 describe('e2e: random game fuzzer', () => {
   it(`maintains all invariants across ${NUM_GAMES} random games`, () => {
     for (let g = 0; g < NUM_GAMES; g++) {
-      let state: GameState = createGame();
+      let state: GameState = createGame(randomRuleset());
       assertInvariants(state);
 
       for (let step = 0; step < MAX_MOVES_PER_GAME; step++) {

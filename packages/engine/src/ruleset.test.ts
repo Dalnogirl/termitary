@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyMove, createGame, listValidMoves } from './coordinator.js';
-import { BASE_RULESET, IllegalRulesetError, type Ruleset } from './ruleset.js';
+import { BASE_RULESET, IllegalRulesetError, LADYBUG_RULESET, type Ruleset } from './ruleset.js';
 
 const without = (type: 'spider' | 'ant'): Ruleset => {
   const { [type]: _dropped, ...rest } = BASE_RULESET.pieces;
@@ -64,5 +64,24 @@ describe('createGame rejects a ruleset it cannot play', () => {
     expect(() => createGame({ pieces: { ...BASE_RULESET.pieces, beetle: 1.5 } })).toThrow(
       IllegalRulesetError,
     );
+  });
+});
+
+describe('the ladybug expansion', () => {
+  it('is one piece on top of the base set, and not in the base set itself', () => {
+    expect(BASE_RULESET.pieces.ladybug).toBeUndefined();
+    expect(createGame(LADYBUG_RULESET).hands.white).toEqual({
+      queen: 1,
+      ant: 3,
+      beetle: 2,
+      spider: 2,
+      grasshopper: 3,
+      ladybug: 1,
+    });
+  });
+
+  it('offers the ladybug as an opening placement', () => {
+    const opening = listValidMoves(createGame(LADYBUG_RULESET));
+    expect(opening.some((m) => m.kind === 'place' && m.piece.type === 'ladybug')).toBe(true);
   });
 });
