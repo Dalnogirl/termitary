@@ -30,7 +30,7 @@
   "devDependencies": {
     "@better-auth/cli": "^1.4.21",
     "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^22.0.0",
+    "@types/node": "^24.0.0",
     "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.19.0",
