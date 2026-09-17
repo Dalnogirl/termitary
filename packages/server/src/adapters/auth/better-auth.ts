@@ -1,9 +1,10 @@
+import type { AuthProviderId } from '@termitary/protocol';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { emailOTP } from 'better-auth/plugins';
 import type { Logger } from '../../domain/logger.js';
 import type { UserStore } from '../../domain/user-store.js';
-import { env } from '../../env.js';
+import { type SocialProviders, env } from '../../env.js';
 import * as authSchema from '../db/auth-schema.js';
 import type { Db } from '../db/client.js';
 
@@ -26,7 +27,7 @@ export const createAuth = (
   db: Db,
   users: UserStore,
   log: Logger,
-  opts: { sendOtp?: SendOtp } = {},
+  opts: { sendOtp?: SendOtp; socialProviders?: SocialProviders } = {},
 ) =>
   betterAuth({
     database: drizzleAdapter(db, { provider: 'sqlite', schema: authSchema }),
@@ -37,8 +38,8 @@ export const createAuth = (
     // the sign-in POST outright without this.
     trustedOrigins: [env.webOrigin],
     emailAndPassword: { enabled: false },
-    // The display name is ours, not better-auth's: it writes `user.name` as
-    // `''` and we never read it.
+    // The display name is ours, not better-auth's: whatever it writes to
+    // `user.name` we never read.
     //
     // On session create, not user create. better-auth commits the `user` row
     // before running the hook, so a hook that throws leaves the account behind
@@ -62,5 +63,14 @@ export const createAuth = (
         },
       },
     },
+    // Callbacks land at `${baseURL}/api/auth/callback/<provider>`, which is
+    // what the two OAuth consoles have to be registered with.
+    socialProviders: opts.socialProviders ?? env.socialProviders,
     plugins: [emailOTP({ sendVerificationOTP: opts.sendOtp ?? printOtp(log) })],
   });
+
+// Asks the instance rather than `env` so an injected test auth answers for
+// itself, and so nothing outside this directory has to read better-auth's
+// option shape.
+export const configuredSocialProviders = (auth: Auth): readonly AuthProviderId[] =>
+  Object.keys(auth.options.socialProviders ?? {}) as AuthProviderId[];

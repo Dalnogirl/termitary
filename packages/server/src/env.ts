@@ -1,3 +1,5 @@
+import type { AuthProviderId } from '@termitary/protocol';
+
 const port = Number(process.env.PORT ?? 3001);
 const host = process.env.HOST ?? '127.0.0.1';
 const nodeEnv = process.env.NODE_ENV ?? 'development';
@@ -11,6 +13,49 @@ const resolveAuthSecret = (): string => {
     );
   }
   return 'dev-only-insecure-secret-rotate-me';
+};
+
+export type SocialProviderCredentials = {
+  readonly clientId: string;
+  readonly clientSecret: string;
+};
+
+export type SocialProviders = Readonly<Partial<Record<AuthProviderId, SocialProviderCredentials>>>;
+
+const SOCIAL_PROVIDER_VARS = {
+  google: ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'],
+  github: ['GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET'],
+} as const satisfies Record<AuthProviderId, readonly [string, string]>;
+
+const entriesOf = <T extends object>(o: T): [keyof T, T[keyof T]][] =>
+  Object.entries(o) as [keyof T, T[keyof T]][];
+
+// Production requires both pairs and refuses to boot without them: the email
+// OTP behind them has no working delivery yet, so a deployment missing a
+// provider is one most players cannot sign in to at all. Development registers
+// whatever it has credentials for, so a fresh clone still runs `pnpm dev` on
+// OTP alone. Half a pair is a typo in either environment, never a configuration.
+const resolveSocialProviders = (): SocialProviders => {
+  const configured: { -readonly [K in AuthProviderId]?: SocialProviderCredentials } = {};
+  for (const [provider, [idVar, secretVar]] of entriesOf(SOCIAL_PROVIDER_VARS)) {
+    const clientId = process.env[idVar] ?? '';
+    const clientSecret = process.env[secretVar] ?? '';
+    if (clientId.length > 0 && clientSecret.length > 0) {
+      configured[provider] = { clientId, clientSecret };
+      continue;
+    }
+    if (clientId.length > 0 || clientSecret.length > 0) {
+      throw new Error(
+        `${idVar} and ${secretVar} must be set together. Refusing to boot with half of a provider.`,
+      );
+    }
+    if (nodeEnv === 'production') {
+      throw new Error(
+        `${idVar} and ${secretVar} are required in production. Refusing to boot without ${provider} sign-in.`,
+      );
+    }
+  }
+  return configured;
 };
 
 export const env = {
@@ -29,4 +74,5 @@ export const env = {
   authBaseUrl: process.env.BETTER_AUTH_URL ?? `http://localhost:${port}`,
   webOrigin: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
   roomSweepIntervalMs: Number(process.env.ROOM_SWEEP_INTERVAL_MS ?? 60 * 60 * 1000),
+  socialProviders: resolveSocialProviders(),
 } as const;

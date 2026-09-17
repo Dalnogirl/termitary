@@ -1,13 +1,14 @@
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import { IllegalRulesetError } from '@termitary/engine';
+import type { AuthProvidersDto } from '@termitary/protocol';
 import Fastify, {
   type FastifyInstance,
   type FastifyReply,
   type FastifyRequest,
   type FastifyServerOptions,
 } from 'fastify';
-import { type Auth, createAuth } from './adapters/auth/better-auth.js';
+import { type Auth, configuredSocialProviders, createAuth } from './adapters/auth/better-auth.js';
 import { registerAuth } from './adapters/auth/fastify.js';
 import { type DbHandle, createDb } from './adapters/db/client.js';
 import { createDrizzleArchivedGameStore } from './adapters/drizzle-archived-game-store.js';
@@ -91,6 +92,14 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
   const gate = gateIdentity(extractIdentity);
 
   app.get('/health', async () => ({ ok: true }));
+  // Ungated on purpose: /signin is the one page with no session, and it is the
+  // only caller.
+  app.get(
+    '/auth/providers',
+    async (): Promise<AuthProvidersDto> => ({
+      providers: configuredSocialProviders(auth),
+    }),
+  );
   app.get('/rooms', { preHandler: gate }, async (req) => listRooms(requireIdentity(req), rooms));
   app.get('/rooms/mine', { preHandler: gate }, async (req) =>
     listMyRooms(requireIdentity(req), rooms),

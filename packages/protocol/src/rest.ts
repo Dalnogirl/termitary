@@ -123,3 +123,14 @@ export type ProfileDto = {
 export type UpdateProfileRequestDto = {
   readonly name: string;
 };
+
+/**
+ * The social providers this deployment has credentials for. `/signin` renders
+ * a button per entry, so an unconfigured provider is simply absent rather than
+ * a button that fails on click.
+ */
+export type AuthProviderId = 'google' | 'github';
+
+export type AuthProvidersDto = {
+  readonly providers: readonly AuthProviderId[];
+};
