@@ -102,7 +102,7 @@ export const Modal = () => {
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => setDismissed(true)}>Review board</AlertDialogCancel>
           {hotseat ? (
-            <AlertDialogAction onClick={reset}>New game</AlertDialogAction>
+            <AlertDialogAction onClick={() => reset(game.ruleset)}>New game</AlertDialogAction>
           ) : (
             <AlertDialogAction onClick={() => void navigate(paths.lobby, { viewTransition: true })}>
               Back to lobby

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { type GameState, createGame, resign } from '@termitary/engine';
+import { type GameState, LADYBUG_RULESET, createGame, resign } from '@termitary/engine';
 import type { OpponentPresence } from '@termitary/protocol';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
@@ -103,6 +103,17 @@ describe('game-over Modal', () => {
     load(resigned());
 
     expect(screen.getByText('Black wins')).toBeDefined();
+  });
+
+  it('deals the next hot-seat game the pieces the last one used', () => {
+    load(resign(createGame(LADYBUG_RULESET), 'white'));
+    show(null);
+
+    fireEvent.click(screen.getByText('New game'));
+
+    const { liveGame } = gameStore.getState();
+    expect(liveGame.status).toBe('in_progress');
+    expect(liveGame.ruleset).toEqual(LADYBUG_RULESET);
   });
 
   it('offers a new game in hot-seat and the lobby in a room', () => {
