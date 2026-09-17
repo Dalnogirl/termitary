@@ -24,6 +24,7 @@ const PREVIEW: readonly PieceType[] = [
   'grasshopper',
   'ladybug',
   'mosquito',
+  'pillbug',
 ];
 
 const tileClass: Record<Color, string> = {

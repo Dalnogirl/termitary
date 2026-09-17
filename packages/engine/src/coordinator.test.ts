@@ -11,7 +11,7 @@ import {
 } from './coordinator.js';
 import { type HexCoord, key } from './hex.js';
 import type { Piece } from './piece.js';
-import { BASE_RULESET } from './ruleset.js';
+import { BASE_RULESET, PILLBUG_RULESET } from './ruleset.js';
 
 const WQ: Piece = { type: 'queen', color: 'white' };
 const WA: Piece = { type: 'ant', color: 'white' };
@@ -25,6 +25,8 @@ const BB: Piece = { type: 'beetle', color: 'black' };
 
 const ORIGIN: HexCoord = { q: 0, r: 0 };
 const E: HexCoord = { q: 1, r: 0 };
+
+const sameKey = (a: HexCoord, b: HexCoord): boolean => key(a) === key(b);
 
 const placeMove = (state: GameState, piece: Piece, to: HexCoord): GameState =>
   applyMove(state, { kind: 'place', piece, to });
@@ -263,5 +265,106 @@ describe('history grows with every applied move', () => {
       { kind: 'place', piece: WA, to: ORIGIN },
       { kind: 'place', piece: BA, to: E },
     ]);
+  });
+});
+
+describe('the pillbug', () => {
+  const WP: Piece = { type: 'pillbug', color: 'white' };
+  const BP: Piece = { type: 'pillbug', color: 'black' };
+
+  const NE: HexCoord = { q: 1, r: -1 };
+  const SW: HexCoord = { q: -1, r: 1 };
+  const S: HexCoord = { q: 0, r: 1 };
+
+  const EMPTY_HAND = { queen: 0, ant: 0, beetle: 0, spider: 0, grasshopper: 0, pillbug: 0 };
+
+  // White's pillbug at the origin, its queen east of it, black's two pieces
+  // hanging off the south. Hands are spent, so every listed move is a
+  // relocation or a throw.
+  const scenario = (
+    south: Piece,
+    currentPlayer: 'white' | 'black',
+    history: readonly Move[] = [],
+  ) =>
+    ({
+      status: 'in_progress',
+      ruleset: PILLBUG_RULESET,
+      board: fromCells([
+        [ORIGIN, [WP]],
+        [E, [WQ]],
+        [S, [south]],
+        [SW, [BQ]],
+      ]),
+      hands: { white: EMPTY_HAND, black: EMPTY_HAND },
+      currentPlayer,
+      turnNumbers: { white: 5, black: 5 },
+      history,
+    }) satisfies GameState;
+
+  const throwsOf = (state: GameState) =>
+    listValidMoves(state).filter((m): m is Extract<Move, { kind: 'throw' }> => m.kind === 'throw');
+
+  const sources = (state: GameState) => new Set(throwsOf(state).map((m) => key(m.from)));
+
+  it('lifts a neighbour of either colour into an empty cell beside itself', () => {
+    const state = scenario(BA, 'white');
+    expect(sources(state)).toEqual(new Set([key(E), key(S), key(SW)]));
+    expect(new Set(throwsOf(state).map((m) => key(m.to)))).toEqual(
+      new Set([key(NE), key({ q: 0, r: -1 }), key({ q: -1, r: 0 })]),
+    );
+  });
+
+  it('carries the thrown piece to its destination, owner intact', () => {
+    const after = applyMove(scenario(BA, 'white'), {
+      kind: 'throw',
+      by: ORIGIN,
+      from: S,
+      to: NE,
+    });
+    expect(after.board.cells.get(key(S))).toBeUndefined();
+    expect(after.board.cells.get(key(NE))).toEqual([BA]);
+    expect(after.history.at(-1)).toEqual({ kind: 'throw', by: ORIGIN, from: S, to: NE });
+    expect(after.currentPlayer).toBe('black');
+  });
+
+  it("immobilises the piece it threw for the owner's next turn", () => {
+    const after = applyMove(scenario(BA, 'white'), { kind: 'throw', by: ORIGIN, from: S, to: NE });
+    expect(listValidMoves(after).some((m) => m.kind === 'relocate' && sameKey(m.from, NE))).toBe(
+      false,
+    );
+    expect(() => applyMove(after, { kind: 'relocate', from: NE, to: S })).toThrow(IllegalMoveError);
+  });
+
+  it('will not throw the piece that moved on the previous turn', () => {
+    const justMoved = scenario(BA, 'white', [{ kind: 'relocate', from: { q: -1, r: 2 }, to: S }]);
+    expect(sources(justMoved)).toEqual(new Set([key(E), key(SW)]));
+  });
+
+  it('will throw a piece that was only placed on the previous turn', () => {
+    const justPlaced = scenario(BA, 'white', [{ kind: 'place', piece: BA, to: S }]);
+    expect(sources(justPlaced)).toContain(key(S));
+  });
+
+  it('cannot use its ability on the turn after it was thrown itself', () => {
+    const after = applyMove(scenario(BP, 'white'), { kind: 'throw', by: ORIGIN, from: S, to: NE });
+    expect(throwsOf(after)).toEqual([]);
+    expect(listValidMoves(after).some((m) => m.kind === 'relocate' && sameKey(m.from, NE))).toBe(
+      false,
+    );
+  });
+
+  it('offers no throws and no moves of its own under a beetle', () => {
+    const state: GameState = {
+      ...scenario(BA, 'white'),
+      board: fromCells([
+        [ORIGIN, [WP, BB]],
+        [E, [WQ]],
+        [S, [BA]],
+        [SW, [BQ]],
+      ]),
+    };
+    const moves = listValidMoves(state);
+    expect(moves.some((m) => m.kind === 'throw')).toBe(false);
+    expect(moves.some((m) => m.kind === 'relocate' && sameKey(m.from, ORIGIN))).toBe(false);
   });
 });

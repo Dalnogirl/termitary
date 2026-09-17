@@ -21,6 +21,7 @@ export {
   BASE_RULESET,
   LADYBUG_RULESET,
   MOSQUITO_RULESET,
+  PILLBUG_RULESET,
   IllegalRulesetError,
   rulesetPieceTypes,
 } from './ruleset.js';

@@ -2,7 +2,7 @@ import type { Board, Move } from '@termitary/engine';
 import { type Pixel, axialToPixel } from './hex.js';
 import { HEX_SIZE } from './metrics.js';
 
-export type Relocation = Extract<Move, { kind: 'relocate' }>;
+export type Relocation = Extract<Move, { kind: 'relocate' | 'throw' }>;
 
 export type Flight = {
   /** At least two points, in layer coordinates. */

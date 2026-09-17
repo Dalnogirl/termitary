@@ -1,7 +1,9 @@
 import {
   BASE_RULESET,
+  type GameState,
   LADYBUG_RULESET,
   MOSQUITO_RULESET,
+  PILLBUG_RULESET,
   type Ruleset,
   applyMove,
   createGame,
@@ -49,6 +51,23 @@ describe('wire serialization', () => {
     expect(restored.turnNumbers).toEqual(state.turnNumbers);
     expect(restored.board.cells.size).toBe(0);
     expect(restored.history).toEqual([]);
+  });
+
+  // The pillbug's whole story is on the wire in the history, so a throw that
+  // survives the trip is the memory surviving with it.
+  it('round-trips a throw in the history', () => {
+    const state: GameState = {
+      ...createGame(PILLBUG_RULESET),
+      history: [{ kind: 'throw', by: { q: 0, r: 0 }, from: { q: 1, r: 0 }, to: { q: 0, r: 1 } }],
+    };
+    const restored = fromWire(WireGameStateSchema.parse(JSON.parse(JSON.stringify(toWire(state)))));
+    expect(restored.history).toEqual(state.history);
+  });
+
+  it('rejects a throw missing the pillbug that threw', () => {
+    const wire = toWire(createGame(PILLBUG_RULESET));
+    const bad = { ...wire, history: [{ kind: 'throw', from: { q: 1, r: 0 }, to: { q: 0, r: 1 } }] };
+    expect(WireGameStateSchema.safeParse(bad).success).toBe(false);
   });
 
   it('round-trips a mid-game state with stacked board cells', () => {

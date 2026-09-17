@@ -12,6 +12,7 @@ const PIECE_NAME: Record<PieceType, string> = {
   grasshopper: 'Grasshopper',
   ladybug: 'Ladybug',
   mosquito: 'Mosquito',
+  pillbug: 'Pillbug',
 };
 
 const formatCoord = (c: HexCoord): string => `(${c.q},${c.r})`;
@@ -22,6 +23,8 @@ const formatMove = (move: Move): string => {
       return `placed ${PIECE_NAME[move.piece.type]} at ${formatCoord(move.to)}`;
     case 'relocate':
       return `moved ${formatCoord(move.from)} → ${formatCoord(move.to)}`;
+    case 'throw':
+      return `threw ${formatCoord(move.from)} → ${formatCoord(move.to)}`;
     case 'pass':
       return 'passed';
   }

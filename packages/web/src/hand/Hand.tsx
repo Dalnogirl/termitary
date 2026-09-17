@@ -18,6 +18,7 @@ const SLOT_ORDER: Record<PieceType, number> = {
   grasshopper: 4,
   ladybug: 5,
   mosquito: 6,
+  pillbug: 7,
 };
 
 const handSlots = (ruleset: Ruleset): readonly PieceType[] =>
