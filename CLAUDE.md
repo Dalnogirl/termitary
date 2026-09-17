@@ -68,7 +68,7 @@ Hexagonal layering, and the seams are load-bearing because the adapters get swap
 - `usecases/` — one file per action (`joinGame`, `makeMove`, `leaveGame`, `createRoom`, `listRooms`), each taking `(identity, msg, ports)` and pushing results through `connections.sendTo`.
 - `ws/` — socket lifecycle, zod parsing of inbound frames, and a dispatcher switching on `msg.type` with a `never` exhaustiveness check.
 
-Auth: `/rooms` and `/ws` are gated on a better-auth session cookie. `ws/identity.ts` is the only place the server knows better-auth exists; everything downstream sees `(req) => Promise<Identity | null>`. Sign-in is email OTP, and in dev the OTP is printed to the server console rather than emailed.
+Auth: `/rooms` and `/ws` are gated on a better-auth session cookie. `/auth/providers` is the one route that is deliberately ungated, because `/signin` is the page with no session to send. `ws/identity.ts` is the only place the server knows better-auth exists; everything downstream sees `(req) => Promise<Identity | null>`. Sign-in is email OTP or a social provider, and in dev the OTP is printed to the server console rather than emailed. Google and GitHub are registered only when `env.socialProviders` found a complete credential pair, so a checkout with none of the four variables still runs on OTP alone. `docs/configuration.md` lists every variable and what a missing one does.
 
 Seat and presence are separate concepts. A socket close notifies the opponent of `disconnected` but leaves seats intact, so a reconnect lands in `joinGame`'s re-attach branch. Only `leaveGame` unseats.
 

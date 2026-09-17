@@ -1,8 +1,12 @@
 import { Button } from '@/components/ui/button';
+import { useQuery } from '@tanstack/react-query';
+import type { AuthProviderId } from '@termitary/protocol';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { authClient, useSession } from '../network/auth-client.js';
+import { fetchAuthProviders } from '../network/auth-providers-api.js';
+import { ProviderIcon } from './ProviderIcon.js';
 
 const inputClass =
   'w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground ' +
@@ -10,6 +14,11 @@ const inputClass =
 
 const messageOf = (err: unknown, fallback: string): string =>
   err instanceof Error ? err.message : fallback;
+
+const providerLabel: Record<AuthProviderId, string> = {
+  google: 'Google',
+  github: 'GitHub',
+};
 
 // Sign-in doubles as sign-up: better-auth creates the user row on first OTP
 // verification for an unseen email, so there is no separate registration flow.
@@ -25,6 +34,16 @@ export const SignInPage = () => {
   const emailRef = useRef<HTMLInputElement>(null);
   const otpRef = useRef<HTMLInputElement>(null);
 
+  // A deployment without credentials returns an empty list and the page is the
+  // email form it was before. A failed fetch is the same thing: no buttons.
+  const providers = useQuery({
+    queryKey: ['auth', 'providers'],
+    queryFn: fetchAuthProviders,
+    staleTime: Number.POSITIVE_INFINITY,
+    refetchOnWindowFocus: false,
+  });
+  const socialProviders = providers.data?.providers ?? [];
+
   // Where RequireAuth bounced us from, or the lobby on a direct visit.
   const target = (location.state as { from?: string } | null)?.from ?? '/lobby';
 
@@ -38,6 +57,28 @@ export const SignInPage = () => {
   const fail = (message: string): void => {
     setError(message);
     toast.error(message);
+  };
+
+  const signInWith = async (provider: AuthProviderId): Promise<void> => {
+    setPending(true);
+    setError(null);
+    try {
+      // `target` rides on the callback URL rather than router state: the
+      // provider round trip is a full-page navigation and state does not
+      // survive it, so a bounce from /play/<id> would otherwise land on the
+      // lobby.
+      const { error: apiError } = await authClient.signIn.social({
+        provider,
+        callbackURL: `${window.location.origin}${target}`,
+      });
+      // Only reached when the redirect never happens; on success the browser
+      // has already left the page.
+      if (apiError) fail(apiError.message ?? `Could not sign in with ${providerLabel[provider]}`);
+    } catch (err) {
+      fail(messageOf(err, 'Could not reach the server'));
+    } finally {
+      setPending(false);
+    }
   };
 
   const requestOtp = async (e: FormEvent): Promise<void> => {
@@ -87,6 +128,28 @@ export const SignInPage = () => {
     <div className="flex flex-1 items-center justify-center p-6">
       <div className="flex w-full max-w-sm flex-col gap-4">
         <h1 className="text-2xl font-bold tracking-tight">Sign in</h1>
+
+        {step === 'email' && socialProviders.length > 0 && (
+          <div className="flex flex-col gap-3">
+            {socialProviders.map((provider) => (
+              <Button
+                key={provider}
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() => void signInWith(provider)}
+              >
+                <ProviderIcon provider={provider} />
+                Continue with {providerLabel[provider]}
+              </Button>
+            ))}
+            <div className="flex items-center gap-3">
+              <span className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground">or</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          </div>
+        )}
 
         {step === 'email' ? (
           <form className="flex flex-col gap-3" onSubmit={(e) => void requestOtp(e)}>

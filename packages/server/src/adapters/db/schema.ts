@@ -6,9 +6,10 @@ import { user } from './auth-schema.js';
 // whole by `pnpm db:generate-schema`, so nothing hand-authored survives there.
 // That is also why this warning lives here: `user.name` and `user.image` are
 // better-auth's columns and nothing in this app reads either. A display name
-// is in `profiles` below, reached through `UserStore`. better-auth writes
-// `user.name` as `''` on every sign-in and never writes `user.image` at all,
-// and neither can be dropped while better-auth owns the model.
+// is in `profiles` below, reached through `UserStore`. An OTP sign-up leaves
+// `user.name` as `''` and `user.image` null; a Google or GitHub sign-up fills
+// both from the provider. Neither is read, and neither can be dropped while
+// better-auth owns the model.
 
 // One row per account, created on first sign-in. Cascade rather than set null:
 // a deleted account takes its profile with it, and the archive still renders
