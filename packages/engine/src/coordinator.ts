@@ -1,6 +1,6 @@
 import { type Board, empty, occupiedCells, place, remove, topPieceAt } from './board.js';
 import type { HexCoord } from './hex.js';
-import { pillbugThrows } from './movements/pillbug.js';
+import { hasThrowAbility, pillbugThrows } from './movements/pillbug.js';
 import type { Color, Piece, PieceType } from './piece.js';
 import { getValidPlacementCoords } from './placement.js';
 import { type GameResult, getResult } from './result.js';
@@ -13,9 +13,9 @@ export type Hand = Partial<Record<PieceType, number>>;
 export type Move =
   | { readonly kind: 'place'; readonly piece: Piece; readonly to: HexCoord }
   | { readonly kind: 'relocate'; readonly from: HexCoord; readonly to: HexCoord }
-  // `by` is the pillbug doing the throwing. The board would come out the same
-  // without it, but two pillbugs can offer the same throw and the mover is the
-  // half a player picked first.
+  // `by` is the piece doing the throwing, a pillbug or a mosquito copying one.
+  // The board would come out the same without it, but two of them can offer the
+  // same throw and the mover is the half a player picked first.
   | {
       readonly kind: 'throw';
       readonly by: HexCoord;
@@ -128,7 +128,7 @@ export const listValidMoves = (state: GameState): Move[] => {
         relocations.push({ kind: 'relocate', from, to });
       }
 
-      if (top.type !== 'pillbug') continue;
+      if (!hasThrowAbility(top, from, board)) continue;
       for (const { from: thrown, to } of pillbugThrows(from, board)) {
         if (isStunned(thrown)) continue;
         throws.push({ kind: 'throw', by: from, from: thrown, to });

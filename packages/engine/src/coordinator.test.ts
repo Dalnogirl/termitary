@@ -368,3 +368,89 @@ describe('the pillbug', () => {
     expect(moves.some((m) => m.kind === 'relocate' && sameKey(m.from, ORIGIN))).toBe(false);
   });
 });
+
+describe('a mosquito beside a pillbug', () => {
+  const WM: Piece = { type: 'mosquito', color: 'white' };
+  const BP: Piece = { type: 'pillbug', color: 'black' };
+
+  const NE: HexCoord = { q: 1, r: -1 };
+  const N: HexCoord = { q: 0, r: -1 };
+  const W: HexCoord = { q: -1, r: 0 };
+  const SW: HexCoord = { q: -1, r: 1 };
+  const S: HexCoord = { q: 0, r: 1 };
+
+  const RULESET = { pieces: { ...BASE_RULESET.pieces, mosquito: 1, pillbug: 1 } };
+  const EMPTY_HAND = {
+    queen: 0,
+    ant: 0,
+    beetle: 0,
+    spider: 0,
+    grasshopper: 0,
+    mosquito: 0,
+    pillbug: 0,
+  };
+
+  // White's mosquito at the origin with black's pillbug east of it: the same
+  // geometry the pillbug's own tests use, one seat over.
+  const scenario = (
+    cells: readonly [HexCoord, readonly Piece[]][] = [],
+    history: readonly Move[] = [],
+  ) =>
+    ({
+      status: 'in_progress',
+      ruleset: RULESET,
+      board: fromCells([[ORIGIN, [WM]], [E, [BP]], [S, [BA]], [SW, [BQ]], ...cells]),
+      hands: { white: EMPTY_HAND, black: EMPTY_HAND },
+      currentPlayer: 'white',
+      turnNumbers: { white: 5, black: 5 },
+      history,
+    }) satisfies GameState;
+
+  const throwsOf = (state: GameState) =>
+    listValidMoves(state).filter((m): m is Extract<Move, { kind: 'throw' }> => m.kind === 'throw');
+
+  const sources = (state: GameState) => new Set(throwsOf(state).map((m) => key(m.from)));
+
+  it('lifts a neighbour into an empty cell beside itself', () => {
+    const state = scenario();
+    expect(sources(state)).toEqual(new Set([key(E), key(S), key(SW)]));
+    expect(new Set(throwsOf(state).map((m) => key(m.to)))).toEqual(
+      new Set([key(NE), key(N), key(W)]),
+    );
+  });
+
+  it('records itself as the thrower and carries the piece over', () => {
+    const after = applyMove(scenario(), { kind: 'throw', by: ORIGIN, from: S, to: NE });
+    expect(after.board.cells.get(key(S))).toBeUndefined();
+    expect(after.board.cells.get(key(NE))).toEqual([BA]);
+    expect(after.history.at(-1)).toEqual({ kind: 'throw', by: ORIGIN, from: S, to: NE });
+  });
+
+  it("immobilises the piece it threw for the owner's next turn", () => {
+    const after = applyMove(scenario(), { kind: 'throw', by: ORIGIN, from: S, to: NE });
+    expect(listValidMoves(after).some((m) => m.kind === 'relocate' && sameKey(m.from, NE))).toBe(
+      false,
+    );
+  });
+
+  it('will not throw the piece that moved on the previous turn', () => {
+    const justMoved = scenario([], [{ kind: 'relocate', from: { q: -1, r: 2 }, to: S }]);
+    expect(sources(justMoved)).toEqual(new Set([key(E), key(SW)]));
+  });
+
+  it('offers no throws from a stack, where it is a beetle instead', () => {
+    expect(throwsOf(scenario([[ORIGIN, [BA, WM]]]))).toEqual([]);
+  });
+
+  it('offers no throws while something sits on top of it', () => {
+    expect(throwsOf(scenario([[ORIGIN, [WM, WB]]]))).toEqual([]);
+  });
+
+  it('offers no throws when the pillbug beside it is covered', () => {
+    expect(throwsOf(scenario([[E, [BP, BB]]]))).toEqual([]);
+  });
+
+  it('offers no throws with no pillbug beside it', () => {
+    expect(throwsOf(scenario([[E, [BA]]]))).toEqual([]);
+  });
+});
