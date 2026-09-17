@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Termitary — the glyph set together</title>
+<style>
+  :root {
+    --bg: #16161a;
+    --panel: #1e1e24;
+    --line: #33333d;
+    --fg: #e8e8ee;
+    --dim: #9a9aa8;
+    --accent: #7dd3c0;
+    --warn: #e0a34f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 28px 24px 96px;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  h2 { font-size: 15px; margin: 40px 0 4px; letter-spacing: 0.02em; }
+  p { max-width: 74ch; color: var(--dim); margin: 6px 0; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--fg); }
+  a { color: var(--accent); }
+
+  .bar {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; flex-wrap: wrap; gap: 18px; align-items: center;
+    margin: 18px 0 8px; padding: 10px 12px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .group { display: flex; gap: 6px; align-items: center; }
+  .group > span { color: var(--dim); font-size: 12px; margin-right: 2px; }
+  button {
+    font: inherit; font-size: 12px; padding: 4px 10px; cursor: pointer;
+    color: var(--fg); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px;
+  }
+  button[aria-pressed="true"] { background: var(--accent); color: #10100f; border-color: var(--accent); }
+  input[type="number"] {
+    width: 52px; font: inherit; font-size: 12px; padding: 3px 5px;
+    color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 5px;
+  }
+
+  .strip { display: flex; gap: 0; align-items: flex-start; margin: 10px 0 0; }
+  .col { display: flex; flex-direction: column; gap: 6px; align-items: center; width: 150px; flex: none; }
+  .col .name { font-size: 11px; color: var(--dim); }
+  .stack { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+  .pair { display: flex; gap: 4px; align-items: center; }
+  .tile { display: block; border-radius: 4px; }
+  .sq { display: grid; place-items: center; border-radius: 4px; }
+
+  .rowlabel { width: 74px; flex: none; font-size: 11px; color: var(--dim); align-self: center; }
+
+  .piece { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 14px 0; background: var(--panel); }
+  .piece h3 { font-size: 14px; margin: 0 0 2px; }
+  .variants { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; }
+  .variant { border: 1px solid var(--line); border-radius: 7px; padding: 10px; width: 336px; }
+  .variant.picked { border-color: var(--accent); }
+  .variant header { display: flex; gap: 8px; align-items: baseline; margin-bottom: 2px; }
+  .variant header strong { font-size: 13px; font-weight: 600; }
+  .variant .note { font-size: 11.5px; color: var(--dim); min-height: 32px; margin: 0 0 8px; }
+  .variant .sizes { display: flex; gap: 10px; align-items: center; }
+  .variant .meta { font-size: 11px; color: var(--dim); font-family: ui-monospace, Menlo, monospace; margin-top: 8px; }
+
+  table { border-collapse: collapse; margin-top: 12px; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  th, td { border-bottom: 1px solid var(--line); padding: 4px 12px 4px 0; text-align: left; white-space: nowrap; }
+  th { color: var(--dim); font-weight: 500; }
+  td.off { color: var(--warn); }
+</style>
+</head>
+<body>
+
+<h1>The glyph set together</h1>
+<p>
+  Every piece the app draws, from <code id="src"></code>, at the four sizes that exist in the
+  product and on both tile tones. The pieces with an open question — queen, ladybug, grasshopper —
+  carry alternates; picking one swaps it into the set strip at the top, which is the only place the
+  eight get compared as a set. Nothing here changes the app. See
+  <a href="https://github.com/Dalnogirl/termitary/issues/96">#96</a>.
+</p>
+<p>
+  <strong>On the ladder</strong> snaps every stroke to the three-step width ladder in the controls.
+  Radii are not snapped — an ellipse radius is a design call per piece, not a mechanical one, so the
+  table below flags what sits off the ladder and the alternates test the ladder by hand.
+</p>
+
+<div class="bar">
+  <div class="group"><span>ink</span>
+    <button data-hue="mono" aria-pressed="true">Mono</button>
+    <button data-hue="shared">Shared hue</button>
+    <button data-hue="per-tile">Per tile</button>
+  </div>
+  <div class="group"><span>strokes</span>
+    <button data-ladder="off" aria-pressed="true">As drawn</button>
+    <button data-ladder="on">On the ladder</button>
+  </div>
+  <div class="group"><span>widths</span>
+    <input type="number" id="w0" step="0.5" min="1" value="4.5">
+    <input type="number" id="w1" step="0.5" min="1" value="5.5">
+    <input type="number" id="w2" step="0.5" min="1" value="7">
+  </div>
+  <div class="group"><span>body r</span>
+    <input type="number" id="b0" step="0.5" value="17">
+    <input type="number" id="b1" step="0.5" value="23">
+    <input type="number" id="b2" step="0.5" value="26">
+  </div>
+  <div class="group"><span>head r</span>
+    <input type="number" id="h0" step="0.5" value="9">
+    <input type="number" id="h1" step="0.5" value="11">
+    <input type="number" id="h2" step="0.5" value="14">
+  </div>
+  <div class="group">
+    <button id="guides">Fit guides</button>
+  </div>
+</div>
+
+<h2>The set</h2>
+<p>Board tile at <code id="hexnote"></code>, then the stacked-piece tile, the hand slot and the settings preview.</p>
+<div id="set"></div>
+
+<h2>The open pieces</h2>
+<div id="pieces"></div>
+
+<h2>Measurements</h2>
+<p>
+  Body is the largest filled ellipse, head the smallest. <span style="color:var(--warn)">Amber</span>
+  marks a radius more than 1.5 units off its nearest ladder step, or a stroke width that is not on
+  the ladder. Ink is the share of the 100-unit box the glyph covers; fit is the scale
+  <code>hexFit</code> gives it.
+</p>
+<div id="table"></div>
+
+<script src="glyph-data.js"></script>
+<script>
+const D = window.GLYPH_DATA;
+const BOX = D.box;
+const MARGIN = D.margin;
+const APOTHEM = Math.sqrt(3) / 2;
+document.getElementById('src').textContent = D.source;
+document.getElementById('hexnote').textContent = 'hexSize ' + D.hexSize;
+
+// ---------- authoring primitives, mirrored from glyphs.ts so alternates can be
+// written in the same vocabulary. Sheet-local: nothing here ships.
+const round = (v) => Math.round(v * 100) / 100;
+const ellipse = (cx, cy, rx, ry, rot = 0) => {
+  const rad = (rot * Math.PI) / 180;
+  const dx = Math.cos(rad) * rx, dy = Math.sin(rad) * rx;
+  const arc = `a${round(rx)} ${round(ry)} ${round(rot)} 1 0`;
+  return `M${round(cx - dx)} ${round(cy - dy)}${arc} ${round(2 * dx)} ${round(2 * dy)}${arc} ${round(-2 * dx)} ${round(-2 * dy)}`;
+};
+const circle = (cx, cy, r) => ellipse(cx, cy, r, r);
+const holeEllipse = (cx, cy, rx, ry) =>
+  `M${round(cx - rx)} ${round(cy)}a${round(rx)} ${round(ry)} 0 1 1 ${round(2 * rx)} 0a${round(rx)} ${round(ry)} 0 1 1 ${round(-2 * rx)} 0`;
+const hole = (cx, cy, r) => holeEllipse(cx, cy, r, r);
+const holeSlot = (cx, cy, r, half) =>
+  `M${round(cx - r)} ${round(cy - half)}A${round(r)} ${round(r)} 0 0 1 ${round(cx + r)} ${round(cy - half)}L${round(cx + r)} ${round(cy + half)}A${round(r)} ${round(r)} 0 0 1 ${round(cx - r)} ${round(cy + half)}Z`;
+const line = (pts) => pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${round(x)} ${round(y)}`).join('');
+const mirror = (pts) => pts.map(([x, y]) => [BOX - x, y]);
+const fill = (...ds) => ({ kind: 'fill', d: ds.join('') });
+const stroke = (width, ...ds) => ({ kind: 'stroke', width, d: ds.join('') });
+const bothSides = (width, ...runs) => stroke(width, ...runs.flatMap((r) => [line(r), line(mirror(r))]));
+
+// ---------- alternates ----------
+// Three per open piece. Each one tests a different answer, not a different mood.
+const ANTENNAE = [[46, 20], [38, 6]];
+const WALKER_LEGS = [
+  [[42, 38], [22, 26], [16, 14]],
+  [[41, 48], [18, 44], [12, 53]],
+  [[42, 58], [22, 72], [16, 84]],
+];
+
+const VARIANTS = {
+  queen: [
+    {
+      id: 'q-mass',
+      name: 'On the mass ladder',
+      note: 'Same drawing, bigger. Abdomen 16×21 → 21×25 and thorax 13×14 → 14×13, which puts the queen in the same weight class as the beetle and the spider instead of being the slightest piece in the set.',
+      shapes: [
+        bothSides(5.5, ANTENNAE),
+        fill(ellipse(76, 46, 8.5, 21, -20), ellipse(24, 46, 8.5, 21, 20)),
+        fill(ellipse(50, 68, 21, 25), ellipse(50, 38, 14, 13), ellipse(50, 18, 11, 10)),
+      ],
+    },
+    {
+      id: 'q-crown',
+      name: 'Crowned',
+      note: 'Mass raised as above, antennae dropped, and a three-point crown cut out of the thorax. The only piece with a cut mark that is not an insect marking, which is the argument for and against it: the queen is the one piece whose job is rank rather than species.',
+      shapes: [
+        fill(ellipse(76, 48, 8.5, 21, -20), ellipse(24, 48, 8.5, 21, 20)),
+        fill(
+          ellipse(50, 70, 21, 24),
+          ellipse(50, 38, 15, 15),
+          hole(50, 32, 4),
+          hole(40, 40, 3.4),
+          hole(60, 40, 3.4),
+          ellipse(50, 16, 11, 10),
+        ),
+      ],
+    },
+    {
+      id: 'q-wings',
+      name: 'Wings first',
+      note: 'Wings swept wide and long behind a compact body, antennae gone. Separates hardest from the ant, which is the queen’s real confusion at 22px: both are three ellipses on the centreline with antennae. Costs the resemblance to the mosquito, the other winged piece.',
+      shapes: [
+        fill(ellipse(78, 56, 10, 26, -34), ellipse(22, 56, 10, 26, 34)),
+        fill(ellipse(50, 62, 19, 23), ellipse(50, 34, 15, 14), ellipse(50, 14, 10.5, 9.5)),
+      ],
+    },
+  ],
+  ladybug: [
+    {
+      id: 'l-two',
+      name: 'Two fat spots',
+      note: 'Four spots at r5.5 become two at r9, seam gone. At the 22px preview a r5.5 spot lands near 2px; r9 lands near 3.5px, which is the difference between a texture and a mark. The read becomes “round bug, two holes”.',
+      shapes: [
+        bothSides(5.5, ANTENNAE),
+        bothSides(5.5,
+          [[30, 45], [18, 38], [15, 27]],
+          [[26, 60], [13, 59], [10, 67]],
+          [[30, 74], [19, 82], [16, 91]],
+        ),
+        fill(
+          ellipse(50, 60, 25, 26),
+          ellipse(50, 28, 13, 10),
+          hole(38, 60, 9),
+          hole(62, 60, 9),
+        ),
+      ],
+    },
+    {
+      id: 'l-seamless',
+      name: 'Four, no seam',
+      note: 'The current glyph with the elytra seam dropped and the spots grown r5.5 → r7. One line lighter, and it removes the set’s only round-capped slot. Tests whether the seam was doing anything the spots were not.',
+      shapes: [
+        bothSides(5.5, ANTENNAE),
+        bothSides(5.5,
+          [[30, 45], [18, 38], [15, 27]],
+          [[26, 60], [13, 59], [10, 67]],
+          [[30, 74], [19, 82], [16, 91]],
+        ),
+        fill(
+          ellipse(50, 60, 25, 26),
+          ellipse(50, 28, 13, 10),
+          hole(37, 49, 7),
+          hole(63, 49, 7),
+          hole(37, 72, 7),
+          hole(63, 72, 7),
+        ),
+      ],
+    },
+    {
+      id: 'l-split',
+      name: 'Split elytra',
+      note: 'No spots. One fat cut band down the middle, r4 against the seam’s r2.5, so the body reads as two wing cases. The same primitive the pillbug uses for its bands, turned ninety degrees — which is either the convention paying off or the two round pieces converging.',
+      shapes: [
+        bothSides(5.5, ANTENNAE),
+        bothSides(5.5,
+          [[30, 45], [18, 38], [15, 27]],
+          [[26, 60], [13, 59], [10, 67]],
+          [[30, 74], [19, 82], [16, 91]],
+        ),
+        fill(
+          ellipse(50, 60, 25, 26),
+          ellipse(50, 28, 13, 10),
+          holeSlot(50, 62, 4, 20),
+        ),
+      ],
+    },
+  ],
+  grasshopper: [
+    {
+      id: 'g-top',
+      name: 'Top-down',
+      note: 'The set’s only profile view brought into line with the other seven. Hind legs make a wide V behind the body, which is the shape #79 rejected for colliding with the spider — worth re-testing now that the spider’s legs are the only other splay and they point sideways, not back.',
+      shapes: [
+        bothSides(5.5, ANTENNAE),
+        bothSides(5.5,
+          [[41, 40], [24, 32], [19, 22]],
+          [[41, 50], [21, 48], [16, 56]],
+        ),
+        bothSides(7, [[44, 62], [30, 76], [34, 92]]),
+        fill(ellipse(50, 60, 17, 24), ellipse(50, 30, 13, 12)),
+      ],
+    },
+    {
+      id: 'g-ladder',
+      name: 'Profile, on the ladder',
+      note: 'The profile kept, its five stroke widths (4.5, 5.5, 6) collapsed to two, and the body fattened 25×13 → 27×16 so it stops being the thinnest mass in the set. The most conservative option: nothing about the read changes.',
+      shapes: [
+        stroke(5.5, line([[34, 66], [28, 86]]), line([[48, 66], [44, 86]])),
+        stroke(7, line([[85, 26], [90, 64]]), line([[90, 64], [78, 80]])),
+        fill(ellipse(73, 42, 21, 8, -54)),
+        fill(ellipse(47, 56, 27, 16, -8)),
+        fill(circle(16, 56, 12)),
+        stroke(4.5, 'M10 46C15 26 36 18 54 20'),
+      ],
+    },
+    {
+      id: 'g-jump',
+      name: 'Profile, one leg',
+      note: 'Antenna dropped, tarsi dropped, and the whole read put on one heavy folded hind leg against a round head. Fewest parts of any glyph in the set, which is the bet: at 22px the grasshopper currently spends ink on four things that all vanish.',
+      shapes: [
+        stroke(7, line([[84, 24], [91, 62]]), line([[91, 62], [74, 82]])),
+        fill(ellipse(70, 44, 22, 9, -50)),
+        fill(ellipse(45, 58, 27, 17, -8)),
+        fill(circle(16, 58, 13)),
+      ],
+    },
+  ],
+};
+
+const OPEN = Object.keys(VARIANTS);
+const pick = {};
+for (const t of OPEN) pick[t] = 'base';
+
+const shapesFor = (type) => {
+  const chosen = pick[type];
+  if (chosen === undefined || chosen === 'base') return D.shapes[type];
+  return VARIANTS[type].find((v) => v.id === chosen).shapes;
+};
+
+// ---------- state ----------
+let HUE = 'mono';
+let LADDER = false;
+let GUIDES = false;
+const num = (id) => Number(document.getElementById(id).value);
+const widths = () => [num('w0'), num('w1'), num('w2')].sort((a, b) => a - b);
+const bodyLadder = () => [num('b0'), num('b1'), num('b2')].sort((a, b) => a - b);
+const headLadder = () => [num('h0'), num('h1'), num('h2')].sort((a, b) => a - b);
+const nearest = (v, steps) => steps.reduce((best, s) => (Math.abs(s - v) < Math.abs(best - v) ? s : best), steps[0]);
+
+const applied = (shapes) =>
+  LADDER
+    ? shapes.map((s) => (s.kind === 'stroke' ? { ...s, width: nearest(s.width, widths()) } : s))
+    : shapes;
+
+// ---------- measurement ----------
+const NS = 'http://www.w3.org/2000/svg';
+const scratch = document.createElementNS(NS, 'svg');
+scratch.setAttribute('style', 'position:fixed;left:-9999px;top:0;width:200px;height:200px');
+document.body.appendChild(scratch);
+
+const inkBox = (shapes) => {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const sh of shapes) {
+    const path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', sh.d);
+    scratch.appendChild(path);
+    const b = path.getBBox();
+    scratch.removeChild(path);
+    const pad = sh.kind === 'stroke' ? sh.width / 2 : 0;
+    x0 = Math.min(x0, b.x - pad); y0 = Math.min(y0, b.y - pad);
+    x1 = Math.max(x1, b.x + b.width + pad); y1 = Math.max(y1, b.y + b.height + pad);
+  }
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+};
+
+const cover = document.createElement('canvas');
+cover.width = cover.height = BOX;
+const cctx = cover.getContext('2d', { willReadFrequently: true });
+const inkCoverage = (shapes) => {
+  cctx.clearRect(0, 0, BOX, BOX);
+  cctx.lineCap = 'round';
+  cctx.lineJoin = 'round';
+  cctx.fillStyle = '#000';
+  cctx.strokeStyle = '#000';
+  for (const sh of shapes) {
+    const p = new Path2D(sh.d);
+    if (sh.kind === 'stroke') { cctx.lineWidth = sh.width; cctx.stroke(p); } else { cctx.fill(p); }
+  }
+  const px = cctx.getImageData(0, 0, BOX, BOX).data;
+  let n = 0;
+  for (let i = 3; i < px.length; i += 4) if (px[i] > 8) n++;
+  return n / (BOX * BOX);
+};
+
+// Same rule as glyphs.ts: the largest scale at which the centred ink box still
+// clears all six hex edges by MARGIN.
+const hexFit = (box) => {
+  const hw = box.w / 2, hh = box.h / 2;
+  const room = (BOX / 2) * APOTHEM - MARGIN;
+  return room / Math.max(hw, 0.5 * hw + APOTHEM * hh);
+};
+
+const metricsOf = (shapes) => {
+  const box = inkBox(shapes);
+  return { box, cov: inkCoverage(shapes), fit: hexFit(box), cx: box.x + box.w / 2, cy: box.y + box.h / 2 };
+};
+
+// ---------- rendering ----------
+const inkOf = (type, tone) => {
+  const table = D.ink[type];
+  return table ? table[HUE][tone] : (tone === 'white' ? D.tiles.black : D.tiles.white);
+};
+
+const shapeSvg = (sh, ink) =>
+  sh.kind === 'fill'
+    ? `<path d="${sh.d}" fill="${ink}"/>`
+    : `<path d="${sh.d}" fill="none" stroke="${ink}" stroke-width="${sh.width}" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+const hexPath = (cx, cy, size) => {
+  const pts = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 180) * (60 * i - 30);
+    pts.push(`${round(cx + size * Math.cos(a))},${round(cy + size * Math.sin(a))}`);
+  }
+  return pts.join(' ');
+};
+
+const guideSvg = (m) => GUIDES
+  ? `<path d="M${hexPath(BOX / 2, BOX / 2, BOX / 2 - MARGIN / APOTHEM).replace(/ /g, 'L').replace(/,/g, ' ')}Z" fill="none" stroke="#e0574f" stroke-width="1" stroke-dasharray="4 3"/>
+     <rect x="${round(m.box.x)}" y="${round(m.box.y)}" width="${round(m.box.w)}" height="${round(m.box.h)}" fill="none" stroke="#4fa3e0" stroke-width="1"/>`
+  : '';
+
+// A hexagonal tile at the board's own circumradius, glyph fitted the way the
+// app fits it.
+const hexCell = (type, shapes, tone, hexSize) => {
+  const m = metricsOf(shapes);
+  const w = 2 * hexSize * APOTHEM, h = 2 * hexSize;
+  const k = (m.fit * hexSize) / (BOX / 2);
+  return `<svg class="tile" width="${round(w)}" height="${round(h)}" viewBox="${round(-w / 2)} ${round(-h / 2)} ${round(w)} ${round(h)}">
+    <polygon points="${hexPath(0, 0, hexSize)}" fill="${D.tiles[tone]}"/>
+    <g transform="scale(${round(k)}) translate(${round(-m.cx)} ${round(-m.cy)})">
+      ${applied(shapes).map((s) => shapeSvg(s, inkOf(type, tone))).join('')}
+      ${guideSvg(m)}
+    </g>
+  </svg>`;
+};
+
+// The square slot PieceMark draws into: hexSize is size / 2.
+const sqCell = (type, shapes, tone, size) => {
+  const m = metricsOf(shapes);
+  const k = (m.fit * (size / 2)) / (BOX / 2);
+  return `<svg class="sq" width="${size}" height="${size}" viewBox="${-size / 2} ${-size / 2} ${size} ${size}" style="background:${D.tiles[tone]}">
+    <g transform="scale(${round(k)}) translate(${round(-m.cx)} ${round(-m.cy)})">
+      ${applied(shapes).map((s) => shapeSvg(s, inkOf(type, tone))).join('')}
+    </g>
+  </svg>`;
+};
+
+const SIZES = [30, 26, 22];
+
+const setStrip = () => {
+  const rows = [
+    ['board', (t, tone) => hexCell(t, shapesFor(t), tone, D.hexSize)],
+    ...SIZES.map((s) => [`${s}px`, (t, tone) => sqCell(t, shapesFor(t), tone, s)]),
+  ];
+  const head = `<div class="strip"><div class="rowlabel"></div>${D.types
+    .map((t) => `<div class="col"><div class="name">${t}${pick[t] && pick[t] !== 'base' ? ' *' : ''}</div></div>`)
+    .join('')}</div>`;
+  const body = rows.map(([label, cell]) =>
+    `<div class="strip"><div class="rowlabel">${label}</div>${D.types.map((t) =>
+      `<div class="col"><div class="pair">${cell(t, 'white')}${cell(t, 'black')}</div></div>`
+    ).join('')}</div>`).join('');
+  return head + body;
+};
+
+const variantCard = (type, id, name, note, shapes) => {
+  const m = metricsOf(shapes);
+  const ws = [...new Set(applied(shapes).filter((s) => s.kind === 'stroke').map((s) => s.width))].sort((a, b) => a - b);
+  return `<div class="variant ${pick[type] === id ? 'picked' : ''}">
+    <header>
+      <input type="radio" name="${type}" value="${id}" ${pick[type] === id ? 'checked' : ''}>
+      <strong>${name}</strong>
+    </header>
+    <p class="note">${note}</p>
+    <div class="sizes">
+      ${hexCell(type, shapes, 'white', D.hexSize)}${hexCell(type, shapes, 'black', D.hexSize)}
+      ${SIZES.map((s) => `${sqCell(type, shapes, 'white', s)}${sqCell(type, shapes, 'black', s)}`).join('')}
+    </div>
+    <div class="meta">box ${m.box.w.toFixed(1)}×${m.box.h.toFixed(1)} · ink ${(m.cov * 100).toFixed(1)}% · fit ${m.fit.toFixed(2)} · strokes ${ws.join(', ') || '—'}</div>
+  </div>`;
+};
+
+const pieceSections = () => OPEN.map((type) => `
+  <div class="piece">
+    <h3>${type}</h3>
+    <div class="variants">
+      ${variantCard(type, 'base', 'As drawn today', 'What ships. The baseline every alternate has to beat.', D.shapes[type])}
+      ${VARIANTS[type].map((v) => variantCard(type, v.id, v.name, v.note, v.shapes)).join('')}
+    </div>
+  </div>`).join('');
+
+// Body and head are read off the upright ellipses only. A rotated one is a wing
+// or a folded leg — counting the mosquito's wing as its body reported a 9x24
+// abdomen for a piece whose abdomen is 8.5x20.
+const UPRIGHT = 15;
+const fills = (shapes) => shapes.filter((s) => s.kind === 'fill' && s.parts)
+  .flatMap((s) => s.parts)
+  .filter((p) => p.kind === 'ellipse' && !p.cut && Math.abs(p.rot) <= UPRIGHT);
+const area = (p) => p.rx * p.ry;
+
+const metricsTable = () => {
+  const ws = widths(), bl = bodyLadder(), hl = headLadder();
+  const rows = D.types.map((t) => {
+    const shapes = shapesFor(t);
+    const m = metricsOf(shapes);
+    const parts = fills(shapes);
+    const body = parts.length ? parts.reduce((a, b) => (area(a) >= area(b) ? a : b)) : null;
+    const head = parts.length ? parts.reduce((a, b) => (area(a) <= area(b) ? a : b)) : null;
+    const strokes = [...new Set(applied(shapes).filter((s) => s.kind === 'stroke').map((s) => s.width))].sort((a, b) => a - b);
+    const offW = strokes.some((w) => !ws.includes(w));
+    const r = (p, ladder) => {
+      if (!p) return ['—', false];
+      const mean = (p.rx + p.ry) / 2;
+      return [`${p.rx}×${p.ry}`, Math.abs(mean - nearest(mean, ladder)) > 1.5];
+    };
+    const [bTxt, bOff] = r(body, bl);
+    const [hTxt, hOff] = r(head, hl);
+    const cuts = shapes.filter((s) => s.parts).flatMap((s) => s.parts).filter((p) => p.cut).length;
+    return `<tr>
+      <td>${t}${pick[t] && pick[t] !== 'base' ? ' *' : ''}</td>
+      <td class="${offW ? 'off' : ''}">${strokes.join(', ') || '—'}</td>
+      <td class="${bOff ? 'off' : ''}">${bTxt}</td>
+      <td class="${hOff ? 'off' : ''}">${hTxt}</td>
+      <td>${cuts || '—'}</td>
+      <td>${m.box.w.toFixed(1)}×${m.box.h.toFixed(1)}</td>
+      <td>${(m.box.w / m.box.h).toFixed(2)}</td>
+      <td>${(m.cov * 100).toFixed(1)}%</td>
+      <td>${m.fit.toFixed(2)}</td>
+    </tr>`;
+  }).join('');
+  return `<table>
+    <tr><th>piece</th><th>strokes</th><th>body r</th><th>head r</th><th>cuts</th><th>ink box</th><th>aspect</th><th>ink</th><th>fit</th></tr>
+    ${rows}
+  </table>`;
+};
+
+const render = () => {
+  document.getElementById('set').innerHTML = setStrip();
+  document.getElementById('pieces').innerHTML = pieceSections();
+  document.getElementById('table').innerHTML = metricsTable();
+};
+
+// ---------- controls ----------
+document.addEventListener('change', (e) => {
+  const el = e.target;
+  if (el.type === 'radio' && OPEN.includes(el.name)) { pick[el.name] = el.value; render(); }
+  if (el.type === 'number') render();
+});
+for (const b of document.querySelectorAll('[data-hue]')) {
+  b.addEventListener('click', () => {
+    HUE = b.dataset.hue;
+    for (const o of document.querySelectorAll('[data-hue]')) o.setAttribute('aria-pressed', String(o === b));
+    render();
+  });
+}
+for (const b of document.querySelectorAll('[data-ladder]')) {
+  b.addEventListener('click', () => {
+    LADDER = b.dataset.ladder === 'on';
+    for (const o of document.querySelectorAll('[data-ladder]')) o.setAttribute('aria-pressed', String(o === b));
+    render();
+  });
+}
+const guidesBtn = document.getElementById('guides');
+guidesBtn.addEventListener('click', () => {
+  GUIDES = !GUIDES;
+  guidesBtn.setAttribute('aria-pressed', String(GUIDES));
+  render();
+});
+
+render();
+</script>
+</body>
+</html>

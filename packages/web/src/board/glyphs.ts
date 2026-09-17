@@ -23,8 +23,10 @@ const circle = (cx: number, cy: number, r: number): string => ellipse(cx, cy, r,
 
 // The same outline wound the other way. Inside a shape it subtracts under the
 // nonzero rule every render path already uses, which is how a mark drawn in one
-// ink gets a marking. It must stay inside the shape it cuts: outside one, the
-// reversed winding fills like any other subpath.
+// ink gets a marking, and it is how every piece in this set gets one: the
+// ladybug's spots and the pillbug's bands are both cut, not drawn. It must stay
+// inside the shape it cuts: outside one, the reversed winding fills like any
+// other subpath.
 const holeEllipse = (cx: number, cy: number, rx: number, ry: number): string =>
   `M${round(cx - rx)} ${round(cy)}a${round(rx)} ${round(ry)} 0 1 1 ${round(2 * rx)} 0a${round(rx)} ${round(ry)} 0 1 1 ${round(-2 * rx)} 0`;
 

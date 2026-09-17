@@ -10,7 +10,8 @@
     "format": "biome format --write .",
     "dev": "pnpm --parallel --filter @termitary/web --filter @termitary/server dev",
     "dev:web": "pnpm --filter @termitary/web dev",
-    "dev:server": "pnpm --filter @termitary/server dev"
+    "dev:server": "pnpm --filter @termitary/server dev",
+    "glyphs:sheet": "node scripts/glyph-sheet.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
