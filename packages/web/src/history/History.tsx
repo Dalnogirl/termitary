@@ -17,14 +17,16 @@ const PIECE_NAME: Record<PieceType, string> = {
 
 const formatCoord = (c: HexCoord): string => `(${c.q},${c.r})`;
 
-const formatMove = (move: Move): string => {
+export const formatMove = (move: Move): string => {
   switch (move.kind) {
     case 'place':
       return `placed ${PIECE_NAME[move.piece.type]} at ${formatCoord(move.to)}`;
     case 'relocate':
       return `moved ${formatCoord(move.from)} → ${formatCoord(move.to)}`;
+    // The thrower is a cell rather than a piece name: a mosquito beside a
+    // pillbug will throw too, and the history has no board to look either up in.
     case 'throw':
-      return `threw ${formatCoord(move.from)} → ${formatCoord(move.to)}`;
+      return `${formatCoord(move.by)} threw ${formatCoord(move.from)} → ${formatCoord(move.to)}`;
     case 'pass':
       return 'passed';
   }

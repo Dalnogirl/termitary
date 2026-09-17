@@ -1,4 +1,12 @@
-import { BASE_RULESET, replayFrames } from '@termitary/engine';
+import {
+  BASE_RULESET,
+  type Move,
+  PILLBUG_RULESET,
+  applyMove,
+  createGame,
+  replayFrames,
+  resign,
+} from '@termitary/engine';
 import { type WireGameState, toWire } from '@termitary/protocol';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -25,6 +33,34 @@ const finishedGame = (id: string) => {
   });
   const room = touch({ ...seated, state: { ...seated.state, ...FINISHED } }, new Date(2000));
   if (!isFinished(room)) throw new Error('unreachable: the room was just finished');
+  return toArchivedGame(
+    room,
+    new Map([
+      ['p1', 'Alice'],
+      ['p2', 'Bob'],
+    ]),
+  );
+};
+
+// Black's pillbug throws the white queen, so the archived history carries a
+// move kind no other game produces and a stun that only the history remembers.
+const PILLBUG_SCRIPT: readonly Move[] = [
+  { kind: 'place', piece: { type: 'queen', color: 'white' }, to: { q: 0, r: 0 } },
+  { kind: 'place', piece: { type: 'pillbug', color: 'black' }, to: { q: -1, r: 0 } },
+  { kind: 'place', piece: { type: 'beetle', color: 'white' }, to: { q: 1, r: -1 } },
+  { kind: 'place', piece: { type: 'queen', color: 'black' }, to: { q: -2, r: 1 } },
+  { kind: 'relocate', from: { q: 1, r: -1 }, to: { q: 0, r: -1 } },
+  { kind: 'throw', by: { q: -1, r: 0 }, from: { q: 0, r: 0 }, to: { q: -1, r: 1 } },
+];
+
+const pillbugGame = (id: string) => {
+  const seated = seatPlayer(
+    createRoom(id, { playerId: 'p1' }, 'white', new Date(1000), PILLBUG_RULESET),
+    { playerId: 'p2' },
+  );
+  const played = PILLBUG_SCRIPT.reduce(applyMove, createGame(PILLBUG_RULESET));
+  const room = touch({ ...seated, state: resign(played, 'white') }, new Date(2000));
+  if (!isFinished(room)) throw new Error('unreachable: the game was just resigned');
   return toArchivedGame(
     room,
     new Map([
@@ -78,6 +114,22 @@ describe('DrizzleArchivedGameStore', () => {
       const stored = await archive.get('r1');
       expect(stored?.state.ruleset).toEqual(BASE_RULESET);
       expect(replayFrames(stored?.state.history ?? [], BASE_RULESET)).toHaveLength(1);
+    }));
+
+  it('replays an archived pillbug game to the position it finished in', async () =>
+    withArchive(async (db) => {
+      const archive = createDrizzleArchivedGameStore(db.db);
+      const game = pillbugGame('r1');
+      await archive.record(game);
+
+      const stored = await archive.get('r1');
+      const replayed = replayFrames(
+        stored?.state.history ?? [],
+        stored?.state.ruleset ?? BASE_RULESET,
+      );
+
+      expect(stored?.state.ruleset).toEqual(PILLBUG_RULESET);
+      expect(replayed.at(-1)?.board).toEqual(game.state.board);
     }));
 
   it('keeps a deleted account out of the seat but keeps the name it played under', async () =>
