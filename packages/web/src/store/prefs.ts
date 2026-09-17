@@ -39,7 +39,7 @@ const loadExpansions = (): readonly ExpansionPiece[] => {
 export type PrefsState = {
   readonly pieceSet: PieceSet;
   readonly pieceHue: PieceHue;
-  /** What the create-game dialog offers next time, not a setting anything reads. */
+  /** What a new-game dialog opens ticked, and what hot-seat deals before it is asked. */
   readonly expansions: readonly ExpansionPiece[];
 };
 

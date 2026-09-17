@@ -1,4 +1,10 @@
-import { BASE_RULESET, LADYBUG_RULESET, MOSQUITO_RULESET, type PieceType } from '@termitary/engine';
+import {
+  BASE_RULESET,
+  LADYBUG_RULESET,
+  MOSQUITO_RULESET,
+  type PieceType,
+  type Ruleset,
+} from '@termitary/engine';
 import type { WireRuleset } from '@termitary/protocol';
 
 // Each entry is base plus one piece, so merging the picked rulesets' pieces
@@ -28,7 +34,9 @@ export type ExpansionPiece = (typeof EXPANSIONS)[number]['piece'];
 export const isExpansionPiece = (value: string): value is ExpansionPiece =>
   EXPANSIONS.some((expansion) => expansion.piece === value);
 
-export const rulesetFor = (picked: readonly ExpansionPiece[]): WireRuleset => {
+// The engine's Ruleset, not the wire's: the wire takes one as-is, and the
+// hot-seat board needs one the engine will accept.
+export const rulesetFor = (picked: readonly ExpansionPiece[]): Ruleset => {
   const pieces: Partial<Record<PieceType, number>> = { ...BASE_RULESET.pieces };
   for (const expansion of EXPANSIONS) {
     if (picked.includes(expansion.piece)) Object.assign(pieces, expansion.ruleset.pieces);

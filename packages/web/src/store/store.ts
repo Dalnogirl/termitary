@@ -3,6 +3,7 @@ import {
   type HexCoord,
   type Move,
   type PieceType,
+  type Ruleset,
   createGame,
   listValidMoves,
   replayFrames,
@@ -32,7 +33,7 @@ type StoreActions = {
   readonly setSelection: (selection: Selection) => void;
   readonly setViewIndex: (index: number) => void;
   readonly returnToLive: () => void;
-  readonly reset: () => void;
+  readonly reset: (ruleset?: Ruleset) => void;
 };
 
 export type GameStore = StoreState & StoreActions;
@@ -91,7 +92,7 @@ const viewAt = (state: StoreState, index: number): StoreState => {
   };
 };
 
-const initialState = (): StoreState => liveView(createGame(), null);
+const initialState = (ruleset?: Ruleset): StoreState => liveView(createGame(ruleset), null);
 
 const initializer: StateCreator<GameStore, [['zustand/devtools', never]]> = (set) => ({
   ...initialState(),
@@ -99,7 +100,7 @@ const initializer: StateCreator<GameStore, [['zustand/devtools', never]]> = (set
   setSelection: (selection) => set({ selection }, false, 'setSelection'),
   setViewIndex: (index) => set((s) => viewAt(s, index), false, 'setViewIndex'),
   returnToLive: () => set((s) => viewAt(s, s.liveGame.history.length), false, 'returnToLive'),
-  reset: () => set(initialState(), false, 'reset'),
+  reset: (ruleset) => set(initialState(ruleset), false, 'reset'),
 });
 
 export const gameStore = createStore<GameStore>()(

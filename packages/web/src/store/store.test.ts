@@ -1,5 +1,7 @@
 import {
+  BASE_RULESET,
   type GameState,
+  LADYBUG_RULESET,
   type Move,
   applyMove,
   createGame,
@@ -172,5 +174,21 @@ describe('store view', () => {
 
     expect(gameStore.getState().replayFailed).toBe(false);
     expect(gameStore.getState().viewIndex).toBe(2);
+  });
+});
+
+describe('store reset', () => {
+  it('deals the base set when it is given no ruleset', () => {
+    gameStore.getState().reset();
+    expect(gameStore.getState().liveGame.ruleset).toEqual(BASE_RULESET);
+  });
+
+  it('deals the ruleset it is given, to both hands', () => {
+    gameStore.getState().reset(LADYBUG_RULESET);
+
+    const { liveGame } = gameStore.getState();
+    expect(liveGame.ruleset).toEqual(LADYBUG_RULESET);
+    expect(liveGame.hands.white.ladybug).toBe(1);
+    expect(liveGame.hands.black.ladybug).toBe(1);
   });
 });
