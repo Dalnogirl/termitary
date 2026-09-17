@@ -28,7 +28,7 @@ import { createView } from './view.js';
 export type RendererCallbacks = {
   readonly onTargetClick: (coord: HexCoord) => void;
   readonly onPieceClick: (coord: HexCoord) => void;
-  readonly onBackgroundClick: () => void;
+  readonly onClearSelection: () => void;
 };
 
 export type Renderer = {
@@ -57,20 +57,38 @@ const dedupeCoords = (coords: readonly HexCoord[]): HexCoord[] => {
   return out;
 };
 
-const movableOrigins = (state: StoreState, myColor: Color | null): Set<string> => {
+const NO_CELLS: Set<string> = new Set();
+
+// In network play, while the opponent is to move validMoves describes THEIR
+// options, so nothing on the board is worth pointing at. The input handlers
+// apply the same gate, and the marks below are its presentation mirror.
+const opponentsTurn = (state: StoreState, myColor: Color | null): boolean =>
+  myColor !== null && state.view.status === 'in_progress' && state.view.currentPlayer !== myColor;
+
+const movableOrigins = (state: StoreState): Set<string> => {
   const out = new Set<string>();
-  // In network play, only highlight my pieces. When it's the opponent's turn,
-  // validMoves describes THEIR options — show no highlights at all. The input
-  // handlers apply the same gate, so this is a presentation-mirror of intent.
-  if (
-    myColor !== null &&
-    state.view.status === 'in_progress' &&
-    state.view.currentPlayer !== myColor
-  ) {
-    return out;
-  }
   for (const m of state.validMoves) {
     if (m.kind === 'relocate') out.add(coordKey(m.from));
+    if (m.kind === 'throw') out.add(coordKey(m.by));
+  }
+  return out;
+};
+
+// The piece the player is acting from. Midway through a throw that is still
+// the pillbug, not the neighbour it has picked up.
+const selectedCell = (state: StoreState): HexCoord | null => {
+  const sel = state.selection;
+  if (sel?.kind === 'board') return sel.coord;
+  if (sel?.kind === 'throw') return sel.by;
+  return null;
+};
+
+const throwableNeighbours = (state: StoreState): Set<string> => {
+  const out = new Set<string>();
+  const by = selectedCell(state);
+  if (by === null) return out;
+  for (const m of state.validMoves) {
+    if (m.kind === 'throw' && sameCoord(m.by, by)) out.add(coordKey(m.from));
   }
   return out;
 };
@@ -81,7 +99,7 @@ const landingPiece = (state: StoreState): PieceType | null => {
   const sel = state.selection;
   if (sel === null) return null;
   if (sel.kind === 'hand') return sel.piece;
-  const top = topPieceAt(state.view.board, sel.coord);
+  const top = topPieceAt(state.view.board, sel.kind === 'board' ? sel.coord : sel.from);
   return top === undefined ? null : top.type;
 };
 
@@ -97,7 +115,14 @@ const targetsFor = (state: StoreState): HexCoord[] => {
   if (sel?.kind === 'board') {
     return dedupeCoords(
       state.validMoves.flatMap((m) =>
-        m.kind === 'relocate' && m.from.q === sel.coord.q && m.from.r === sel.coord.r ? [m.to] : [],
+        m.kind === 'relocate' && sameCoord(m.from, sel.coord) ? [m.to] : [],
+      ),
+    );
+  }
+  if (sel?.kind === 'throw') {
+    return dedupeCoords(
+      state.validMoves.flatMap((m) =>
+        m.kind === 'throw' && sameCoord(m.by, sel.by) && sameCoord(m.from, sel.from) ? [m.to] : [],
       ),
     );
   }
@@ -114,15 +139,21 @@ const readSkin = (): Skin => {
   return { theme: readTheme(), set: pieceSet, hue: pieceHue };
 };
 
-const outlineFor = (
-  skin: Skin,
-  selected: boolean,
-  hinted: boolean,
-  lastMoved: boolean,
-): Outline | null => {
-  if (selected) return { stroke: skin.theme.selectStroke, strokeWidth: 3 };
-  if (hinted) return { stroke: skin.theme.hintStroke, strokeWidth: 2 };
-  if (lastMoved) return { stroke: skin.theme.lastMoveStroke, strokeWidth: 2 };
+// Every role a cell can play in the current selection, as cell keys.
+type Marks = {
+  readonly movable: Set<string>;
+  readonly throwable: Set<string>;
+  readonly selected: string | null;
+  readonly lifted: string | null;
+  readonly lastMove: string | null;
+};
+
+const outlineFor = (skin: Skin, marks: Marks, key: string): Outline | null => {
+  if (key === marks.selected) return { stroke: skin.theme.selectStroke, strokeWidth: 3 };
+  if (key === marks.lifted) return { stroke: skin.theme.throwStroke, strokeWidth: 3 };
+  if (marks.throwable.has(key)) return { stroke: skin.theme.throwStroke, strokeWidth: 2 };
+  if (marks.movable.has(key)) return { stroke: skin.theme.hintStroke, strokeWidth: 2 };
+  if (key === marks.lastMove) return { stroke: skin.theme.lastMoveStroke, strokeWidth: 2 };
   return null;
 };
 
@@ -136,7 +167,7 @@ export const createRenderer = (
   callbacks: RendererCallbacks,
   options: RendererOptions,
 ): Renderer => {
-  const view = createView(container, callbacks.onBackgroundClick);
+  const view = createView(container, callbacks.onClearSelection);
   const { board, overlay, setHoverCursor } = view;
 
   let latest: StoreState | null = null;
@@ -148,21 +179,19 @@ export const createRenderer = (
     skin: Skin,
     coord: HexCoord,
     stack: readonly Piece[],
-    movable: Set<string>,
-    selectedCoord: string | null,
-    lastMoveCoord: string | null,
+    marks: Marks,
     hoverable: boolean,
   ): void => {
     const top = stack[stack.length - 1];
     if (!top) return;
     const p = axialToPixel(coord, HEX_SIZE);
     const key = coordKey(coord);
-    const movableHere = movable.has(key);
-    const outline = outlineFor(skin, key === selectedCoord, movableHere, key === lastMoveCoord);
+    const clickable = marks.movable.has(key) || marks.throwable.has(key) || key === marks.lifted;
+    const outline = outlineFor(skin, marks, key);
     const tile = pieceTile(skin, top, outline);
     tile.position(p);
     tile.on('click tap', () => callbacks.onPieceClick(coord));
-    if (hoverable && movableHere) {
+    if (hoverable && clickable) {
       tile.on('mouseenter', () => setHoverCursor('pointer'));
       tile.on('mouseleave', () => setHoverCursor(''));
     }
@@ -201,11 +230,16 @@ export const createRenderer = (
     // the pointer cursor would stick after a move commits.
     setHoverCursor('');
     board.destroyChildren();
-    const movable = movableOrigins(state, options.myColor);
-    const selectedCoord =
-      state.selection?.kind === 'board' ? coordKey(state.selection.coord) : null;
+    const selected = selectedCell(state);
     const lastMove = landedAt(state.lastMove);
-    const lastMoveCoord = lastMove === null ? null : coordKey(lastMove);
+    const theirs = opponentsTurn(state, options.myColor);
+    const marks: Marks = {
+      movable: theirs ? NO_CELLS : movableOrigins(state),
+      throwable: theirs ? NO_CELLS : throwableNeighbours(state),
+      selected: selected === null ? null : coordKey(selected),
+      lifted: state.selection?.kind === 'throw' ? coordKey(state.selection.from) : null,
+      lastMove: lastMove === null ? null : coordKey(lastMove),
+    };
     const arriving = motion.arrivingAt();
 
     for (const [coord, stack] of occupiedCells(state.view.board)) {
@@ -214,7 +248,7 @@ export const createRenderer = (
       // flight leaves the piece it climbed onto showing.
       const settled = arriving !== null && sameCoord(coord, arriving) ? stack.slice(0, -1) : stack;
       if (settled.length === 0) continue;
-      drawCell(skin, coord, settled, movable, selectedCoord, lastMoveCoord, arriving === null);
+      drawCell(skin, coord, settled, marks, arriving === null);
     }
 
     // No targets mid-flight: committing to a cell the arriving piece may be

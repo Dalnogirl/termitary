@@ -34,7 +34,7 @@ const clampScale = (scale: number): number => Math.max(SCALE_MIN, Math.min(SCALE
  * Owns the stage, its two layers, and every gesture that moves them. Built once
  * and outlives every draw, so nothing here reads game state.
  */
-export const createView = (container: HTMLDivElement, onBackgroundClick: () => void): View => {
+export const createView = (container: HTMLDivElement, onClearSelection: () => void): View => {
   // Disable native touch gestures on the canvas so our pinch handler is the
   // sole zoom source. Konva binds touch listeners passively, so preventDefault
   // inside them is a no-op — touch-action is the only working mute.
@@ -76,6 +76,7 @@ export const createView = (container: HTMLDivElement, onBackgroundClick: () => v
 
   stage.on('mousedown touchstart', (e) => {
     if (e.target !== stage) return;
+    if ('button' in e.evt && e.evt.button !== 0) return;
     // Multi-touch defers to the pinch handler below.
     if ('touches' in e.evt && e.evt.touches.length > 1) return;
     const start = pointerXY(e.evt);
@@ -166,7 +167,15 @@ export const createView = (container: HTMLDivElement, onBackgroundClick: () => v
   stage.on('click tap', (e) => {
     if (e.target !== stage) return;
     if (dragMoved) return;
-    onBackgroundClick();
+    onClearSelection();
+  });
+
+  // Right click puts down whatever is held, over a piece as readily as over a
+  // gap, so backing out never means hunting for empty board. Touch has no such
+  // gesture, which is why the tap above stays the one every device has.
+  stage.on('contextmenu', (e) => {
+    e.evt.preventDefault();
+    onClearSelection();
   });
 
   stage.on('wheel', (e) => {

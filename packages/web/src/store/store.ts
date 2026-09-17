@@ -12,9 +12,13 @@ import { toast } from 'sonner';
 import { type StateCreator, createStore, useStore } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
+// Selecting a pillbug is the 'board' case like any other piece: its own
+// destinations and its throwable neighbours are offered together. Picking one
+// of those neighbours is the second step, and only then is the move a throw.
 export type Selection =
   | { readonly kind: 'hand'; readonly piece: PieceType }
   | { readonly kind: 'board'; readonly coord: HexCoord }
+  | { readonly kind: 'throw'; readonly by: HexCoord; readonly from: HexCoord }
   | null;
 
 export type StoreState = {
