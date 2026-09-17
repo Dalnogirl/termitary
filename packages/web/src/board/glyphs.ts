@@ -246,6 +246,42 @@ const CHUNKY: Record<PieceType, readonly GlyphShape[]> = {
       ellipse(50, 70, 8.5, 20),
     ),
   ],
+  // A woodlouse from above. The banding is the whole read, so the body is
+  // rounder and blunter than the ladybug's and the legs stay stubs tucked under
+  // it. Cut bands rather than drawn ones, for the same reason the ladybug's
+  // spots are cut: one ink, whatever the tile.
+  pillbug: [
+    bothSides(
+      4,
+      [
+        [29, 46],
+        [19, 41],
+        [14, 33],
+      ],
+      [
+        [27, 59],
+        [16, 58],
+        [10, 64],
+      ],
+      [
+        [29, 72],
+        [19, 77],
+        [15, 85],
+      ],
+    ),
+    bothSides(4, [
+      [42, 20],
+      [34, 7],
+    ]),
+    fill(
+      ellipse(50, 30, 21, 14),
+      ellipse(50, 60, 26, 26),
+      holeEllipse(50, 48, 21, 1.8),
+      holeEllipse(50, 58, 23.5, 1.8),
+      holeEllipse(50, 68, 22.5, 1.8),
+      holeEllipse(50, 77, 17, 1.8),
+    ),
+  ],
 };
 
 export const glyphShapes = (type: PieceType): readonly GlyphShape[] => CHUNKY[type];

@@ -18,6 +18,10 @@ export const MOSQUITO_RULESET: Ruleset = {
   pieces: { ...BASE_RULESET.pieces, mosquito: 1 },
 };
 
+export const PILLBUG_RULESET: Ruleset = {
+  pieces: { ...BASE_RULESET.pieces, pillbug: 1 },
+};
+
 export class IllegalRulesetError extends Error {
   constructor(message: string) {
     super(message);

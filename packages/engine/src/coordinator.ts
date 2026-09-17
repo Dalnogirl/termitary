@@ -1,9 +1,11 @@
 import { type Board, empty, occupiedCells, place, remove, topPieceAt } from './board.js';
 import type { HexCoord } from './hex.js';
+import { pillbugThrows } from './movements/pillbug.js';
 import type { Color, Piece, PieceType } from './piece.js';
 import { getValidPlacementCoords } from './placement.js';
 import { type GameResult, getResult } from './result.js';
 import { BASE_RULESET, type Ruleset, assertLegalRuleset, rulesetPieceTypes } from './ruleset.js';
+import { stunnedCell } from './stun.js';
 import { getValidMoves as getPieceValidMoves } from './validator.js';
 
 export type Hand = Partial<Record<PieceType, number>>;
@@ -11,6 +13,15 @@ export type Hand = Partial<Record<PieceType, number>>;
 export type Move =
   | { readonly kind: 'place'; readonly piece: Piece; readonly to: HexCoord }
   | { readonly kind: 'relocate'; readonly from: HexCoord; readonly to: HexCoord }
+  // `by` is the pillbug doing the throwing. The board would come out the same
+  // without it, but two pillbugs can offer the same throw and the mover is the
+  // half a player picked first.
+  | {
+      readonly kind: 'throw';
+      readonly by: HexCoord;
+      readonly from: HexCoord;
+      readonly to: HexCoord;
+    }
   | { readonly kind: 'pass' };
 
 type FinishedResult = Exclude<GameResult, 'ongoing'>;
@@ -61,6 +72,9 @@ const sameMove = (a: Move, b: Move): boolean => {
   if (a.kind === 'relocate' && b.kind === 'relocate') {
     return sameCoord(a.from, b.from) && sameCoord(a.to, b.to);
   }
+  if (a.kind === 'throw' && b.kind === 'throw') {
+    return sameCoord(a.by, b.by) && sameCoord(a.from, b.from) && sameCoord(a.to, b.to);
+  }
   return false;
 };
 
@@ -99,18 +113,30 @@ export const listValidMoves = (state: GameState): Move[] => {
   }
 
   const relocations: Move[] = [];
-  // Relocations are legal only once the active player's queen is on the board.
+  const throws: Move[] = [];
+  // Moving anything, the pillbug's ability included, waits on the active
+  // player's queen reaching the board.
   if (!queenInHand) {
+    const stunned = stunnedCell(state.history);
+    const isStunned = (c: HexCoord): boolean => stunned !== undefined && sameCoord(c, stunned);
+
     for (const [from] of occupiedCells(board)) {
       const top = topPieceAt(board, from);
-      if (!top || top.color !== currentPlayer) continue;
+      if (!top || top.color !== currentPlayer || isStunned(from)) continue;
+
       for (const to of getPieceValidMoves(top, from, board)) {
         relocations.push({ kind: 'relocate', from, to });
+      }
+
+      if (top.type !== 'pillbug') continue;
+      for (const { from: thrown, to } of pillbugThrows(from, board)) {
+        if (isStunned(thrown)) continue;
+        throws.push({ kind: 'throw', by: from, from: thrown, to });
       }
     }
   }
 
-  const all = [...placements, ...relocations];
+  const all = [...placements, ...relocations, ...throws];
   if (all.length === 0) return [{ kind: 'pass' }];
   return all;
 };
@@ -134,12 +160,13 @@ export const applyMove = (state: GameState, move: Move): GameState => {
       newHand[move.piece.type] = (newHand[move.piece.type] ?? 0) - 1;
       break;
     }
-    case 'relocate': {
+    case 'relocate':
+    case 'throw': {
       const piece = topPieceAt(state.board, move.from);
       if (!piece) {
-        // Defense-in-depth: listValidMoves should never emit a relocate
-        // with no piece at `from`.
-        throw new IllegalMoveError('No piece to relocate');
+        // Defense-in-depth: listValidMoves should never emit a move with no
+        // piece at `from`.
+        throw new IllegalMoveError('No piece to move');
       }
       newBoard = place(remove(state.board, move.from), move.to, piece);
       break;

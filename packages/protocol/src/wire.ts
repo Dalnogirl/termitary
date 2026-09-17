@@ -18,6 +18,7 @@ const WirePieceTypeSchema = z.enum([
   'grasshopper',
   'ladybug',
   'mosquito',
+  'pillbug',
 ]);
 
 export const WireHexCoordSchema = z.object({ q: z.number().int(), r: z.number().int() }).strict();
@@ -41,6 +42,7 @@ const pieceCounts = (min: number) =>
       grasshopper: z.number().int().min(min),
       ladybug: z.number().int().min(min),
       mosquito: z.number().int().min(min),
+      pillbug: z.number().int().min(min),
     })
     .partial()
     .strict();
@@ -75,6 +77,14 @@ export const WireMoveSchema = z.discriminatedUnion('kind', [
   z
     .object({
       kind: z.literal('relocate'),
+      from: WireHexCoordSchema,
+      to: WireHexCoordSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('throw'),
+      by: WireHexCoordSchema,
       from: WireHexCoordSchema,
       to: WireHexCoordSchema,
     })

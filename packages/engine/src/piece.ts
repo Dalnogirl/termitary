@@ -6,5 +6,6 @@ export type PieceType =
   | 'spider'
   | 'beetle'
   | 'ladybug'
-  | 'mosquito';
+  | 'mosquito'
+  | 'pillbug';
 export type Piece = { readonly type: PieceType; readonly color: Color };
