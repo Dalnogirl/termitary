@@ -1,6 +1,7 @@
-import { type Board, isEmpty, stackAt } from '../board.js';
+import { type Board, isEmpty, stackAt, topPieceAt } from '../board.js';
 import { type HexCoord, neighbors, sharedNeighbors } from '../hex.js';
 import { isConnectedWithout } from '../occupancy.js';
+import type { Piece } from '../piece.js';
 import type { MovementFn } from './index.js';
 import { queenMovement } from './queen.js';
 
@@ -17,6 +18,16 @@ export const pillbugMovement: MovementFn = queenMovement;
  */
 const gateBlocked = (board: Board, a: HexCoord, b: HexCoord): boolean =>
   sharedNeighbors(a, b).every((g) => stackAt(board, g).length > 1);
+
+/**
+ * The throw belongs to the pillbug and to any mosquito standing beside one. A
+ * covered pillbug is not a neighbour to copy, the same way it is no longer a
+ * thrower itself.
+ */
+export const hasThrowAbility = (piece: Piece, at: HexCoord, board: Board): boolean =>
+  piece.type === 'pillbug' ||
+  (piece.type === 'mosquito' &&
+    neighbors(at).some((n) => topPieceAt(board, n)?.type === 'pillbug'));
 
 /**
  * Every piece this pillbug can throw and where it can put it. Geometry only:
