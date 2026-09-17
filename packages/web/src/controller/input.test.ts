@@ -1,15 +1,18 @@
 import {
+  type Board,
   type Color,
   type GameState,
   type HexCoord,
   type Move,
+  PILLBUG_RULESET,
+  type Piece,
   type PieceType,
   applyMove,
   createGame,
 } from '@termitary/engine';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { gameStore } from '../store/store.js';
-import { createInputHandlers } from './input.js';
+import { type InputHandlers, createInputHandlers } from './input.js';
 import type { Controller } from './port.js';
 
 const commits: Move[] = [];
@@ -216,10 +219,160 @@ describe('createInputHandlers', () => {
     });
   });
 
+  describe('the pillbug', () => {
+    const WP: Piece = { type: 'pillbug', color: 'white' };
+    const WQ: Piece = { type: 'queen', color: 'white' };
+    const BQ: Piece = { type: 'queen', color: 'black' };
+    const BA: Piece = { type: 'ant', color: 'black' };
+
+    const ORIGIN = at(0, 0);
+    const E = at(1, 0);
+    const NE = at(1, -1);
+    const NW = at(0, -1);
+    const W = at(-1, 0);
+    const SW = at(-1, 1);
+    const S = at(0, 1);
+
+    const SPENT = { queen: 0, ant: 0, beetle: 0, spider: 0, grasshopper: 0, pillbug: 0 };
+
+    const board = (cells: readonly (readonly [HexCoord, Piece])[]): Board => ({
+      cells: new Map(cells.map(([c, piece]) => [`${c.q},${c.r}`, [piece]])),
+    });
+
+    // Hands are spent and both queens are down, so every move white has is a
+    // relocation or a throw.
+    const position = (cells: readonly (readonly [HexCoord, Piece])[]): GameState => ({
+      status: 'in_progress',
+      ruleset: PILLBUG_RULESET,
+      board: board(cells),
+      hands: { white: SPENT, black: SPENT },
+      currentPlayer: 'white',
+      turnNumbers: { white: 5, black: 5 },
+      history: [],
+    });
+
+    // White's pillbug at the origin with room to move itself and three
+    // neighbours it could throw instead.
+    const loose = (): GameState =>
+      position([
+        [ORIGIN, WP],
+        [E, WQ],
+        [S, BA],
+        [SW, BQ],
+      ]);
+
+    // The same pillbug walled in: five neighbours, one free cell. Both cells it
+    // would slide through are occupied, so it cannot go anywhere itself, and the
+    // throw is all it has.
+    const hemmedIn = (): GameState =>
+      position([
+        [ORIGIN, WP],
+        [E, WQ],
+        [NE, BA],
+        [NW, BQ],
+        [W, BA],
+        [SW, BA],
+      ]);
+
+    const selectPillbug = (game: GameState): InputHandlers => {
+      load(game);
+      const handlers = createInputHandlers(controller, 'white');
+      handlers.handleBoardPieceClick(ORIGIN);
+      return handlers;
+    };
+
+    it('selects a pillbug whose only move is a throw', () => {
+      load(hemmedIn());
+      expect(
+        gameStore
+          .getState()
+          .validMoves.some((m) => m.kind === 'relocate' && m.from.q === 0 && m.from.r === 0),
+      ).toBe(false);
+
+      createInputHandlers(controller, 'white').handleBoardPieceClick(ORIGIN);
+
+      expect(gameStore.getState().selection).toEqual({ kind: 'board', coord: ORIGIN });
+    });
+
+    it('picks up a neighbour of the selected pillbug', () => {
+      selectPillbug(loose()).handleBoardPieceClick(S);
+
+      expect(gameStore.getState().selection).toEqual({ kind: 'throw', by: ORIGIN, from: S });
+    });
+
+    it('leaves an opponent piece alone when no pillbug is selected', () => {
+      load(loose());
+
+      createInputHandlers(controller, 'white').handleBoardPieceClick(S);
+
+      expect(gameStore.getState().selection).toBeNull();
+    });
+
+    it('swaps to another neighbour of the same pillbug', () => {
+      const handlers = selectPillbug(loose());
+      handlers.handleBoardPieceClick(S);
+
+      handlers.handleBoardPieceClick(SW);
+
+      expect(gameStore.getState().selection).toEqual({ kind: 'throw', by: ORIGIN, from: SW });
+    });
+
+    it('puts the picked-up neighbour back when it is clicked again', () => {
+      const handlers = selectPillbug(loose());
+      handlers.handleBoardPieceClick(S);
+
+      handlers.handleBoardPieceClick(S);
+
+      expect(gameStore.getState().selection).toEqual({ kind: 'board', coord: ORIGIN });
+    });
+
+    it('abandons the throw when the pillbug itself is clicked again', () => {
+      const handlers = selectPillbug(loose());
+      handlers.handleBoardPieceClick(S);
+
+      handlers.handleBoardPieceClick(ORIGIN);
+
+      expect(gameStore.getState().selection).toBeNull();
+    });
+
+    it('commits the throw on a landing cell', () => {
+      const handlers = selectPillbug(loose());
+      handlers.handleBoardPieceClick(S);
+
+      handlers.handleTargetClick(NE);
+
+      expect(commits).toEqual([{ kind: 'throw', by: ORIGIN, from: S, to: NE }]);
+    });
+
+    it('still moves the pillbug itself while no neighbour is picked up', () => {
+      selectPillbug(loose()).handleTargetClick(NE);
+
+      expect(commits).toEqual([{ kind: 'relocate', from: ORIGIN, to: NE }]);
+    });
+
+    it('ignores a cell the picked-up neighbour cannot land on', () => {
+      const handlers = selectPillbug(loose());
+      handlers.handleBoardPieceClick(S);
+
+      handlers.handleTargetClick(at(9, 9));
+
+      expect(commits).toEqual([]);
+    });
+
+    it('will not pick up a neighbour while the opponent is to move', () => {
+      load(loose());
+      gameStore.getState().setSelection({ kind: 'board', coord: ORIGIN });
+
+      createInputHandlers(controller, 'black').handleBoardPieceClick(S);
+
+      expect(gameStore.getState().selection).toEqual({ kind: 'board', coord: ORIGIN });
+    });
+  });
+
   it('clears the selection on a background click', () => {
     gameStore.getState().setSelection({ kind: 'hand', piece: 'queen' });
 
-    createInputHandlers(controller, 'white').handleBackgroundClick();
+    createInputHandlers(controller, 'white').handleClearSelection();
 
     expect(gameStore.getState().selection).toBeNull();
   });

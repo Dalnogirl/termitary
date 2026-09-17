@@ -19,7 +19,7 @@ export const BoardCanvas = () => {
       {
         onTargetClick: handlers.handleTargetClick,
         onPieceClick: handlers.handleBoardPieceClick,
-        onBackgroundClick: handlers.handleBackgroundClick,
+        onClearSelection: handlers.handleClearSelection,
       },
       { myColor },
     );

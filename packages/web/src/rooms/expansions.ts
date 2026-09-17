@@ -2,6 +2,7 @@ import {
   BASE_RULESET,
   LADYBUG_RULESET,
   MOSQUITO_RULESET,
+  PILLBUG_RULESET,
   type PieceType,
   type Ruleset,
 } from '@termitary/engine';
@@ -21,6 +22,12 @@ export const EXPANSIONS = [
     ruleset: MOSQUITO_RULESET,
     label: 'Mosquito',
     note: 'Moves as whichever piece it touches.',
+  },
+  {
+    piece: 'pillbug',
+    ruleset: PILLBUG_RULESET,
+    label: 'Pillbug',
+    note: 'Moves one space, or lifts a neighbour over itself to one.',
   },
 ] as const satisfies readonly {
   readonly piece: PieceType;
