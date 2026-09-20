@@ -190,6 +190,9 @@ export const createRenderer = (
     const outline = outlineFor(skin, marks, key);
     const tile = pieceTile(skin, top, outline);
     tile.position(p);
+    // A canvas has no DOM to query, so these attrs are the only surface a
+    // browser test can read a drawn piece back from.
+    tile.setAttrs({ name: 'piece', pieceColor: top.color, pieceType: top.type });
     tile.on('click tap', () => callbacks.onPieceClick(coord));
     if (hoverable && clickable) {
       tile.on('mouseenter', () => setHoverCursor('pointer'));
@@ -207,6 +210,7 @@ export const createRenderer = (
   const drawTarget = (skin: Skin, coord: HexCoord, ghost: Group | null): void => {
     const p = axialToPixel(coord, HEX_SIZE);
     const poly = targetShape(skin.theme, p);
+    poly.name('target');
     poly.on('click tap', () => callbacks.onTargetClick(coord));
     poly.on('mouseenter', () => {
       styleTarget(poly, skin.theme, true);

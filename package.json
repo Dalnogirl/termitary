@@ -6,6 +6,7 @@
   "scripts": {
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter @termitary/e2e test:e2e",
     "lint": "biome check .",
     "format": "biome format --write .",
     "dev": "pnpm --parallel --filter @termitary/web --filter @termitary/server dev",

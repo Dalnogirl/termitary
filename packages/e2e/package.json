@@ -1,0 +1,19 @@
+{
+  "name": "@termitary/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src playwright.config.ts",
+    "format": "biome format --write src playwright.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@termitary/engine": "workspace:*",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.0"
+  }
+}

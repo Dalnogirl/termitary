@@ -10,3 +10,5 @@ packages/server/data/
 .env
 **/.env
 !**/.env.example
+packages/e2e/test-results/
+packages/e2e/playwright-report/
