@@ -14,6 +14,7 @@ pnpm lint                      # biome check across the repo
 pnpm format                    # biome format --write
 pnpm typecheck                 # tsc --noEmit in every package
 pnpm test                      # vitest run in every package
+pnpm test:e2e                  # playwright, chromium, against a real server
 ```
 
 Single test file or case:
@@ -25,6 +26,8 @@ pnpm --filter @termitary/engine test:watch
 ```
 
 There are no vitest config files. Vitest picks up colocated `*.test.ts` next to the source it covers.
+
+The browser suite is `*.spec.ts` in `packages/e2e`, so vitest never sees it and `pnpm test` stays under a minute. `pnpm test:e2e` starts vite on :5173 and `packages/server/src/testing/e2e-server.ts` on :3001 itself, and fails loudly if either port is taken — a `pnpm dev` server has a real database and no OTP route, so reusing one is never right.
 
 Server DB (SQLite + Drizzle), run inside `packages/server`:
 
@@ -43,6 +46,7 @@ Migrations run automatically on boot (`createDb` calls `migrate`), so a fresh ch
 - **`@termitary/protocol`** — zod schemas for every WS message and REST body, plus `toWire`/`fromWire` converting `GameState` to and from JSON (the board is a `Map`, so it needs explicit conversion).
 - **`@termitary/server`** — Fastify + `@fastify/websocket`, better-auth over Drizzle/SQLite.
 - **`@termitary/web`** — React 19 SPA, Vite, Konva canvas board, zustand, Tailwind v4 + shadcn.
+- **`@termitary/e2e`** — Playwright specs driving a browser against the other four. Not in the dependency chain: nothing imports it.
 
 Packages are consumed as raw TypeScript source (`"main": "src/index.ts"`); nothing builds to `dist`. Editing the engine changes the web app on the next vite reload with no build step.
 
@@ -90,6 +94,8 @@ The `Controller` port (`controller/port.ts`) is a single `commitMove(move)`. `cr
 `myColor === null` means hot-seat, so this client plays both sides. When set, `input.ts` and the renderer gate interaction and highlighting to that color on that color's turn.
 
 Konva is imported through deep paths (`konva/lib/Stage.js`) to keep the bundle down. Keep that style rather than importing the `konva` barrel.
+
+The renderer names what it draws: a tile is `piece` carrying `pieceColor` and `pieceType`, a legal cell is `target`. A canvas exposes no DOM, so those attrs are the whole surface `packages/e2e` has to read a position back through `stage.getIntersection`, and the browser helper imports `/src/board/hex.ts` and `/src/board/metrics.ts` off the vite dev server so the axial-to-pixel maths under a click is the board's own.
 
 `brand/mound.ts` is the only place the logo geometry exists. It reads the board's own lattice and corner ratio, so the mark and a board tile round identically. `public/icon.svg` is a checked-in copy of what `brand/icon.svg.ts` emits, because a favicon cannot be a component; `brand/icon.test.ts` fails when the two drift, and the fix is to rewrite the file from `ICON_SVG`.
 

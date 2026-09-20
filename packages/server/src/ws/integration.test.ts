@@ -1,9 +1,10 @@
-import { listValidMoves } from '@termitary/engine';
-import { type ServerMessage, fromWire, toWireMove } from '@termitary/protocol';
+import { type GameState, listValidMoves, replayFrames } from '@termitary/engine';
+import { SURROUND_GAME } from '@termitary/engine/testing';
+import { type ArchivedGameDetailDto, fromWire, toWireMove } from '@termitary/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 import { type TestApp, createTestApp } from '../testing/auth-helper.js';
-import { connect, expectKind } from '../testing/ws-client.js';
+import { type TestClient, connect, expectKind } from '../testing/ws-client.js';
 
 describe('ws integration', () => {
   let ctx: TestApp;
@@ -111,6 +112,55 @@ describe('ws integration', () => {
 
     await aliceWs.close();
     await bobWs.close();
+  });
+
+  it('plays a scripted game to a surround and archives something that replays', async () => {
+    const roomId = await createRoomViaRest(alice.cookie);
+    const white = await connect(wsUrl, alice.userId, alice.cookie);
+    const black = await connect(wsUrl, bob.userId, bob.cookie);
+    expectKind(await white.next(), 'connected');
+    expectKind(await black.next(), 'connected');
+
+    white.send({ type: 'joinGame', roomId });
+    expectKind(await white.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    black.send({ type: 'joinGame', roomId });
+    expectKind(await black.next((m) => m.type === 'gameJoined'), 'gameJoined');
+    // Black's join pushes a state to white before any move does.
+    expectKind(await white.next((m) => m.type === 'stateUpdated'), 'stateUpdated');
+
+    const lastSeen = new Map<TestClient, GameState>();
+    for (const [index, move] of SURROUND_GAME.moves.entries()) {
+      const mover = index % 2 === 0 ? white : black;
+      mover.send({ type: 'makeMove', roomId, move: toWireMove(move) });
+      for (const ws of [white, black]) {
+        const update = expectKind(await ws.next((m) => m.type === 'stateUpdated'), 'stateUpdated');
+        const state = fromWire(update.state);
+        // One update per move, in order: a longer history here means a client
+        // skipped a position rather than merely arrived at the right one.
+        expect(state.history).toEqual(SURROUND_GAME.moves.slice(0, index + 1));
+        lastSeen.set(ws, state);
+      }
+    }
+
+    for (const ws of [white, black]) {
+      const state = lastSeen.get(ws);
+      if (state?.status !== 'finished') throw new Error('the last move left the game running');
+      expect(state.result).toBe('white-wins');
+      expect(state.endReason).toBe('queen-surrounded');
+    }
+
+    const archived = await ctx.app.inject({
+      method: 'GET',
+      url: `/archived-games/${roomId}`,
+      headers: { cookie: alice.cookie },
+    });
+    expect(archived.statusCode).toBe(200);
+    const state = fromWire((archived.json() as ArchivedGameDetailDto).state);
+    const replayed = replayFrames(state.history, state.ruleset);
+    expect(replayed.at(-1)?.board).toEqual(SURROUND_GAME.final.board);
+
+    await white.close();
+    await black.close();
   });
 
   it('seats the joiner white when the creator took black', async () => {
