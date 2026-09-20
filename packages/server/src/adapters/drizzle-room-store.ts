@@ -8,7 +8,12 @@ import {
   toWireRuleset,
 } from '@termitary/protocol';
 import { and, desc, eq, isNull, lt, or, sql } from 'drizzle-orm';
-import { RoomAlreadyExistsError, type RoomOverview, type RoomStore } from '../domain/room-store.js';
+import {
+  ConcurrentModificationError,
+  RoomAlreadyExistsError,
+  type RoomOverview,
+  type RoomStore,
+} from '../domain/room-store.js';
 import type { Room } from '../domain/room.js';
 import type { Db } from './db/client.js';
 import { CURRENT_STATE_VERSION, type RoomRow, rooms as roomsTable } from './db/schema.js';
@@ -81,9 +86,8 @@ const insertColumns = (room: Room) => ({
   updatedAt: room.updatedAt,
 });
 
-// createdAt is deliberately absent: the conflict branch leaves the room's real
-// start alone, whatever the caller is carrying. version is set by hand because
-// $onUpdate does not fire on an upsert's conflict branch.
+// createdAt is deliberately absent: an update leaves the room's real start
+// alone, whatever the caller is carrying.
 const updateColumns = (room: Room) => ({
   ...mutableColumns(room),
   version: sql`${roomsTable.version} + 1`,
@@ -113,11 +117,20 @@ export const createDrizzleRoomStore = (db: Db): RoomStore => ({
     return row === undefined ? undefined : toRoom(row);
   },
 
-  save: async (room) => {
-    db.insert(roomsTable)
-      .values(insertColumns(room))
-      .onConflictDoUpdate({ target: roomsTable.id, set: updateColumns(room) })
+  getForUpdate: async (id) => {
+    const row = db.select().from(roomsTable).where(eq(roomsTable.id, id)).get();
+    return row === undefined ? undefined : { value: toRoom(row), version: row.version };
+  },
+
+  // An update rather than an upsert: a room deleted since the read stays
+  // deleted, which is the conflict a cancel racing a join has to lose.
+  save: async (room, expected) => {
+    const { changes } = db
+      .update(roomsTable)
+      .set(updateColumns(room))
+      .where(and(eq(roomsTable.id, room.id), eq(roomsTable.version, expected)))
       .run();
+    if (changes === 0) throw new ConcurrentModificationError(room.id);
   },
 
   delete: async (id) => {

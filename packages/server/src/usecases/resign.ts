@@ -5,20 +5,25 @@ import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { colorOf, isFull, touch } from '../domain/room.js';
 import { archiveFinished } from './archive-finished.js';
+import { retryOnConflict } from './retry-on-conflict.js';
 import { sendError } from './send-error.js';
 
 // Both players stay bound to the room: the finished game is the point, and
 // either of them can sit on it until the sweep takes the room.
-export const resign = async (
+export const resign = (identity: Identity, msg: ClientResign, ports: Ports): Promise<void> =>
+  retryOnConflict(() => attemptResign(identity, msg, ports));
+
+const attemptResign = async (
   identity: Identity,
   msg: ClientResign,
   { rooms, connections, archive, users, log }: Ports,
 ): Promise<void> => {
-  const room = await rooms.get(msg.roomId);
-  if (room === undefined) {
+  const current = await rooms.getForUpdate(msg.roomId);
+  if (current === undefined) {
     await sendError(connections, identity, 'room not found', 'resign');
     return;
   }
+  const { value: room, version } = current;
   const color = colorOf(room, identity.playerId);
   if (color === undefined) {
     await sendError(connections, identity, 'not in room', 'resign');
@@ -43,7 +48,7 @@ export const resign = async (
   }
 
   const updated = touch({ ...room, state: resignGame(room.state, color) }, new Date());
-  await rooms.save(updated);
+  await rooms.save(updated, version);
   await connections.broadcast(updated.id, {
     type: 'stateUpdated',
     roomId: updated.id,

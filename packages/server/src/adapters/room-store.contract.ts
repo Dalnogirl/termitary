@@ -1,7 +1,11 @@
 import { BASE_RULESET, type Ruleset } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
-import { RoomAlreadyExistsError, type RoomStore } from '../domain/room-store.js';
-import { createRoom, seatPlayer, touch } from '../domain/room.js';
+import {
+  ConcurrentModificationError,
+  RoomAlreadyExistsError,
+  type RoomStore,
+} from '../domain/room-store.js';
+import { type Room, createRoom, seatPlayer, touch } from '../domain/room.js';
 
 export type StoreHarness = {
   readonly store: RoomStore;
@@ -11,6 +15,14 @@ export type StoreHarness = {
 };
 
 const ident = (id: string) => ({ playerId: id });
+
+// Every save is a compare-and-swap, so a case that only cares about what the
+// write stores reads the current version rather than tracking one.
+const saveFresh = async (store: RoomStore, room: Room): Promise<void> => {
+  const current = await store.getForUpdate(room.id);
+  if (current === undefined) throw new Error(`no room ${room.id} to save`);
+  await store.save(room, current.version);
+};
 const at = (ms: number) => new Date(ms);
 
 // Rooms carry their own timestamps, so a store that stamped its own clock
@@ -72,7 +84,7 @@ export const describeRoomStoreContract = (
         const room = createRoom('r1', ident('p1'), 'white', at(1000), NO_SPIDERS);
         await store.create(room);
 
-        await store.save(touch(seatPlayer(room, ident('p2')), at(2000)));
+        await saveFresh(store, touch(seatPlayer(room, ident('p2')), at(2000)));
 
         expect((await store.get('r1'))?.ruleset).toEqual(NO_SPIDERS);
       }));
@@ -96,7 +108,7 @@ export const describeRoomStoreContract = (
         const original = roomAt('r1', 'p1', 1000);
         await store.create(original);
         const updated = { ...original, players: { white: ident('p1'), black: ident('p2') } };
-        await store.save(updated);
+        await saveFresh(store, updated);
         expect(await store.get('r1')).toEqual(updated);
       }));
 
@@ -104,7 +116,7 @@ export const describeRoomStoreContract = (
       withStore(async ({ store }) => {
         const room = roomAt('r1', 'p1', 1000);
         await store.create({ ...room, players: { white: ident('p1'), black: ident('p2') } });
-        await store.save({ ...room, players: { white: undefined, black: ident('p2') } });
+        await saveFresh(store, { ...room, players: { white: undefined, black: ident('p2') } });
         const stored = await store.get('r1');
         expect(stored?.players).toEqual({ white: undefined, black: ident('p2') });
       }));
@@ -160,7 +172,7 @@ export const describeRoomStoreContract = (
 
         expect((await store.listSeatedBy('p1')).map((r) => r.id)).toEqual(['r2', 'r1']);
 
-        await store.save(touch(first, at(3000)));
+        await saveFresh(store, touch(first, at(3000)));
         expect((await store.listSeatedBy('p1')).map((r) => r.id)).toEqual(['r1', 'r2']);
       }));
 
@@ -183,7 +195,8 @@ export const describeRoomStoreContract = (
     it('listOpenExcluding keeps a room with both seats empty', async () =>
       withStore(async ({ store }) => {
         const room = roomAt('r1', 'p1', 1000);
-        await store.save({ ...room, players: { white: undefined, black: undefined } });
+        await store.create(room);
+        await saveFresh(store, { ...room, players: { white: undefined, black: undefined } });
         expect((await store.listOpenExcluding('p1')).map((r) => r.id)).toEqual(['r1']);
       }));
 
@@ -229,7 +242,7 @@ export const describeRoomStoreContract = (
         const room = roomAt('r1', 'p1', 1000);
         await store.create(room);
 
-        await store.save(touch(room, at(5000)));
+        await saveFresh(store, touch(room, at(5000)));
 
         expect(await store.deleteAbandonedBefore(at(4000))).toBe(0);
         expect(await store.get('r1')).toBeDefined();
@@ -240,7 +253,7 @@ export const describeRoomStoreContract = (
         const room = roomAt('r1', 'p1', 1000);
         await store.create(room);
 
-        await store.save(touch({ ...room, createdAt: at(9000) }, at(5000)));
+        await saveFresh(store, touch({ ...room, createdAt: at(9000) }, at(5000)));
 
         expect((await store.get('r1'))?.createdAt).toEqual(at(1000));
       }));
@@ -271,6 +284,68 @@ export const describeRoomStoreContract = (
     it('get on missing room returns undefined', async () =>
       withStore(async ({ store }) => {
         expect(await store.get('nope')).toBeUndefined();
+      }));
+
+    it('getForUpdate returns the room and a version', async () =>
+      withStore(async ({ store }) => {
+        const room = roomAt('r1', 'p1', 1000);
+        await store.create(room);
+
+        const current = await store.getForUpdate('r1');
+        expect(current?.value).toEqual(room);
+        expect(current?.version).toEqual(expect.any(Number));
+      }));
+
+    it('getForUpdate on a missing room returns undefined', async () =>
+      withStore(async ({ store }) => {
+        expect(await store.getForUpdate('nope')).toBeUndefined();
+      }));
+
+    it('a second save against one read is refused', async () =>
+      withStore(async ({ store }) => {
+        const room = roomAt('r1', 'p1', 1000);
+        await store.create(room);
+        const read = await store.getForUpdate('r1');
+        if (read === undefined) throw new Error('expected r1');
+
+        await store.save(touch(seatPlayer(room, ident('p2')), at(2000)), read.version);
+        await expect(
+          store.save(touch(seatPlayer(room, ident('p3')), at(3000)), read.version),
+        ).rejects.toBeInstanceOf(ConcurrentModificationError);
+
+        expect((await store.get('r1'))?.players.black).toEqual(ident('p2'));
+      }));
+
+    it('the version a save leaves behind is the one the next save needs', async () =>
+      withStore(async ({ store }) => {
+        const room = roomAt('r1', 'p1', 1000);
+        await store.create(room);
+
+        const first = await store.getForUpdate('r1');
+        if (first === undefined) throw new Error('expected r1');
+        await store.save(touch(room, at(2000)), first.version);
+
+        const second = await store.getForUpdate('r1');
+        if (second === undefined) throw new Error('expected r1');
+        expect(second.version).not.toBe(first.version);
+        await expect(store.save(touch(room, at(3000)), second.version)).resolves.toBeUndefined();
+      }));
+
+    // The room a cancel deleted stays deleted: `save` is an update, not an
+    // upsert, so a join that read it first cannot write it back.
+    it('save on a deleted room is refused rather than recreating it', async () =>
+      withStore(async ({ store }) => {
+        const room = roomAt('r1', 'p1', 1000);
+        await store.create(room);
+        const read = await store.getForUpdate('r1');
+        if (read === undefined) throw new Error('expected r1');
+
+        await store.delete('r1');
+
+        await expect(
+          store.save(touch(seatPlayer(room, ident('p2')), at(2000)), read.version),
+        ).rejects.toBeInstanceOf(ConcurrentModificationError);
+        expect(await store.get('r1')).toBeUndefined();
       }));
   });
 };

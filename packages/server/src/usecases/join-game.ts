@@ -5,6 +5,7 @@ import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { colorOf, isFull, otherPlayer, seatPlayer, touch } from '../domain/room.js';
 import type { UserStore } from '../domain/user-store.js';
+import { retryOnConflict } from './retry-on-conflict.js';
 import { seatedPresence } from './seated-presence.js';
 import { sendError } from './send-error.js';
 
@@ -25,16 +26,20 @@ const presenceOf = async (
   return seatedPresence(users, opponentId, bound === roomId ? 'connected' : 'disconnected');
 };
 
-export const joinGame = async (
+export const joinGame = (identity: Identity, msg: ClientJoinGame, ports: Ports): Promise<void> =>
+  retryOnConflict(() => attemptJoin(identity, msg, ports));
+
+const attemptJoin = async (
   identity: Identity,
   msg: ClientJoinGame,
   { rooms, connections, users }: Ports,
 ): Promise<void> => {
-  const room = await rooms.get(msg.roomId);
-  if (room === undefined) {
+  const current = await rooms.getForUpdate(msg.roomId);
+  if (current === undefined) {
     await sendError(connections, identity, 'room not found', 'joinGame');
     return;
   }
+  const { value: room, version } = current;
 
   const existingColor = colorOf(room, identity.playerId);
   if (existingColor !== undefined) {
@@ -73,7 +78,7 @@ export const joinGame = async (
   }
 
   const updated = touch(seatPlayer(room, identity), new Date());
-  await rooms.save(updated);
+  await rooms.save(updated, version);
   await connections.joinRoom(identity.playerId, updated.id);
 
   const color = colorOf(updated, identity.playerId);

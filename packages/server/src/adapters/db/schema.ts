@@ -47,8 +47,8 @@ export const rooms = sqliteTable(
     // `state` carries its own copy since S-6.4; this column is the one a query
     // can reach, and the room store takes it as the authority on read.
     ruleset: text('ruleset', { mode: 'json' }).$type<WireRuleset>(),
-    // Incremented, never compared: this is not working optimistic concurrency.
-    // See the TODO in domain/room-store.ts.
+    // Optimistic concurrency: every `save` carries the version it read and
+    // writes `WHERE version = ?`, so a lost compare-and-swap is a conflict.
     version: integer('version').notNull(),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),

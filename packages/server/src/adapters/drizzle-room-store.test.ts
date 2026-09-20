@@ -81,8 +81,8 @@ describe('DrizzleRoomStore', () => {
       expect(rowOf(db, 'r1')?.version).toBe(1);
 
       const played = touch(room, new Date(2000));
-      await store.save(played);
-      await store.save(played);
+      await store.save(played, 1);
+      await store.save(played, 2);
 
       const row = rowOf(db, 'r1');
       expect(row?.version).toBe(3);

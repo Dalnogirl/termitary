@@ -5,18 +5,23 @@ import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { type Room, colorOf, touch } from '../domain/room.js';
 import { archiveFinished } from './archive-finished.js';
+import { retryOnConflict } from './retry-on-conflict.js';
 import { sendError } from './send-error.js';
 
-export const makeMove = async (
+export const makeMove = (identity: Identity, msg: ClientMakeMove, ports: Ports): Promise<void> =>
+  retryOnConflict(() => attemptMove(identity, msg, ports));
+
+const attemptMove = async (
   identity: Identity,
   msg: ClientMakeMove,
   { rooms, connections, archive, users, log }: Ports,
 ): Promise<void> => {
-  const room = await rooms.get(msg.roomId);
-  if (room === undefined) {
+  const current = await rooms.getForUpdate(msg.roomId);
+  if (current === undefined) {
     await sendError(connections, identity, 'room not found', 'makeMove');
     return;
   }
+  const { value: room, version } = current;
   const color = colorOf(room, identity.playerId);
   if (color === undefined) {
     await sendError(connections, identity, 'not in room', 'makeMove');
@@ -41,7 +46,7 @@ export const makeMove = async (
   }
 
   const updated = touch(played, new Date());
-  await rooms.save(updated);
+  await rooms.save(updated, version);
   await connections.broadcast(updated.id, {
     type: 'stateUpdated',
     roomId: updated.id,

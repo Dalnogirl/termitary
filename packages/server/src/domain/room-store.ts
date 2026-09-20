@@ -12,21 +12,28 @@ export type RoomOverview = {
   readonly ruleset: Ruleset;
 };
 
-// TODO: `save` is last-write-wins, and the race is application-level rather
-// than a storage-engine property. `makeMove` awaits `get`, validates, then
-// awaits `save`; two handlers for one room can both read before either writes.
-// The `rooms.version` column exists and increments, but nothing compares it.
-// Closing this needs a `WHERE version = ?` predicate, an expected version on
-// `save`, and conflict handling in the callers.
+/**
+ * A room and the row version it was read at. Only `getForUpdate` hands one
+ * out, so a caller that never writes back cannot hold a version and pass it on.
+ */
+export type Versioned<T> = {
+  readonly value: T;
+  readonly version: number;
+};
+
 export type RoomStore = {
   create(room: Room): Promise<void>;
   get(id: string): Promise<Room | undefined>;
+  /** The read half of a compare-and-swap: pair it with `save`. */
+  getForUpdate(id: string): Promise<Versioned<Room> | undefined>;
   /**
-   * Insert or replace: `save` on an unknown id writes it. Both timestamps are
-   * written as the room carries them, so a caller that wants `updatedAt` to
-   * move calls `touch` first.
+   * Compare-and-swap on `expected`, which is the version `getForUpdate`
+   * returned. Throws `ConcurrentModificationError` when the row has moved on
+   * since, and on an unknown id: `save` never writes a room `create` did not.
+   * Both timestamps are written as the room carries them, so a caller that
+   * wants `updatedAt` to move calls `touch` first.
    */
-  save(room: Room): Promise<void>;
+  save(room: Room, expected: number): Promise<void>;
   delete(id: string): Promise<void>;
   /**
    * Games in progress the player holds a seat in, most recently played first.
@@ -55,5 +62,16 @@ export class RoomAlreadyExistsError extends Error {
   constructor(id: string) {
     super(`room ${id} already exists`);
     this.name = 'RoomAlreadyExistsError';
+  }
+}
+
+/**
+ * The row changed between the read and the write, or went away. The caller
+ * re-reads and re-runs; nothing here merges.
+ */
+export class ConcurrentModificationError extends Error {
+  constructor(id: string) {
+    super(`room ${id} was modified concurrently`);
+    this.name = 'ConcurrentModificationError';
   }
 }
