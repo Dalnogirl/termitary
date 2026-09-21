@@ -7,7 +7,7 @@ import { getApiUrl } from './url.js';
 // manual `credentials: 'include'` in rooms-api/use-create-room is not needed
 // for these calls.
 export const authClient = createAuthClient({
-  baseURL: getApiUrl(),
+  baseURL: `${getApiUrl()}/auth`,
   plugins: [emailOTPClient()],
 });
 

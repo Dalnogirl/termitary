@@ -1,3 +1,4 @@
+import { isAbsolute } from 'node:path';
 import type { AuthProviderId } from '@termitary/protocol';
 
 const port = Number(process.env.PORT ?? 3001);
@@ -13,6 +14,26 @@ const resolveAuthSecret = (): string => {
     );
   }
   return 'dev-only-insecure-secret-rotate-me';
+};
+
+// Under a process supervisor the working directory is whatever the unit file
+// says, so a relative path resolves somewhere unintended and SQLite creates an
+// empty database there without complaining. Every restart, a fresh one.
+const resolveDatabaseUrl = (): string => {
+  const fromEnv = process.env.DATABASE_URL;
+  if (nodeEnv !== 'production') {
+    if (fromEnv !== undefined && fromEnv.length > 0) return fromEnv;
+    return nodeEnv === 'test' ? ':memory:' : 'data/termitary.db';
+  }
+  if (fromEnv === undefined || fromEnv.length === 0) {
+    throw new Error('DATABASE_URL is required in production. Refusing to boot without it.');
+  }
+  if (!isAbsolute(fromEnv)) {
+    throw new Error(
+      `DATABASE_URL must be an absolute path in production. Refusing to boot with '${fromEnv}'.`,
+    );
+  }
+  return fromEnv;
 };
 
 export type SocialProviderCredentials = {
@@ -66,13 +87,12 @@ export const env = {
   // to Postgres (SQLite/PG dialect drift = same class of bug as DB mocks).
   // Phase 6 replaces with testcontainers-pg / pglite via a vitest setup file;
   // buildApp({ db? }) shape stays.
-  databaseUrl: process.env.DATABASE_URL ?? (nodeEnv === 'test' ? ':memory:' : 'data/termitary.db'),
+  databaseUrl: resolveDatabaseUrl(),
   authSecret: resolveAuthSecret(),
   // Browser-facing origin, deliberately not `host`: we bind 127.0.0.1 but the
   // web client hits localhost, and a session cookie set on one is never sent
-  // to the other. better-auth's origin check compares against this too.
+  // to the other. Every OAuth callback hangs off it too.
   authBaseUrl: process.env.BETTER_AUTH_URL ?? `http://localhost:${port}`,
-  webOrigin: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
   roomSweepIntervalMs: Number(process.env.ROOM_SWEEP_INTERVAL_MS ?? 60 * 60 * 1000),
   socialProviders: resolveSocialProviders(),
 } as const;

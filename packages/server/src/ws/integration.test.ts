@@ -20,7 +20,7 @@ describe('ws integration', () => {
   }: { userId: string; cookie: string }): Promise<string> => {
     const res = await ctx.app.inject({
       method: 'GET',
-      url: `/users/${userId}`,
+      url: `/api/users/${userId}`,
       headers: { cookie },
     });
     return (res.json() as { name: string }).name;
@@ -32,7 +32,7 @@ describe('ws integration', () => {
   ): Promise<string> => {
     const res = await ctx.app.inject({
       method: 'POST',
-      url: '/rooms',
+      url: '/api/rooms',
       payload: { seat },
       headers: { cookie },
     });
@@ -151,7 +151,7 @@ describe('ws integration', () => {
 
     const archived = await ctx.app.inject({
       method: 'GET',
-      url: `/archived-games/${roomId}`,
+      url: `/api/archived-games/${roomId}`,
       headers: { cookie: alice.cookie },
     });
     expect(archived.statusCode).toBe(200);

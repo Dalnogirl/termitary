@@ -8,6 +8,9 @@ export default defineConfig({
   // Vitest owns `*.test.ts` and picks it up wherever it sits; nothing here is
   // ever named that.
   testMatch: '**/*.spec.ts',
+  // The production suite has its own config, its own port and a built bundle to
+  // serve first.
+  testIgnore: '**/*.prod.spec.ts',
   forbidOnly: !!process.env.CI,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   // One server process over one in-memory database serves every spec, so
@@ -24,7 +27,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'pnpm --filter @termitary/server start:e2e',
-      url: `${API_URL}/health`,
+      url: `${API_URL}/api/health`,
       // Both servers are unbuilt TypeScript started through pnpm, and a cold CI
       // runner does not make Playwright's 60s default.
       timeout: 120_000,

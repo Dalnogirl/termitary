@@ -29,7 +29,9 @@ export const createTestApp = async (existing?: DbHandle): Promise<TestApp> => {
       otps.push({ email, otp });
     },
   });
-  const app = await buildApp({ db, auth });
+  // No bundle, so a test reads the same whether or not the checkout has been
+  // built. The routes that serve one have their own tests.
+  const app = await buildApp({ db, auth, webDist: false });
 
   const signIn = async (email: string): Promise<SignInResult> => {
     const sendRes = await app.inject({

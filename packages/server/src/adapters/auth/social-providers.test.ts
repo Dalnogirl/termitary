@@ -50,7 +50,7 @@ describe('social sign-in', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/sign-in/social',
-        payload: { provider, callbackURL: 'http://localhost:5173/lobby' },
+        payload: { provider, callbackURL: '/lobby' },
         headers: { 'content-type': 'application/json' },
       });
 
@@ -66,7 +66,7 @@ describe('social sign-in', () => {
   }
 
   it('lists the configured providers', async () => {
-    const res = await app.inject({ method: 'GET', url: '/auth/providers' });
+    const res = await app.inject({ method: 'GET', url: '/api/auth-providers' });
 
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ providers: ['google', 'github'] });
@@ -77,16 +77,16 @@ describe('social sign-in', () => {
     dbHandle.close();
     await buildWith({ github: CREDENTIALS.github });
 
-    const res = await app.inject({ method: 'GET', url: '/auth/providers' });
+    const res = await app.inject({ method: 'GET', url: '/api/auth-providers' });
 
     expect(res.json()).toEqual({ providers: ['github'] });
   });
 
   it('does not need a session to list them', async () => {
-    const gated = await app.inject({ method: 'GET', url: '/rooms' });
+    const gated = await app.inject({ method: 'GET', url: '/api/rooms' });
     expect(gated.statusCode).toBe(401);
 
-    const res = await app.inject({ method: 'GET', url: '/auth/providers' });
+    const res = await app.inject({ method: 'GET', url: '/api/auth-providers' });
     expect(res.statusCode).toBe(200);
   });
 });

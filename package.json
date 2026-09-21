@@ -7,12 +7,14 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "test:e2e": "pnpm --filter @termitary/e2e test:e2e",
+    "test:e2e:prod": "pnpm --filter @termitary/e2e test:e2e:prod",
     "lint": "biome check .",
     "format": "biome format --write .",
     "dev": "pnpm --parallel --filter @termitary/web --filter @termitary/server dev",
     "dev:web": "pnpm --filter @termitary/web dev",
     "dev:server": "pnpm --filter @termitary/server dev",
-    "glyphs:sheet": "node scripts/glyph-sheet.ts"
+    "glyphs:sheet": "node scripts/glyph-sheet.ts",
+    "build": "pnpm -r build"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",

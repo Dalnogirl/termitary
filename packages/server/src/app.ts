@@ -1,4 +1,6 @@
-import cors from '@fastify/cors';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import { IllegalRulesetError } from '@termitary/engine';
 import type { AuthProvidersDto } from '@termitary/protocol';
@@ -44,6 +46,8 @@ export type BuildAppOptions = {
   // sqlite shared between asserts). Defaults wire from env.
   db?: DbHandle;
   auth?: Auth;
+  /** Test seam: the directory the built SPA is served from, or false to serve none. */
+  webDist?: string | false;
 };
 
 export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyInstance> => {
@@ -82,29 +86,28 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
     if (!options.db) dbHandle.close();
   });
 
-  // origin must be an explicit value, not `true`: a reflected origin is
-  // incompatible with credentials, and the web client cannot send its session
-  // cookie without them. Phase 6 turns webOrigin into a deployed allowlist.
-  await app.register(cors, { origin: env.webOrigin, credentials: true });
   await app.register(websocket);
   await registerAuth(app, auth);
 
   const gate = gateIdentity(extractIdentity);
 
-  app.get('/health', async () => ({ ok: true }));
+  app.get('/api/health', async () => ({ ok: true }));
   // Ungated on purpose: /signin is the one page with no session, and it is the
-  // only caller.
+  // only caller. Deliberately not under /api/auth, which better-auth owns
+  // wholesale.
   app.get(
-    '/auth/providers',
+    '/api/auth-providers',
     async (): Promise<AuthProvidersDto> => ({
       providers: configuredSocialProviders(auth),
     }),
   );
-  app.get('/rooms', { preHandler: gate }, async (req) => listRooms(requireIdentity(req), rooms));
-  app.get('/rooms/mine', { preHandler: gate }, async (req) =>
+  app.get('/api/rooms', { preHandler: gate }, async (req) =>
+    listRooms(requireIdentity(req), rooms),
+  );
+  app.get('/api/rooms/mine', { preHandler: gate }, async (req) =>
     listMyRooms(requireIdentity(req), rooms),
   );
-  app.post('/rooms', { preHandler: gate }, async (req, reply) => {
+  app.post('/api/rooms', { preHandler: gate }, async (req, reply) => {
     const body = CreateRoomBodySchema.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'invalid-body' });
     try {
@@ -119,11 +122,15 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
       throw err;
     }
   });
-  app.delete<{ Params: { id: string } }>('/rooms/:id', { preHandler: gate }, async (req, reply) => {
-    const outcome = await cancelRoom(requireIdentity(req), req.params.id, rooms);
-    return reply.code(CANCEL_ROOM_STATUS[outcome]).send();
-  });
-  app.patch('/profile', { preHandler: gate }, async (req, reply) => {
+  app.delete<{ Params: { id: string } }>(
+    '/api/rooms/:id',
+    { preHandler: gate },
+    async (req, reply) => {
+      const outcome = await cancelRoom(requireIdentity(req), req.params.id, rooms);
+      return reply.code(CANCEL_ROOM_STATUS[outcome]).send();
+    },
+  );
+  app.patch('/api/profile', { preHandler: gate }, async (req, reply) => {
     const body = RenameProfileBodySchema.safeParse(req.body);
     // The zod message is the copy the form shows, so it is sent as-is rather
     // than flattened to a code the client would have to translate back.
@@ -135,7 +142,7 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
     return result.profile;
   });
   app.get<{ Params: { userId: string } }>(
-    '/users/:userId',
+    '/api/users/:userId',
     { preHandler: gate },
     async (req, reply) => {
       const profile = await getProfile(req.params.userId, ports);
@@ -144,7 +151,7 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
     },
   );
   app.get<{ Params: { userId: string } }>(
-    '/users/:userId/games',
+    '/api/users/:userId/games',
     { preHandler: gate },
     async (req, reply) => {
       const query = ArchivedGamesQuerySchema.safeParse(req.query);
@@ -153,7 +160,7 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
     },
   );
   app.get<{ Params: { id: string } }>(
-    '/archived-games/:id',
+    '/api/archived-games/:id',
     { preHandler: gate },
     async (req, reply) => {
       const game = await getArchivedGame(requireIdentity(req), req.params.id, archive);
@@ -171,7 +178,55 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
     });
   });
 
+  const webDist = options.webDist ?? WEB_DIST;
+  if (webDist !== false) await serveWebDist(app, webDist);
+
   return app;
+};
+
+// Resolved from this module rather than the working directory, which a process
+// supervisor owns and we do not.
+const WEB_DIST = fileURLToPath(new URL('../../web/dist/', import.meta.url));
+
+// Every API route lives under /api, so one prefix is the whole exclusion and
+// anything else is an SPA deep link. Without it the URL alone cannot say
+// whether /archived-games/:id means the API's route or react-router's.
+const isApiPath = (path: string): boolean =>
+  path === '/api' || path.startsWith('/api/') || path === '/ws';
+
+// Static had its chance already, so a path naming a file is a missing asset
+// rather than a deep link. A tab left open across a redeploy asks for a chunk
+// that is gone, and a page in its place is an HTML parse error where a 404
+// would have said what happened.
+const namesAFile = (path: string): boolean => path.slice(path.lastIndexOf('/')).includes('.');
+
+/**
+ * The built SPA, on the same origin as the API. That is what makes the session
+ * cookie a same-origin cookie, and why nothing here configures CORS.
+ *
+ * A checkout that has never run `pnpm build` has no dist, which is the normal
+ * state under `pnpm dev` and never acceptable in production.
+ */
+const serveWebDist = async (app: FastifyInstance, root: string): Promise<void> => {
+  if (!existsSync(root)) {
+    if (env.nodeEnv === 'production') {
+      throw new Error(`No web bundle at ${root}. Run \`pnpm build\` before booting.`);
+    }
+    app.log.info({ dir: root }, 'no web bundle; serving the API alone');
+    return;
+  }
+
+  await app.register(fastifyStatic, { root });
+  app.setNotFoundHandler((req, reply) => {
+    const path = req.url.split('?')[0] ?? '';
+    // HEAD as well as GET: @fastify/static answers HEAD for a real file, and an
+    // uptime check or a link preview would otherwise see deep links 404.
+    const readingAPage = req.method === 'GET' || req.method === 'HEAD';
+    if (!readingAPage || isApiPath(path) || namesAFile(path)) {
+      return reply.code(404).send({ error: 'not-found' });
+    }
+    return reply.sendFile('index.html');
+  });
 };
 
 // Status picks the level so pino-pretty colours the line: 2xx green, 4xx

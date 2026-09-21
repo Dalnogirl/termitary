@@ -11,8 +11,7 @@ import { env } from '../env.js';
  * way to read a code the console printed, and scraping the log for a six digit
  * number rots the first time the line changes.
  *
- * `env` still decides the port, the bind host and the origins, so a spec that
- * wants a broken CORS configuration boots this with a different `WEB_ORIGIN`.
+ * `env` still decides the port and the bind host.
  */
 const otps = new Map<string, string>();
 

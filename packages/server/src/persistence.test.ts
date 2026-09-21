@@ -50,7 +50,7 @@ describe('room persistence across a restart', () => {
 
       const created = await first.ctx.app.inject({
         method: 'POST',
-        url: '/rooms',
+        url: '/api/rooms',
         payload: { seat: 'white' },
         headers: { cookie },
       });
@@ -77,7 +77,7 @@ describe('room persistence across a restart', () => {
       // The session lives in the same file, so the old cookie still works.
       const listed = await second.ctx.app.inject({
         method: 'GET',
-        url: '/rooms/mine',
+        url: '/api/rooms/mine',
         headers: { cookie },
       });
       expect(listed.statusCode).toBe(200);

@@ -30,6 +30,11 @@ jobs:
 
       - run: pnpm test
 
+      # Nothing else here compiles the web package the way a deploy does: the
+      # deep Konva imports, the `.js` specifiers and the Tailwind plugin only
+      # meet a bundler at this step.
+      - run: pnpm build
+
   e2e:
     runs-on: ubuntu-latest
     steps:
@@ -55,6 +60,12 @@ jobs:
       - run: pnpm --filter @termitary/e2e exec playwright install --with-deps chromium
 
       - run: pnpm test:e2e
+
+      # The built bundle, served by a production server, on one origin. Shares
+      # this job for the browser it already installed.
+      - run: pnpm build
+
+      - run: pnpm test:e2e:prod
 
       - uses: actions/upload-artifact@v4
         if: failure()

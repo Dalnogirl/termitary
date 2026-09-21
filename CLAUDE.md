@@ -29,6 +29,8 @@ pnpm format                    # biome format --write
 pnpm typecheck                 # tsc --noEmit in every package
 pnpm test                      # vitest run in every package
 pnpm test:e2e                  # playwright, chromium, against a real server
+pnpm test:e2e:prod             # the same browser, against the built bundle
+pnpm build                     # vite build → packages/web/dist
 ```
 
 Single test file or case:
@@ -41,7 +43,7 @@ pnpm --filter @termitary/engine test:watch
 
 There are no vitest config files. Vitest picks up colocated `*.test.ts` next to the source it covers.
 
-The browser suite is `*.spec.ts` in `packages/e2e`, so vitest never sees it and `pnpm test` stays under a minute. `pnpm test:e2e` starts vite on :5173 and `packages/server/src/testing/e2e-server.ts` on :3001 itself, and fails loudly if either port is taken — a `pnpm dev` server has a real database and no OTP route, so reusing one is never right.
+The browser suite is `*.spec.ts` in `packages/e2e`, so vitest never sees it and `pnpm test` stays under a minute. `*.prod.spec.ts` is excluded from it and belongs to `playwright.prod.config.ts`, which wants `pnpm build` run first and boots the server on :3002. `pnpm test:e2e` starts vite on :5173 and `packages/server/src/testing/e2e-server.ts` on :3001 itself, and fails loudly if either port is taken — a `pnpm dev` server has a real database and no OTP route, so reusing one is never right.
 
 Server DB (SQLite + Drizzle), run inside `packages/server`:
 
@@ -86,9 +88,9 @@ Hexagonal layering, and the seams are load-bearing because the adapters get swap
 - `usecases/` — one file per action (`joinGame`, `makeMove`, `leaveGame`, `createRoom`, `listRooms`), each taking `(identity, msg, ports)` and pushing results through `connections.sendTo`.
 - `ws/` — socket lifecycle, zod parsing of inbound frames, and a dispatcher switching on `msg.type` with a `never` exhaustiveness check.
 
-Rooms are created over REST (`POST /rooms`) because the lobby has to create one before a socket exists; everything after that is WS. Room lifecycle is derived rather than stored: waiting versus playing is `isFull(room)`, and the end of a game is a `stateUpdated` carrying `status: 'finished'`, so the client has one state path instead of two.
+Rooms are created over REST (`POST /api/rooms`) because the lobby has to create one before a socket exists; everything after that is WS. Room lifecycle is derived rather than stored: waiting versus playing is `isFull(room)`, and the end of a game is a `stateUpdated` carrying `status: 'finished'`, so the client has one state path instead of two.
 
-Auth: `/rooms` and `/ws` are gated on a better-auth session cookie. `/auth/providers` is the one route that is deliberately ungated, because `/signin` is the page with no session to send. better-auth rather than hand-rolled sessions, because password hashing, reset flows and token rotation are a lot of surface for a hobby project, and email OTP means no password storage at all. `ws/identity.ts` is the only place the server knows better-auth exists; everything downstream sees `(req) => Promise<Identity | null>`, which is the seam #50 swaps for Cognito. Sign-in is email OTP or a social provider, and in dev the OTP is printed to the server console rather than emailed. Google and GitHub are registered only when `env.socialProviders` found a complete credential pair, so a checkout with none of the four variables still runs on OTP alone. `docs/configuration.md` lists every variable and what a missing one does.
+Auth: `/api/rooms` and `/ws` are gated on a better-auth session cookie. `/api/auth-providers` is the one route that is deliberately ungated, because `/signin` is the page with no session to send. better-auth rather than hand-rolled sessions, because password hashing, reset flows and token rotation are a lot of surface for a hobby project, and email OTP means no password storage at all. `ws/identity.ts` is the only place the server knows better-auth exists; everything downstream sees `(req) => Promise<Identity | null>`, which is the seam #50 swaps for Cognito. Sign-in is email OTP or a social provider, and in dev the OTP is printed to the server console rather than emailed. Google and GitHub are registered only when `env.socialProviders` found a complete credential pair, so a checkout with none of the four variables still runs on OTP alone. `docs/configuration.md` lists every variable and what a missing one does.
 
 Seat and presence are separate concepts. A socket close notifies the opponent of `disconnected` but leaves seats intact, so a reconnect lands in `joinGame`'s re-attach branch. Only `leaveGame` unseats.
 
@@ -111,7 +113,7 @@ The `Controller` port (`controller/port.ts`) is a single `commitMove(move)`. `cr
 
 Konva is imported through deep paths (`konva/lib/Stage.js`) to keep the bundle down. Keep that style rather than importing the `konva` barrel.
 
-The renderer names what it draws: a tile is `piece` carrying `pieceColor` and `pieceType`, a legal cell is `target`. A canvas exposes no DOM, so those attrs are the whole surface `packages/e2e` has to read a position back through `stage.getIntersection`, and the browser helper imports `/src/board/hex.ts` and `/src/board/metrics.ts` off the vite dev server so the axial-to-pixel maths under a click is the board's own.
+The renderer names what it draws: a tile is `piece` carrying `pieceColor` and `pieceType`, a legal cell is `target`. A canvas exposes no DOM, so those attrs are the whole surface `packages/e2e` has to read a position back through `stage.getIntersection`, and the browser helper imports `axialToPixel` and `HEX_SIZE` from `@termitary/web` so the maths under a click is the board's own. It runs them in the test process rather than in the page, because a built bundle serves no module by source URL and the production spec drives one.
 
 `brand/mound.ts` is the only place the logo geometry exists. It reads the board's own lattice and corner ratio, so the mark and a board tile round identically. `public/icon.svg` is a checked-in copy of what `brand/icon.svg.ts` emits, because a favicon cannot be a component; `brand/icon.test.ts` fails when the two drift, and the fix is to rewrite the file from `ICON_SVG`.
 
@@ -134,4 +136,8 @@ Planned work is in GitHub issues; if it is not an issue, nobody is working on it
 
 The web client authenticates through better-auth's SDK (`network/auth-client.ts`, the client-side twin of `ws/identity.ts`). `/signin` runs the two-step email OTP form, `RequireAuth` guards `/lobby` and `/play`, and `/hotseat` stays open because it never touches the server, which makes it the fastest way to exercise an engine change. Both `network/` fetches send `credentials: 'include'`; the WS upgrade carries the cookie on its own.
 
-Two origin constraints are load-bearing and fail silently if broken: CORS in `app.ts` needs an explicit origin (`env.webOrigin`) plus `credentials: true`, since a reflected origin cannot carry cookies, and `env.authBaseUrl` plus `trustedOrigins` must match the host the browser actually uses. The server binds `127.0.0.1` but the client hits `localhost`, which is a different origin to a cookie jar. Neither shows up in tests: `app.inject` has no preflight, no cookie jar, and no Origin check.
+There is one origin. The server serves `packages/web/dist` and answers the API under `/api`, anything else is an SPA deep link and gets `index.html`, and in development vite proxies `/api` and `/ws` to `:3001` so the shape matches. That is why nothing configures CORS and why `/api` is a prefix rather than a habit: `/archived-games/:id` is both an API route and a react-router route, and only the prefix tells them apart.
+
+The remaining origin constraint is `env.authBaseUrl`, which better-auth compares the inbound `Origin` against. The vite proxy rewrites that header on the way through (`vite.config.ts`), since the browser sees `:5173` and the server answers as `:3001`. `app.inject` has no cookie jar and no Origin check, so none of this shows up in a server test; `packages/e2e` is where it breaks.
+
+`pnpm build` writes the bundle and CI runs it, plus one browser spec (`*.prod.spec.ts`, its own Playwright config) against the built output under `NODE_ENV=production`. Hot-seat only: the OTP route a browser can read lives in `testing/e2e-server.ts` so no deployment serves it, which leaves a production-mode spec no way to sign in.

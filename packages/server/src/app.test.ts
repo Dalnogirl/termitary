@@ -30,7 +30,7 @@ describe('REST routes', () => {
       const { cookie } = await ctx.signIn('alice@test.dev');
       const res = await ctx.app.inject({
         method: 'POST',
-        url: '/rooms',
+        url: '/api/rooms',
         payload: { seat: 'white' },
         headers: { cookie },
       });
@@ -40,7 +40,7 @@ describe('REST routes', () => {
     });
 
     it('returns 401 without an auth cookie', async () => {
-      const res = await ctx.app.inject({ method: 'POST', url: '/rooms' });
+      const res = await ctx.app.inject({ method: 'POST', url: '/api/rooms' });
       expect(res.statusCode).toBe(401);
     });
 
@@ -49,14 +49,18 @@ describe('REST routes', () => {
       const ladybug = { pieces: { ...BASE_RULESET.pieces, ladybug: 1 } };
       const created = await ctx.app.inject({
         method: 'POST',
-        url: '/rooms',
+        url: '/api/rooms',
         payload: { seat: 'white', ruleset: ladybug },
         headers: { cookie },
       });
       expect(created.statusCode).toBe(200);
       const { roomId } = created.json() as { roomId: string };
 
-      const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
+      const mine = await ctx.app.inject({
+        method: 'GET',
+        url: '/api/rooms/mine',
+        headers: { cookie },
+      });
       expect(mine.json()).toEqual([
         { roomId, seat: 'white', playerCount: 1, updatedAt: expect.any(Number), ruleset: ladybug },
       ]);
@@ -66,13 +70,17 @@ describe('REST routes', () => {
       const { cookie } = await ctx.signIn('alice@test.dev');
       const res = await ctx.app.inject({
         method: 'POST',
-        url: '/rooms',
+        url: '/api/rooms',
         payload: { seat: 'white', ruleset: { pieces: { ...BASE_RULESET.pieces, wasp: 1 } } },
         headers: { cookie },
       });
       expect(res.statusCode).toBe(400);
 
-      const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
+      const mine = await ctx.app.inject({
+        method: 'GET',
+        url: '/api/rooms/mine',
+        headers: { cookie },
+      });
       expect(mine.json()).toEqual([]);
     });
 
@@ -80,7 +88,7 @@ describe('REST routes', () => {
       const { cookie } = await ctx.signIn('alice@test.dev');
       const res = await ctx.app.inject({
         method: 'POST',
-        url: '/rooms',
+        url: '/api/rooms',
         payload: { seat: 'white', ruleset: { pieces: { ant: 3 } } },
         headers: { cookie },
       });
@@ -92,14 +100,18 @@ describe('REST routes', () => {
       const { cookie } = await ctx.signIn('alice@test.dev');
       const created = await ctx.app.inject({
         method: 'POST',
-        url: '/rooms',
+        url: '/api/rooms',
         payload: { seat: 'black' },
         headers: { cookie },
       });
       expect(created.statusCode).toBe(200);
       const { roomId } = created.json() as { roomId: string };
 
-      const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
+      const mine = await ctx.app.inject({
+        method: 'GET',
+        url: '/api/rooms/mine',
+        headers: { cookie },
+      });
       expect(mine.json()).toEqual([
         {
           roomId,
@@ -115,13 +127,17 @@ describe('REST routes', () => {
       const { cookie } = await ctx.signIn('alice@test.dev');
       const created = await ctx.app.inject({
         method: 'POST',
-        url: '/rooms',
+        url: '/api/rooms',
         payload: { seat: 'random' },
         headers: { cookie },
       });
       expect(created.statusCode).toBe(200);
 
-      const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
+      const mine = await ctx.app.inject({
+        method: 'GET',
+        url: '/api/rooms/mine',
+        headers: { cookie },
+      });
       const [room] = mine.json() as Array<{ seat: string }>;
       expect(['white', 'black']).toContain(room?.seat);
     });
@@ -131,14 +147,18 @@ describe('REST routes', () => {
       for (const payload of [undefined, {}, { seat: 'green' }, { seat: null }]) {
         const res = await ctx.app.inject({
           method: 'POST',
-          url: '/rooms',
+          url: '/api/rooms',
           ...(payload === undefined ? {} : { payload }),
           headers: { cookie },
         });
         expect(res.statusCode).toBe(400);
       }
 
-      const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
+      const mine = await ctx.app.inject({
+        method: 'GET',
+        url: '/api/rooms/mine',
+        headers: { cookie },
+      });
       expect(mine.json()).toEqual([]);
     });
 
@@ -146,7 +166,7 @@ describe('REST routes', () => {
       const { cookie } = await ctx.signIn('alice@test.dev');
       const created = await ctx.app.inject({
         method: 'POST',
-        url: '/rooms',
+        url: '/api/rooms',
         payload: { seat: 'white' },
         headers: { cookie },
       });
@@ -155,7 +175,7 @@ describe('REST routes', () => {
       const bob = await ctx.signIn('bob@test.dev');
       const listed = await ctx.app.inject({
         method: 'GET',
-        url: '/rooms',
+        url: '/api/rooms',
         headers: { cookie: bob.cookie },
       });
       expect(listed.statusCode).toBe(200);
@@ -167,16 +187,20 @@ describe('REST routes', () => {
       const { cookie } = await ctx.signIn('alice@test.dev');
       const created = await ctx.app.inject({
         method: 'POST',
-        url: '/rooms',
+        url: '/api/rooms',
         payload: { seat: 'white' },
         headers: { cookie },
       });
       const { roomId } = created.json() as { roomId: string };
 
-      const open = await ctx.app.inject({ method: 'GET', url: '/rooms', headers: { cookie } });
+      const open = await ctx.app.inject({ method: 'GET', url: '/api/rooms', headers: { cookie } });
       expect((open.json() as Array<{ roomId: string }>).map((r) => r.roomId)).not.toContain(roomId);
 
-      const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
+      const mine = await ctx.app.inject({
+        method: 'GET',
+        url: '/api/rooms/mine',
+        headers: { cookie },
+      });
       expect(mine.statusCode).toBe(200);
       expect(mine.json()).toEqual([
         {
@@ -194,7 +218,7 @@ describe('REST routes', () => {
     const createRoom = async (cookie: string): Promise<string> => {
       const res = await ctx.app.inject({
         method: 'POST',
-        url: '/rooms',
+        url: '/api/rooms',
         payload: { seat: 'white' },
         headers: { cookie },
       });
@@ -207,12 +231,16 @@ describe('REST routes', () => {
 
       const res = await ctx.app.inject({
         method: 'DELETE',
-        url: `/rooms/${roomId}`,
+        url: `/api/rooms/${roomId}`,
         headers: { cookie },
       });
       expect(res.statusCode).toBe(204);
 
-      const mine = await ctx.app.inject({ method: 'GET', url: '/rooms/mine', headers: { cookie } });
+      const mine = await ctx.app.inject({
+        method: 'GET',
+        url: '/api/rooms/mine',
+        headers: { cookie },
+      });
       expect(mine.json()).toEqual([]);
     });
 
@@ -223,7 +251,7 @@ describe('REST routes', () => {
 
       const res = await ctx.app.inject({
         method: 'DELETE',
-        url: `/rooms/${roomId}`,
+        url: `/api/rooms/${roomId}`,
         headers: { cookie: eve.cookie },
       });
       expect(res.statusCode).toBe(403);
@@ -233,26 +261,26 @@ describe('REST routes', () => {
       const { cookie } = await ctx.signIn('alice@test.dev');
       const missing = await ctx.app.inject({
         method: 'DELETE',
-        url: '/rooms/nope',
+        url: '/api/rooms/nope',
         headers: { cookie },
       });
       expect(missing.statusCode).toBe(404);
 
-      const anon = await ctx.app.inject({ method: 'DELETE', url: '/rooms/nope' });
+      const anon = await ctx.app.inject({ method: 'DELETE', url: '/api/rooms/nope' });
       expect(anon.statusCode).toBe(401);
     });
   });
 
   describe('GET /rooms', () => {
     it('returns 401 without an auth cookie', async () => {
-      const res = await ctx.app.inject({ method: 'GET', url: '/rooms' });
+      const res = await ctx.app.inject({ method: 'GET', url: '/api/rooms' });
       expect(res.statusCode).toBe(401);
     });
   });
 
   describe('GET /rooms/mine', () => {
     it('returns 401 without an auth cookie', async () => {
-      const res = await ctx.app.inject({ method: 'GET', url: '/rooms/mine' });
+      const res = await ctx.app.inject({ method: 'GET', url: '/api/rooms/mine' });
       expect(res.statusCode).toBe(401);
     });
 
@@ -260,7 +288,7 @@ describe('REST routes', () => {
       const { cookie } = await ctx.signIn('alice@test.dev');
       await ctx.app.inject({
         method: 'POST',
-        url: '/rooms',
+        url: '/api/rooms',
         payload: { seat: 'white' },
         headers: { cookie },
       });
@@ -268,7 +296,7 @@ describe('REST routes', () => {
       const bob = await ctx.signIn('bob@test.dev');
       const mine = await ctx.app.inject({
         method: 'GET',
-        url: '/rooms/mine',
+        url: '/api/rooms/mine',
         headers: { cookie: bob.cookie },
       });
       expect(mine.json()).toEqual([]);
@@ -324,7 +352,7 @@ describe('REST routes', () => {
     ): Promise<Page<ArchivedGameSummaryDto>> => {
       const res = await ctx.app.inject({
         method: 'GET',
-        url: `/users/${userId}/games${query}`,
+        url: `/api/users/${userId}/games${query}`,
         headers: { cookie },
       });
       expect(res.statusCode).toBe(200);
@@ -334,7 +362,7 @@ describe('REST routes', () => {
     const profileOf = async (cookie: string, userId: string): Promise<ProfileDto> => {
       const res = await ctx.app.inject({
         method: 'GET',
-        url: `/users/${userId}`,
+        url: `/api/users/${userId}`,
         headers: { cookie },
       });
       expect(res.statusCode).toBe(200);
@@ -352,7 +380,7 @@ describe('REST routes', () => {
 
     describe('GET /users/:userId/games', () => {
       it('returns 401 without an auth cookie', async () => {
-        const res = await ctx.app.inject({ method: 'GET', url: '/users/someone/games' });
+        const res = await ctx.app.inject({ method: 'GET', url: '/api/users/someone/games' });
         expect(res.statusCode).toBe(401);
       });
 
@@ -426,7 +454,7 @@ describe('REST routes', () => {
         const { alice } = await twoPlayers();
         const res = await ctx.app.inject({
           method: 'GET',
-          url: `/users/${alice.id}/games?before=not-a-cursor`,
+          url: `/api/users/${alice.id}/games?before=not-a-cursor`,
           headers: { cookie: alice.cookie },
         });
         expect(res.statusCode).toBe(400);
@@ -436,7 +464,7 @@ describe('REST routes', () => {
         const { alice } = await twoPlayers();
         const res = await ctx.app.inject({
           method: 'GET',
-          url: `/users/${alice.id}/games?limit=0`,
+          url: `/api/users/${alice.id}/games?limit=0`,
           headers: { cookie: alice.cookie },
         });
         expect(res.statusCode).toBe(400);
@@ -452,7 +480,7 @@ describe('REST routes', () => {
 
     describe('GET /users/:userId', () => {
       it('returns 401 without an auth cookie', async () => {
-        const res = await ctx.app.inject({ method: 'GET', url: '/users/someone' });
+        const res = await ctx.app.inject({ method: 'GET', url: '/api/users/someone' });
         expect(res.statusCode).toBe(401);
       });
 
@@ -460,7 +488,7 @@ describe('REST routes', () => {
         const { alice } = await twoPlayers();
         const res = await ctx.app.inject({
           method: 'GET',
-          url: '/users/nobody',
+          url: '/api/users/nobody',
           headers: { cookie: alice.cookie },
         });
         expect(res.statusCode).toBe(404);
@@ -517,13 +545,13 @@ describe('REST routes', () => {
       const patchName = async (cookie: string, name: unknown) =>
         ctx.app.inject({
           method: 'PATCH',
-          url: '/profile',
+          url: '/api/profile',
           headers: { cookie },
           payload: { name },
         });
 
       it('returns 401 without an auth cookie', async () => {
-        const res = await ctx.app.inject({ method: 'PATCH', url: '/profile', payload: {} });
+        const res = await ctx.app.inject({ method: 'PATCH', url: '/api/profile', payload: {} });
         expect(res.statusCode).toBe(401);
       });
 
@@ -567,7 +595,7 @@ describe('REST routes', () => {
 
         const res = await ctx.app.inject({
           method: 'GET',
-          url: '/archived-games/r1',
+          url: '/api/archived-games/r1',
           headers: { cookie: bob.cookie },
         });
         expect(res.statusCode).toBe(200);
@@ -591,7 +619,7 @@ describe('REST routes', () => {
 
         const res = await ctx.app.inject({
           method: 'GET',
-          url: '/archived-games/r1',
+          url: '/api/archived-games/r1',
           headers: { cookie: eve.cookie },
         });
         expect(res.statusCode).toBe(200);
@@ -602,14 +630,14 @@ describe('REST routes', () => {
         const { alice } = await twoPlayers();
         const res = await ctx.app.inject({
           method: 'GET',
-          url: '/archived-games/nope',
+          url: '/api/archived-games/nope',
           headers: { cookie: alice.cookie },
         });
         expect(res.statusCode).toBe(404);
       });
 
       it('returns 401 without an auth cookie', async () => {
-        const res = await ctx.app.inject({ method: 'GET', url: '/archived-games/r1' });
+        const res = await ctx.app.inject({ method: 'GET', url: '/api/archived-games/r1' });
         expect(res.statusCode).toBe(401);
       });
     });

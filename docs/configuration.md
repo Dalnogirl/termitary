@@ -17,19 +17,30 @@ Only the dev script loads it. Tests pass credentials in directly, and a deployme
 | `PORT` | `3001` | Port the server binds. |
 | `HOST` | `127.0.0.1` | Interface the server binds. Not the origin cookies use. |
 | `NODE_ENV` | `development` | `production` turns the checks below from warnings into boot failures. |
-| `DATABASE_URL` | `data/termitary.db` | SQLite file. `:memory:` under `NODE_ENV=test`. |
+| `DATABASE_URL` | `data/termitary.db` | SQLite file. `:memory:` under `NODE_ENV=test`. Production requires it, and requires an absolute path. |
 | `BETTER_AUTH_SECRET` | a dev-only constant | Signs session cookies. Production refuses to boot without it. |
 | `BETTER_AUTH_URL` | `http://localhost:3001` | The origin the browser reaches the API on, and the base of every OAuth callback. |
-| `WEB_ORIGIN` | `http://localhost:5173` | The SPA's origin. CORS and better-auth's origin check both compare against it. |
 | `ROOM_SWEEP_INTERVAL_MS` | `3600000` | How often abandoned rooms are swept. `0` disables the sweep. |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | none | Google sign-in. |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | none | GitHub sign-in. |
 
-`BETTER_AUTH_URL` and `WEB_ORIGIN` default to `localhost` while `HOST` binds `127.0.0.1`, which looks inconsistent and is deliberate. A cookie set on one host is never sent to the other, and the browser asks for `localhost`.
+`BETTER_AUTH_URL` defaults to `localhost` while `HOST` binds `127.0.0.1`, which looks inconsistent and is deliberate. A cookie set on one host is never sent to the other, and the browser asks for `localhost`.
+
+A relative `DATABASE_URL` resolves against the working directory, which a process supervisor owns rather than we do. SQLite then creates an empty database wherever that lands, without complaining, on every restart. Production refuses to boot rather than do that.
+
+## One origin
+
+The server serves the built SPA from `packages/web/dist` and answers the API under `/api`, so there is no second origin and nothing configures CORS. A request that matches neither `/api/*` nor `/ws` gets `index.html`, which is what makes a deep link like `/u/someone` work.
+
+Development runs the same shape: vite owns `localhost:5173` and proxies `/api` and `/ws` to the server on `:3001`. The one wrinkle is in `packages/web/vite.config.ts`, which rewrites the `Origin` header on the way through, because better-auth checks it against `BETTER_AUTH_URL` and would otherwise see the vite port.
+
+Production needs a bundle before it boots: `pnpm build` writes `packages/web/dist`, and a production server with no dist there throws instead of quietly serving the API alone.
+
+`pnpm --filter @termitary/server start` runs `node --import tsx`, deliberately one process rather than `tsx` spawning a child. A supervisor stops the service by signal, and the `SIGTERM` handler in `index.ts` is what clears the sweep timer and closes the SQLite handle. Behind the `tsx` wrapper the signal killed the parent and the shutdown was cut off half done, reported as exit 143.
 
 ## Social sign-in
 
-A development checkout with no OAuth credentials still runs. `GET /auth/providers` answers `{ "providers": [] }`, `/signin` renders the email form alone, and email OTP is the only way in. Codes print to the server console; nothing sends mail yet.
+A development checkout with no OAuth credentials still runs. `GET /api/auth-providers` answers `{ "providers": [] }`, `/signin` renders the email form alone, and email OTP is the only way in. Codes print to the server console; nothing sends mail yet.
 
 Set one pair and that provider's button appears. Set both and both appear. Set half a pair and the server refuses to boot, in any environment, because half a pair is a typo rather than a configuration.
 
