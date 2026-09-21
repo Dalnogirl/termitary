@@ -221,6 +221,10 @@ The stack at a cell is `readonly Piece[]`, bottom to top. `topPieceAt` returns t
 
 Still deferred: the height-aware squeeze between two stacks of equal height. `beetleMovement` applies `canSlide` only when leaving ground level and allows any climb onto an occupied cell. Rare in play, and it needs its own test cases before the rule goes in.
 
+### No `not_started` status
+
+`GameState` is a two-member union, `in_progress | finished`. A game that has not started is `history.length === 0`, so a third status would be a second way to say the same thing and a third branch in every consumer.
+
 ### Frontend animations
 
 Handled in `@termitary/web` (`board/motion.ts`), where a relocation renders as a lift and a drop. The engine never learned about it, as intended.
