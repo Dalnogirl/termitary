@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## What this is
+
+A multiplayer web Hive game, and an excuse to learn AWS by moving it there in stages (#50). It starts as a local monolith on familiar tech and stays playable without the cloud at every stage.
+
+Untimed, and a clock stays out. Expansion pieces are in: a `Ruleset` picks which types a game uses, and `BASE_RULESET` is the default.
+
+Principles, in rough order of how often they settle an argument:
+
+1. The engine depends on nothing. Pure TypeScript, no IO, no framework.
+2. The server is a thin adapter translating WS messages into engine calls.
+3. Every stage is independently deployable. No big-bang migrations.
+4. AWS is additive. The game works without it at every stage.
+5. Test the engine exhaustively. Everything else is plumbing.
+
 ## Commands
 
 pnpm workspace, run from the repo root:
@@ -61,7 +75,7 @@ The real shape:
 - Movement is a `Record<PieceType, MovementFn>` in `movements/`. Sliding pieces call `canSlide`; beetle and grasshopper deliberately do not. Adding a piece type means adding one entry.
 - `GameState` is a discriminated union on `status: 'in_progress' | 'finished'`.
 
-Coverage is high and includes a randomized fuzzer (`src/e2e.test.ts`). Rule changes should come with tests in the matching `*.test.ts`.
+Coverage is high and includes a randomized fuzzer (`src/e2e.test.ts`): 30 games of 80 random moves, invariants asserted after every one. Rule changes should come with tests in the matching `*.test.ts`.
 
 ## Server
 
@@ -72,7 +86,9 @@ Hexagonal layering, and the seams are load-bearing because the adapters get swap
 - `usecases/` — one file per action (`joinGame`, `makeMove`, `leaveGame`, `createRoom`, `listRooms`), each taking `(identity, msg, ports)` and pushing results through `connections.sendTo`.
 - `ws/` — socket lifecycle, zod parsing of inbound frames, and a dispatcher switching on `msg.type` with a `never` exhaustiveness check.
 
-Auth: `/rooms` and `/ws` are gated on a better-auth session cookie. `/auth/providers` is the one route that is deliberately ungated, because `/signin` is the page with no session to send. `ws/identity.ts` is the only place the server knows better-auth exists; everything downstream sees `(req) => Promise<Identity | null>`. Sign-in is email OTP or a social provider, and in dev the OTP is printed to the server console rather than emailed. Google and GitHub are registered only when `env.socialProviders` found a complete credential pair, so a checkout with none of the four variables still runs on OTP alone. `docs/configuration.md` lists every variable and what a missing one does.
+Rooms are created over REST (`POST /rooms`) because the lobby has to create one before a socket exists; everything after that is WS. Room lifecycle is derived rather than stored: waiting versus playing is `isFull(room)`, and the end of a game is a `stateUpdated` carrying `status: 'finished'`, so the client has one state path instead of two.
+
+Auth: `/rooms` and `/ws` are gated on a better-auth session cookie. `/auth/providers` is the one route that is deliberately ungated, because `/signin` is the page with no session to send. better-auth rather than hand-rolled sessions, because password hashing, reset flows and token rotation are a lot of surface for a hobby project, and email OTP means no password storage at all. `ws/identity.ts` is the only place the server knows better-auth exists; everything downstream sees `(req) => Promise<Identity | null>`, which is the seam #50 swaps for Cognito. Sign-in is email OTP or a social provider, and in dev the OTP is printed to the server console rather than emailed. Google and GitHub are registered only when `env.socialProviders` found a complete credential pair, so a checkout with none of the four variables still runs on OTP alone. `docs/configuration.md` lists every variable and what a missing one does.
 
 Seat and presence are separate concepts. A socket close notifies the opponent of `disconnected` but leaves seats intact, so a reconnect lands in `joinGame`'s re-attach branch. Only `leaveGame` unseats.
 
@@ -114,8 +130,8 @@ The renderer names what it draws: a tile is `piece` carrying `pieceColor` and `p
 
 ## State of the work
 
-`docs/decisions.md` is the build log: what got built and where the original plan was wrong. It is not a plan. Planned work is in GitHub issues, and if it is not an issue nobody is working on it. Commit messages carry story numbers (`S-4.2`) matching the phases in the build log.
+Planned work is in GitHub issues; if it is not an issue, nobody is working on it. Commit messages carry story numbers (`S-4.2`) from the phases the project was built in — 1 engine, 2 hot-seat UI, 3 server, 4 persistence and auth — which is all those numbers are still for.
 
-The web client authenticates through better-auth's SDK (`network/auth-client.ts`, the client-side twin of `ws/identity.ts`). `/signin` runs the two-step email OTP form, `RequireAuth` guards `/lobby` and `/play`, and `/hotseat` stays open because it never touches the server. Both `network/` fetches send `credentials: 'include'`; the WS upgrade carries the cookie on its own.
+The web client authenticates through better-auth's SDK (`network/auth-client.ts`, the client-side twin of `ws/identity.ts`). `/signin` runs the two-step email OTP form, `RequireAuth` guards `/lobby` and `/play`, and `/hotseat` stays open because it never touches the server, which makes it the fastest way to exercise an engine change. Both `network/` fetches send `credentials: 'include'`; the WS upgrade carries the cookie on its own.
 
 Two origin constraints are load-bearing and fail silently if broken: CORS in `app.ts` needs an explicit origin (`env.webOrigin`) plus `credentials: true`, since a reflected origin cannot carry cookies, and `env.authBaseUrl` plus `trustedOrigins` must match the host the browser actually uses. The server binds `127.0.0.1` but the client hits `localhost`, which is a different origin to a cookie jar. Neither shows up in tests: `app.inject` has no preflight, no cookie jar, and no Origin check.
