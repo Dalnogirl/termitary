@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { type Move, createGame, listValidMoves } from '@termitary/engine';
 import type { ClientMessage, ServerMessage } from '@termitary/protocol';
 import { toWire } from '@termitary/protocol';
