@@ -8,8 +8,8 @@ export const BASE_RULESET: Ruleset = {
   pieces: { queen: 1, ant: 3, beetle: 2, spider: 2, grasshopper: 3 },
 };
 
-// An expansion piece is one entry on top of the base set. Nothing picks this
-// yet; room creation gets the choice in S-6.8.
+// An expansion piece is one entry on top of the base set, which is what lets
+// the web's picker merge several of them over base.
 export const LADYBUG_RULESET: Ruleset = {
   pieces: { ...BASE_RULESET.pieces, ladybug: 1 },
 };

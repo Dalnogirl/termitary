@@ -1,4 +1,4 @@
-import { type Page, expect } from '@playwright/test';
+import { type Browser, type Page, expect } from '@playwright/test';
 
 export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:3001';
 
@@ -25,4 +25,14 @@ export const signIn = async (page: Page, email: string): Promise<void> => {
   await page.getByPlaceholder('000000').fill(await otpFor(page, email));
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page.waitForURL('**/lobby');
+};
+
+/**
+ * A player of their own, in a context of their own: separate cookie jar,
+ * separate socket, same server.
+ */
+export const signedInPlayer = async (browser: Browser, email: string): Promise<Page> => {
+  const page = await (await browser.newContext()).newPage();
+  await signIn(page, email);
+  return page;
 };

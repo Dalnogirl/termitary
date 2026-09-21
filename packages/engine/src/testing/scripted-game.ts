@@ -31,14 +31,24 @@ const ringSize = (board: Board, color: Color): number => {
   return neighbors(queen).filter((n) => topPieceAt(board, n) !== undefined).length;
 };
 
+const hasStack = (board: Board): boolean => {
+  for (const [, stack] of occupiedCells(board)) {
+    if (stack.length > 1) return true;
+  }
+  return false;
+};
+
 // Both sides pull towards the same end: black's queen boxed in, white's left
 // with room, queens on the board early. Black playing into its own loss is what
-// keeps the search one ply deep and the walk short.
+// keeps the search one ply deep and the walk short. The climb is worth less
+// than a ring cell, so it happens on a turn that had nothing better rather than
+// at the cost of the surround.
 const score = (state: GameState): number =>
   ringSize(state.board, 'black') * 4 -
   ringSize(state.board, 'white') * 3 +
   (queenCell(state.board, 'black') === null ? 0 : 2) +
-  (queenCell(state.board, 'white') === null ? 0 : 1);
+  (queenCell(state.board, 'white') === null ? 0 : 1) +
+  (hasStack(state.board) ? 3 : 0);
 
 // `listValidMoves` orders by generation, so a tie would otherwise follow
 // whatever order the board's Map happens to be in.

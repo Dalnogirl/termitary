@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { occupiedCells } from '../board.js';
 import { replayFrames } from '../replay.js';
 import { SURROUND_GAME } from './scripted-game.js';
 
@@ -16,5 +17,14 @@ describe('SURROUND_GAME', () => {
 
   it('is long enough to be worth driving through a client', () => {
     expect(SURROUND_GAME.moves.length).toBeGreaterThan(8);
+  });
+
+  // The browser suite reads a cell back through the topmost drawn node, so a
+  // walk that never climbed would pass without that ever being exercised.
+  it('leaves a stack standing, for a client that draws one', () => {
+    const stacked = [...occupiedCells(SURROUND_GAME.final.board)].filter(
+      ([, stack]) => stack.length > 1,
+    );
+    expect(stacked.length).toBeGreaterThan(0);
   });
 });
