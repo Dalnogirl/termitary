@@ -2,14 +2,18 @@ import { type Board, isEmpty, stackAt, topPieceAt } from '../board.js';
 import { type HexCoord, neighbors, sharedNeighbors } from '../hex.js';
 import { isConnectedWithout } from '../occupancy.js';
 import type { Piece } from '../piece.js';
-import type { MovementFn } from './index.js';
+import type { MovementFn, RouteFn } from './index.js';
 import { queenMovement } from './queen.js';
+import { oneStepRoute } from './utils.js';
 
 /** A piece at `from` lifted over the pillbug and set down at `to`. */
 export type Throw = { readonly from: HexCoord; readonly to: HexCoord };
 
 /** One space at a time, exactly the queen. The ability is the whole piece. */
 export const pillbugMovement: MovementFn = queenMovement;
+
+/** Its own step, which is a queen's. A throw moves someone else and has none. */
+export const pillbugRoute: RouteFn = oneStepRoute;
 
 /**
  * Both halves of a throw climb to the pillbug's own height and back down, so

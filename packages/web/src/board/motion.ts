@@ -3,8 +3,9 @@ import type { HexCoord, Move } from '@termitary/engine';
 import { Animation } from 'konva/lib/Animation.js';
 import type { Group } from 'konva/lib/Group.js';
 import type { Layer } from 'konva/lib/Layer.js';
+import { prefsStore, resolveAnimation } from '../store/prefs.js';
 import type { StoreState } from '../store/store.js';
-import { PLACE_MS, createFlightPath, liftPlanner, placeScaleAt } from './flight.js';
+import { PLACE_MS, crawlPlanner, createFlightPath, placeScaleAt } from './flight.js';
 import { axialToPixel } from './hex.js';
 import { HEX_SIZE } from './metrics.js';
 
@@ -19,9 +20,9 @@ export type Motion = {
   readonly apply: (node: Group, t: number) => void;
 };
 
-// Read per move rather than once, so flipping the OS setting takes effect
-// without a reload.
-const reducedMotion = (): boolean => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Read per move rather than once, so both the setting and the OS behind it
+// take effect on the next move rather than on a remount.
+const animating = (): boolean => resolveAnimation(prefsStore.getState().animation) === 'on';
 
 /**
  * The move that history just gained, or null when it gained nothing it can
@@ -35,7 +36,7 @@ export const appendedMove = (before: StoreState, after: StoreState): Move | null
 };
 
 export const planMotion = (before: StoreState | null, after: StoreState): Motion | null => {
-  if (before === null || reducedMotion()) return null;
+  if (before === null || !animating()) return null;
   const move = appendedMove(before, after);
   if (move === null || move.kind === 'pass') return null;
 
@@ -53,7 +54,7 @@ export const planMotion = (before: StoreState | null, after: StoreState): Motion
     };
   }
 
-  const flight = liftPlanner(move, before.view.board);
+  const flight = crawlPlanner(move, before.view.board);
   const path = createFlightPath(flight);
   return {
     coord: move.to,

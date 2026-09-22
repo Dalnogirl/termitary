@@ -9,6 +9,7 @@ import { type ExpansionPiece, isExpansionPiece } from '../rooms/expansions.js';
 const PIECE_SET_KEY = 'hive.pieceSet';
 const PIECE_HUE_KEY = 'hive.pieceHue';
 const EXPANSIONS_KEY = 'hive.expansions';
+const ANIMATION_KEY = 'hive.animation';
 
 // Storage throws outright in a private window with site data blocked, and holds
 // whatever an older build wrote, so both directions are guarded.
@@ -36,17 +37,45 @@ const loadExpansions = (): readonly ExpansionPiece[] => {
   return stored === '' ? [] : stored.split(',').filter(isExpansionPiece);
 };
 
+/** Whether a moving piece walks its route, or the board just snaps. */
+export type Animation = 'on' | 'off';
+
+const ANIMATIONS: readonly Animation[] = ['on', 'off'];
+
+// Asked on every read rather than once at startup, so a player who has never
+// opened Settings still gets the next move snapped when they turn the OS
+// setting on mid-game.
+const systemAnimation = (): Animation => {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'off' : 'on';
+  } catch {
+    return 'on';
+  }
+};
+
+/**
+ * `null` is a player who has never answered, not a third setting: the OS
+ * decides for them, and their own answer wins from the moment they give one.
+ */
+export const resolveAnimation = (animation: Animation | null): Animation =>
+  animation ?? systemAnimation();
+
+const isAnimation = (v: unknown): v is Animation =>
+  typeof v === 'string' && (ANIMATIONS as readonly string[]).includes(v);
+
 export type PrefsState = {
   readonly pieceSet: PieceSet;
   readonly pieceHue: PieceHue;
   /** What a new-game dialog opens ticked, and what hot-seat deals before it is asked. */
   readonly expansions: readonly ExpansionPiece[];
+  readonly animation: Animation | null;
 };
 
 type PrefsActions = {
   readonly setPieceSet: (pieceSet: PieceSet) => void;
   readonly setPieceHue: (pieceHue: PieceHue) => void;
   readonly setExpansions: (expansions: readonly ExpansionPiece[]) => void;
+  readonly setAnimation: (animation: Animation) => void;
 };
 
 export type PrefsStore = PrefsState & PrefsActions;
@@ -55,6 +84,7 @@ const initializer: StateCreator<PrefsStore, [['zustand/devtools', never]]> = (se
   pieceSet: load(PIECE_SET_KEY, isPieceSet, 'chunky'),
   pieceHue: load(PIECE_HUE_KEY, isPieceHue, 'shared'),
   expansions: loadExpansions(),
+  animation: load(ANIMATION_KEY, isAnimation, null),
   setPieceSet: (pieceSet) => {
     store(PIECE_SET_KEY, pieceSet);
     set({ pieceSet }, false, 'setPieceSet');
@@ -66,6 +96,10 @@ const initializer: StateCreator<PrefsStore, [['zustand/devtools', never]]> = (se
   setExpansions: (expansions) => {
     store(EXPANSIONS_KEY, expansions.join(','));
     set({ expansions }, false, 'setExpansions');
+  },
+  setAnimation: (animation) => {
+    store(ANIMATION_KEY, animation);
+    set({ animation }, false, 'setAnimation');
   },
 });
 
