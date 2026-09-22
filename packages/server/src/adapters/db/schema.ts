@@ -1,5 +1,5 @@
 import type { SeekPreference, WireGameState, WireRuleset } from '@termitary/protocol';
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { user } from './auth-schema.js';
 
 // Hand-written game tables. `auth-schema.ts` is CLI output and gets rewritten
@@ -82,13 +82,17 @@ export const seeks = sqliteTable(
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
   },
-  // `created_at` sits directly behind `visibility` so the index serves the
-  // ordering every pool read asks for. The expiry filter is deliberately not
-  // in it: a range column ahead of the sort key would cost the ordering, and
-  // matching reads the whole pool anyway, since compatibility is a predicate
-  // in TypeScript rather than SQL.
+  // One seek per player, enforced here rather than counted in the use case:
+  // a count read before an insert is a race, and this is the one guarantee
+  // the feature cannot be left to lose.
+  //
+  // `created_at` sits directly behind `visibility` in the pool index so it
+  // serves the ordering every pool read asks for. The expiry filter is
+  // deliberately not in it: a range column ahead of the sort key would cost
+  // the ordering, and matching reads the whole pool anyway, since
+  // compatibility is a predicate in TypeScript rather than SQL.
   (table) => [
-    index('seeks_seeker_idx').on(table.seekerUserId),
+    uniqueIndex('seeks_seeker_idx').on(table.seekerUserId),
     index('seeks_pool_idx').on(table.visibility, table.createdAt),
   ],
 );

@@ -1,6 +1,10 @@
 import { SeekPreferenceSchema } from '@termitary/protocol';
 import { and, asc, desc, eq, gt, lte, ne } from 'drizzle-orm';
-import { SeekAlreadyExistsError, type SeekStore } from '../domain/seek-store.js';
+import {
+  SeekAlreadyExistsError,
+  type SeekStore,
+  SeekerAlreadySeekingError,
+} from '../domain/seek-store.js';
 import type { Seek } from '../domain/seek.js';
 import type { Db } from './db/client.js';
 import { type SeekRow, seeks as seeksTable } from './db/schema.js';
@@ -30,11 +34,8 @@ const tryToSeek = (row: SeekRow): Seek | undefined => {
 const readable = (rows: readonly SeekRow[]): readonly Seek[] =>
   rows.flatMap((row) => tryToSeek(row) ?? []);
 
-const isPrimaryKeyViolation = (err: unknown): boolean =>
-  typeof err === 'object' &&
-  err !== null &&
-  'code' in err &&
-  err.code === 'SQLITE_CONSTRAINT_PRIMARYKEY';
+const violates = (err: unknown, code: string): boolean =>
+  typeof err === 'object' && err !== null && 'code' in err && err.code === code;
 
 export const createDrizzleSeekStore = (db: Db): SeekStore => ({
   create: async (seek) => {
@@ -50,7 +51,10 @@ export const createDrizzleSeekStore = (db: Db): SeekStore => ({
         })
         .run();
     } catch (err) {
-      if (isPrimaryKeyViolation(err)) throw new SeekAlreadyExistsError(seek.id);
+      if (violates(err, 'SQLITE_CONSTRAINT_PRIMARYKEY')) throw new SeekAlreadyExistsError(seek.id);
+      if (violates(err, 'SQLITE_CONSTRAINT_UNIQUE')) {
+        throw new SeekerAlreadySeekingError(seek.seeker.playerId);
+      }
       throw err;
     }
   },
@@ -76,26 +80,20 @@ export const createDrizzleSeekStore = (db: Db): SeekStore => ({
         .all(),
     ),
 
-  listFor: async (playerId, now) =>
-    readable(
-      db
-        .select()
-        .from(seeksTable)
-        .where(and(eq(seeksTable.seekerUserId, playerId), gt(seeksTable.expiresAt, now)))
-        .orderBy(desc(seeksTable.createdAt))
-        .all(),
-    ),
+  getFor: async (playerId, now) => {
+    const row = db
+      .select()
+      .from(seeksTable)
+      .where(and(eq(seeksTable.seekerUserId, playerId), gt(seeksTable.expiresAt, now)))
+      .get();
+    return row === undefined ? undefined : tryToSeek(row);
+  },
 
-  // Over the readable rows, not a SQL count: charging a player for a seek they
-  // cannot see or cancel would lock them out of posting for the whole TTL.
-  countFor: async (playerId, now) =>
-    readable(
-      db
-        .select()
-        .from(seeksTable)
-        .where(and(eq(seeksTable.seekerUserId, playerId), gt(seeksTable.expiresAt, now)))
-        .all(),
-    ).length,
+  // No expiry filter and no parse: this clears the unique index, and a row
+  // getFor hides still occupies it.
+  deleteFor: async (playerId) => {
+    db.delete(seeksTable).where(eq(seeksTable.seekerUserId, playerId)).run();
+  },
 
   // The delete runs either way, so a claim on an unreadable row clears it
   // rather than leaving it to the sweep. The caller sees the same "gone" it

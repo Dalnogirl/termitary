@@ -20,9 +20,6 @@ export type Seek = {
 
 export const SEEK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** How many outstanding seeks one player may hold, private and pool together. */
-export const MAX_OUTSTANDING_SEEKS = 5;
-
 export const createSeek = (
   id: string,
   seeker: Identity,

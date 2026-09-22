@@ -288,7 +288,6 @@ const CANCEL_SEEK_STATUS: Record<CancelSeekResult, number> = {
 // Every refusal here is a race the caller lost or a limit they hit, not a
 // malformed request, so they share 409 and differ by code.
 const POST_SEEK_ERROR = {
-  'at-limit': 'seek-limit',
   gone: 'seek-gone',
   incompatible: 'seek-incompatible',
   'own-seek': 'seek-own',

@@ -49,9 +49,10 @@ export type SeekDto = {
 };
 
 // Split rather than flagged, because the lobby gives your own seek a cancel
-// action and everyone else's a click that pairs.
+// action and everyone else's a click that pairs. `mine` is one seek or none:
+// a player holds at most one, and posting a second replaces the first.
 export type SeekBoardDto = {
-  readonly mine: readonly SeekDto[];
+  readonly mine: SeekDto | null;
   readonly pool: readonly SeekDto[];
 };
 

@@ -44,7 +44,7 @@ describe('DrizzleSeekStore', () => {
   it('rejects a duplicate id', async () =>
     withStore(async ({ store }) => {
       await store.create(seek('s1', 'p1'));
-      await expect(store.create(seek('s1', 'p1'))).rejects.toThrow(SeekAlreadyExistsError);
+      await expect(store.create(seek('s1', 'p2'))).rejects.toThrow(SeekAlreadyExistsError);
     }));
 
   it('takes a seek with its seeker when the account is deleted', async () =>
@@ -75,15 +75,18 @@ describe('DrizzleSeekStore', () => {
       // never picked, so it is unpairable and hidden rather than repaired.
       expect((await store.listPool('nobody', new Date(2000))).map((s) => s.id)).toEqual(['fine']);
       expect(await store.get('broken')).toBeUndefined();
-      expect(await store.listFor('p1', new Date(2000))).toEqual([]);
+      expect(await store.getFor('p1', new Date(2000))).toBeUndefined();
     }));
 
-  it('does not charge a player for a seek they cannot see or cancel', async () =>
+  // Otherwise a row nobody can read would lock its owner out of seeking for
+  // the whole TTL, since the unique index still counts it.
+  it('lets a player replace a seek they cannot see or cancel', async () =>
     withStore(async ({ db, store }) => {
       await store.create(seek('broken', 'p1'));
       breakPreference(db, 'broken');
 
-      expect(await store.countFor('p1', new Date(2000))).toBe(0);
+      await store.deleteFor('p1');
+      await expect(store.create(seek('fresh', 'p1'))).resolves.toBeUndefined();
     }));
 
   it('clears an unreadable seek on a claim rather than leaving it to the sweep', async () =>

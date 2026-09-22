@@ -11,7 +11,7 @@ describe('sweepExpiredSeeks', () => {
   let stores: TestStores;
 
   beforeEach(async () => {
-    stores = createTestStores(['alice']);
+    stores = createTestStores(['alice', 'bob']);
     await stores.seeks.create(createSeek('stale', ident('alice'), {}, 'pool', POSTED_AT));
   });
 
@@ -26,7 +26,7 @@ describe('sweepExpiredSeeks', () => {
   });
 
   it('removes a private seek too, since its link has expired as well', async () => {
-    await stores.seeks.create(createSeek('link', ident('alice'), {}, 'private', POSTED_AT));
+    await stores.seeks.create(createSeek('link', ident('bob'), {}, 'private', POSTED_AT));
     expect(await sweepExpiredSeeks(stores, EXPIRY)).toBe(2);
   });
 });

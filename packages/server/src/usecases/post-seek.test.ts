@@ -3,7 +3,7 @@ import type { SeekPreference } from '@termitary/protocol';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Identity } from '../domain/identity.js';
 import type { RoomStore } from '../domain/room-store.js';
-import { MAX_OUTSTANDING_SEEKS, createSeek } from '../domain/seek.js';
+import { createSeek } from '../domain/seek.js';
 import { type TestStores, createTestStores } from '../testing/stores.js';
 import { type PairingDeps, type SeekPorts, postSeek } from './post-seek.js';
 
@@ -174,14 +174,12 @@ describe('postSeek', () => {
       });
     });
 
-    // The cap bounds what one player leaves lying around. Taking a seek writes
-    // nothing, so it is not what the cap is for.
-    it('is allowed at the cap, because it posts no seek', async () => {
-      for (let n = 0; n < MAX_OUTSTANDING_SEEKS; n += 1) await post('bob', { ladybug: 'exclude' });
-      // Terms none of Bob's five will pair with, so it stands for him to take.
+    it('is allowed while you hold a seek of your own', async () => {
+      await post('bob', { ladybug: 'exclude' });
+      // Terms Bob's own seek will not pair with, so it stands for him to take.
       await post('carol', { ladybug: 'require' });
 
-      const result = await postSeek(ident('bob'), { seekId: 'id-6' }, ports, deps());
+      const result = await postSeek(ident('bob'), { seekId: 'id-2' }, ports, deps());
       expect(result.outcome).toBe('paired');
     });
   });
@@ -220,31 +218,60 @@ describe('postSeek', () => {
     expect(logged[0]?.seekId).toBe('id-1');
   });
 
-  describe('the cap', () => {
-    it('refuses a sixth outstanding seek', async () => {
-      for (let n = 0; n < MAX_OUTSTANDING_SEEKS; n += 1) {
-        expect((await post('alice')).outcome).toBe('waiting');
-      }
-      expect(await post('alice')).toEqual({ outcome: 'at-limit' });
+  describe('one seek per player', () => {
+    it('replaces your standing seek rather than adding to it', async () => {
+      await post('alice', { ladybug: 'require' });
+      const again = await post('alice', { pillbug: 'require' });
+
+      expect(again.outcome).toBe('waiting');
+      const standing = await stores.seeks.getFor('alice', NOW);
+      expect(standing?.preference).toEqual({ pillbug: 'require' });
+      expect(await stores.seeks.listPool('bob', NOW)).toHaveLength(1);
     });
 
-    // Pairing writes no seek and takes one off the board, so the cap has
-    // nothing to protect against here.
-    it('still pairs a capped player with a seek that is already waiting', async () => {
-      for (let n = 0; n < MAX_OUTSTANDING_SEEKS; n += 1)
-        await post('alice', { ladybug: 'exclude' });
-      // Terms none of Alice's five will take, so his seek is still standing.
+    // Loosening is the way to want two sets of terms, and it pairs against
+    // the pool before it ever stands a seek.
+    it('pairs a loosened repost with what the old terms would not take', async () => {
       await post('bob', { ladybug: 'require' });
+      expect((await post('alice', { ladybug: 'exclude' })).outcome).toBe('waiting');
 
       expect((await post('alice')).outcome).toBe('paired');
+      expect(await stores.seeks.getFor('alice', NOW)).toBeUndefined();
     });
 
-    it('counts expired seeks out, so waiting a week frees the slot', async () => {
-      const stale = createSeek('stale', ident('alice'), {}, 'pool', new Date(0));
-      for (let n = 0; n < MAX_OUTSTANDING_SEEKS - 1; n += 1) await post('alice');
-      await stores.seeks.create(stale);
+    // Alice's own terms will not take Bob's seek, but the terms she clicks
+    // with will. Her standing seek is what has to come off the board.
+    it('takes your own seek off the board when you click another', async () => {
+      const mine = await post('alice', { ladybug: 'require' });
+      const theirs = await post('bob', { ladybug: 'exclude' });
+      if (mine.outcome !== 'waiting' || theirs.outcome !== 'waiting') throw new Error('setup');
+
+      const taken = await postSeek(
+        ident('alice'),
+        { seekId: theirs.seek.id, preference: {} },
+        ports,
+        deps(),
+      );
+
+      expect(taken.outcome).toBe('paired');
+      expect(await stores.seeks.getFor('alice', NOW)).toBeUndefined();
+      expect(await stores.seeks.get(mine.seek.id)).toBeUndefined();
+    });
+
+    it('replaces a seek that has expired but not been swept', async () => {
+      await stores.seeks.create(createSeek('stale', ident('alice'), {}, 'pool', new Date(0)));
 
       expect((await post('alice')).outcome).toBe('waiting');
+      expect(await stores.seeks.get('stale')).toBeUndefined();
+    });
+
+    // The unique index picks the winner; the loser is told what stands rather
+    // than handed a constraint error.
+    it('answers two simultaneous posts with the one seek that stood', async () => {
+      const [a, b] = await Promise.all([post('alice'), post('alice')]);
+
+      expect([a.outcome, b.outcome]).toEqual(['waiting', 'waiting']);
+      expect(await stores.seeks.listPool('bob', NOW)).toHaveLength(1);
     });
   });
 });

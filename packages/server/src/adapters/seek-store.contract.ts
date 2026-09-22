@@ -69,7 +69,7 @@ export const describeSeekStoreContract = (
     it('keeps private seeks out of the pool', async () =>
       withStore(async ({ store }) => {
         await store.create(seekAt('hidden', 'p2', 1000, {}, 'private'));
-        await store.create(seekAt('listed', 'p2', 2000));
+        await store.create(seekAt('listed', 'p3', 2000));
         expect(idsOf(await store.listPool('p1', at(2_000_000)))).toEqual(['listed']);
       }));
 
@@ -83,24 +83,46 @@ export const describeSeekStoreContract = (
         expect(await store.get('stale')).toEqual(stale);
       }));
 
-    it('lists your own seeks newest first, private ones included', async () =>
+    it('gives you your own seek, private included, and nobody else', async () =>
       withStore(async ({ store }) => {
-        await store.create(seekAt('older', 'p1', 1000));
-        await store.create(seekAt('newer', 'p1', 3000, {}, 'private'));
+        const mine = seekAt('mine', 'p1', 1000, {}, 'private');
+        await store.create(mine);
         await store.create(seekAt('theirs', 'p2', 2000));
-        expect(idsOf(await store.listFor('p1', at(2_000_000)))).toEqual(['newer', 'older']);
+
+        expect(await store.getFor('p1', at(2000))).toEqual(mine);
+        expect(await store.getFor('nobody', at(2000))).toBeUndefined();
       }));
 
-    it('counts only your own unexpired seeks', async () =>
+    it('hides your seek once it has expired', async () =>
       withStore(async ({ store }) => {
         const stale = seekAt('stale', 'p1', 1000);
         await store.create(stale);
-        await store.create(seekAt('live', 'p1', 2000, {}, 'private'));
-        await store.create(seekAt('theirs', 'p2', 2000));
+        expect(await store.getFor('p1', new Date(stale.expiresAt.getTime() + 1))).toBeUndefined();
+      }));
 
-        expect(await store.countFor('p1', at(2000))).toBe(2);
-        expect(await store.countFor('p1', new Date(stale.expiresAt.getTime() + 1))).toBe(1);
-        expect(await store.countFor('nobody', at(2000))).toBe(0);
+    it('refuses a second seek for the same player', async () =>
+      withStore(async ({ store }) => {
+        await store.create(seekAt('first', 'p1', 1000));
+        await expect(store.create(seekAt('second', 'p1', 2000))).rejects.toThrow();
+      }));
+
+    it('deleteFor clears the seat whatever state the seek is in', async () =>
+      withStore(async ({ store }) => {
+        const stale = seekAt('stale', 'p1', 1000);
+        await store.create(stale);
+        await store.create(seekAt('theirs', 'p2', 1000));
+
+        // Expired, so getFor already hides it, but it still holds the row.
+        await store.deleteFor('p1');
+
+        expect(await store.get('stale')).toBeUndefined();
+        expect(await store.get('theirs')).toBeDefined();
+        await expect(store.create(seekAt('again', 'p1', 5000))).resolves.toBeUndefined();
+      }));
+
+    it('deleteFor is quiet for a player with no seek', async () =>
+      withStore(async ({ store }) => {
+        await expect(store.deleteFor('nobody')).resolves.toBeUndefined();
       }));
 
     it('claim returns the seek and removes it', async () =>

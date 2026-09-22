@@ -15,7 +15,6 @@ import { seeks as seeksTable } from './adapters/db/schema.js';
 import { createDrizzleArchivedGameStore } from './adapters/drizzle-archived-game-store.js';
 import { toArchivedGame } from './domain/archived-game.js';
 import { isFinished, createRoom as newRoom, seatPlayer, touch } from './domain/room.js';
-import { MAX_OUTSTANDING_SEEKS } from './domain/seek.js';
 import { type TestApp, createTestApp } from './testing/auth-helper.js';
 
 const BASE_WIRE = { pieces: { ...BASE_RULESET.pieces } };
@@ -682,7 +681,7 @@ describe('REST routes', () => {
         expect(res.statusCode).toBe(200);
         const body = res.json() as PostSeekResponseDto;
         expect(body.outcome).toBe('waiting');
-        expect((await board(cookie)).mine).toHaveLength(1);
+        expect((await board(cookie)).mine).not.toBeNull();
       });
 
       it('takes `{}` as the default seek, which is the Play button payload', async () => {
@@ -690,7 +689,7 @@ describe('REST routes', () => {
         const res = await postSeek(cookie, {});
 
         expect(res.statusCode).toBe(200);
-        expect((await board(cookie)).mine[0]?.preference).toEqual({});
+        expect((await board(cookie)).mine?.preference).toEqual({});
       });
 
       // A body is required, as it is on /api/rooms. Fastify refuses an empty
@@ -702,7 +701,7 @@ describe('REST routes', () => {
           const res = await ctx.app.inject({ method: 'POST', url: '/api/seeks', headers });
           expect(res.statusCode).toBe(400);
         }
-        expect((await board(cookie)).mine).toHaveLength(0);
+        expect((await board(cookie)).mine).toBeNull();
       });
 
       it('pairs the second player and seats them both', async () => {
@@ -717,7 +716,7 @@ describe('REST routes', () => {
         expect((await myRooms(alice.cookie)).map((room) => room.roomId)).toEqual([roomId]);
         expect((await myRooms(bob.cookie)).map((room) => room.roomId)).toEqual([roomId]);
         // The seek is spent, so the board both players see is empty again.
-        expect(await board(alice.cookie)).toEqual({ mine: [], pool: [] });
+        expect(await board(alice.cookie)).toEqual({ mine: null, pool: [] });
       });
 
       it('gives the pair every piece either side required', async () => {
@@ -797,15 +796,13 @@ describe('REST routes', () => {
         expect(res.json()).toEqual({ error: 'seek-incompatible' });
       });
 
-      it('caps what one player leaves on the board', async () => {
+      it('leaves one seek on the board however many times you post', async () => {
         const { cookie } = await ctx.signIn('alice@test.dev');
-        for (let n = 0; n < MAX_OUTSTANDING_SEEKS; n += 1) {
-          expect((await postSeek(cookie)).statusCode).toBe(200);
+        for (const preference of [{ ladybug: 'require' }, { pillbug: 'require' }, {}] as const) {
+          expect((await postSeek(cookie, { preference })).statusCode).toBe(200);
         }
 
-        const res = await postSeek(cookie);
-        expect(res.statusCode).toBe(409);
-        expect(res.json()).toEqual({ error: 'seek-limit' });
+        expect((await board(cookie)).mine?.preference).toEqual({});
       });
 
       it('rejects a preference the picker cannot produce', async () => {
@@ -832,7 +829,7 @@ describe('REST routes', () => {
         await postSeek(bob.cookie, { preference: { pillbug: 'exclude' } });
 
         const seen = await board(alice.cookie);
-        expect(seen.mine.map((seek) => seek.preference)).toEqual([{ pillbug: 'require' }]);
+        expect(seen.mine?.preference).toEqual({ pillbug: 'require' });
         expect(seen.pool.map((seek) => seek.preference)).toEqual([{ pillbug: 'exclude' }]);
       });
 
@@ -855,7 +852,7 @@ describe('REST routes', () => {
         });
 
         expect(res.statusCode).toBe(204);
-        expect((await board(cookie)).mine).toEqual([]);
+        expect((await board(cookie)).mine).toBeNull();
       });
 
       it('refuses to cancel a seek that is not yours', async () => {
@@ -907,13 +904,14 @@ describe('REST routes', () => {
         return { alice, bob, seekId };
       };
 
-      it('leaves the board and the cap as if it were not there', async () => {
+      // The row still holds the unique index, so the owner has to be able to
+      // post over a seek they cannot see.
+      it('leaves the board empty and still lets its owner seek', async () => {
         const { alice } = await cornerCase();
 
-        expect(await board(alice.cookie)).toEqual({ mine: [], pool: [] });
-        for (let n = 0; n < MAX_OUTSTANDING_SEEKS; n += 1) {
-          expect((await postSeek(alice.cookie)).statusCode).toBe(200);
-        }
+        expect(await board(alice.cookie)).toEqual({ mine: null, pool: [] });
+        expect((await postSeek(alice.cookie)).statusCode).toBe(200);
+        expect((await board(alice.cookie)).mine).not.toBeNull();
       });
 
       it('answers a take with seek-gone instead of faulting', async () => {

@@ -10,10 +10,14 @@ export type SeekStore = {
    * function in `protocol`, so no store repeats it in SQL.
    */
   listPool(excluding: string, now: Date): Promise<readonly Seek[]>;
-  /** The player's own unexpired seeks, newest first. Private ones included. */
-  listFor(playerId: string, now: Date): Promise<readonly Seek[]>;
-  /** Counts exactly what `listFor` returns, so the cap only charges for seeks the player can see. */
-  countFor(playerId: string, now: Date): Promise<number>;
+  /** The player's own unexpired seek. A player holds at most one. */
+  getFor(playerId: string, now: Date): Promise<Seek | undefined>;
+  /**
+   * Removes the player's seek whatever state it is in, expired or unreadable
+   * included. Posting replaces rather than refuses, so this runs before every
+   * create, and a row `getFor` will not return still holds the unique index.
+   */
+  deleteFor(playerId: string): Promise<void>;
   /**
    * Deletes the seek and returns it, or returns undefined when someone else
    * got there first. This is the whole concurrency story: two players racing
@@ -24,6 +28,14 @@ export type SeekStore = {
   /** Returns the number of seeks removed. */
   deleteExpiredBefore(now: Date): Promise<number>;
 };
+
+/** The unique index on the seeker, which is what holds one seek per player. */
+export class SeekerAlreadySeekingError extends Error {
+  constructor(playerId: string) {
+    super(`player ${playerId} already has a seek`);
+    this.name = 'SeekerAlreadySeekingError';
+  }
+}
 
 export class SeekAlreadyExistsError extends Error {
   constructor(id: string) {

@@ -4,15 +4,8 @@ import { z } from 'zod';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { createPairedRoom } from '../domain/room.js';
-import type { SeekStore } from '../domain/seek-store.js';
-import {
-  MAX_OUTSTANDING_SEEKS,
-  type Seek,
-  compatible,
-  createSeek,
-  isExpired,
-  pairedRuleset,
-} from '../domain/seek.js';
+import { SeekerAlreadySeekingError } from '../domain/seek-store.js';
+import { type Seek, compatible, createSeek, isExpired, pairedRuleset } from '../domain/seek.js';
 import type { SeatPicker } from './create-room.js';
 import { coinFlip } from './create-room.js';
 
@@ -28,7 +21,6 @@ export type PostSeekBody = z.infer<typeof PostSeekBodySchema>;
 export type PostSeekResult =
   | { readonly outcome: 'paired'; readonly roomId: string }
   | { readonly outcome: 'waiting'; readonly seek: Seek }
-  | { readonly outcome: 'at-limit' }
   | { readonly outcome: 'gone' }
   | { readonly outcome: 'incompatible' }
   | { readonly outcome: 'own-seek' };
@@ -72,6 +64,10 @@ const pairInto = async (
     }
     throw err;
   }
+  // Pairing ends this player's search, so their own seek comes off the board
+  // too. Without it a player who clicked a listing while holding a seek would
+  // be in a game and still advertising for another.
+  await seeks.deleteFor(me.playerId);
   return room.id;
 };
 
@@ -119,19 +115,16 @@ const claimOne = async (
   return { outcome: 'paired', roomId: await pairInto(me, mine, claimed, ports, deps, now) };
 };
 
-const atLimit = async (seeks: SeekStore, playerId: string, now: Date): Promise<boolean> =>
-  (await seeks.countFor(playerId, now)) >= MAX_OUTSTANDING_SEEKS;
-
 /**
  * The one way into a game: pair now if anything fits, otherwise stand a seek
  * on the board. Clicking a listed seek is the same call carrying its id.
  *
- * Only `claim` is atomic. Two accepted consequences: simultaneous posts can
- * both read an empty pool and both end up waiting, and the cap can be
- * overshot by a burst from one player. Both cost a row that expires in seven
- * days, and the first recovers on its own the moment either player clicks the
- * other's listing. Closing them means a transaction spanning both stores,
- * which is the guarantee #50's adapters cannot make.
+ * Only `claim` is atomic, so simultaneous posts by two players can both read
+ * an empty pool and both end up waiting. That costs a row apiece and recovers
+ * on its own the moment either clicks the other's listing. Closing it means a
+ * transaction spanning both stores, which is the guarantee #50's adapters
+ * cannot make. One seek per player is not left to that: the unique index on
+ * `seeker_user_id` holds it however the requests interleave.
  */
 export const postSeek = async (
   identity: Identity,
@@ -149,12 +142,22 @@ export const postSeek = async (
   const roomId = await pairFromPool(identity, preference, ports, deps, now);
   if (roomId !== undefined) return { outcome: 'paired', roomId };
 
-  // Checked after the match, not before: pairing writes no seek and takes one
-  // off the board, so refusing a player their sixth game because they are
-  // holding five unmatched seeks would refuse a game that was already there.
-  if (await atLimit(ports.seeks, identity.playerId, now)) return { outcome: 'at-limit' };
+  // A player holds one seek, so a second post replaces the first rather than
+  // being refused. Wanting two sets of terms is wanting looser terms, and the
+  // pool walk above has already tried them against everything waiting.
+  await ports.seeks.deleteFor(identity.playerId);
 
   const seek = createSeek((deps.newId ?? randomUUID)(), identity, preference, 'pool', now);
-  await ports.seeks.create(seek);
+  try {
+    await ports.seeks.create(seek);
+  } catch (err) {
+    if (!(err instanceof SeekerAlreadySeekingError)) throw err;
+    // Two posts from the same player at once. The index picked a winner, and
+    // that seek is the honest answer: the caller wanted one on the board and
+    // there is one on the board.
+    const standing = await ports.seeks.getFor(identity.playerId, now);
+    if (standing === undefined) throw err;
+    return { outcome: 'waiting', seek: standing };
+  }
   return { outcome: 'waiting', seek };
 };
