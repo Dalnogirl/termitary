@@ -2,6 +2,7 @@ import { BASE_RULESET, rulesetFor } from '@termitary/engine';
 import type { SeekPreference } from '@termitary/protocol';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Identity } from '../domain/identity.js';
+import type { RoomStore } from '../domain/room-store.js';
 import { MAX_OUTSTANDING_SEEKS, createSeek } from '../domain/seek.js';
 import { type TestStores, createTestStores } from '../testing/stores.js';
 import { type PairingDeps, type SeekPorts, postSeek } from './post-seek.js';
@@ -10,6 +11,13 @@ const PLAYERS = ['alice', 'bob', 'carol'];
 const ident = (id: string): Identity => ({ playerId: id });
 // Well past a seek's 7-day life, so a seek stamped at 0 is expired here.
 const NOW = new Date(30 * 24 * 60 * 60 * 1000);
+
+const brokenRooms = (rooms: RoomStore): RoomStore => ({
+  ...rooms,
+  create: async () => {
+    throw new Error('disk went away');
+  },
+});
 
 describe('postSeek', () => {
   let stores: TestStores;
@@ -32,7 +40,7 @@ describe('postSeek', () => {
   beforeEach(() => {
     stores = createTestStores(PLAYERS);
     ids = 0;
-    ports = { rooms: stores.rooms, seeks: stores.seeks };
+    ports = { rooms: stores.rooms, seeks: stores.seeks, log: stores.log };
   });
 
   it('stands a seek on the board when nothing fits', async () => {
@@ -182,21 +190,34 @@ describe('postSeek', () => {
   // written, and they are not the one holding the failed request.
   it('puts the opponent back on the board when the room cannot be written', async () => {
     await post('alice');
-    const failing: SeekPorts = {
-      seeks: stores.seeks,
-      rooms: {
-        ...stores.rooms,
-        create: async () => {
-          throw new Error('disk went away');
-        },
-      },
-    };
+    const failing: SeekPorts = { ...ports, rooms: brokenRooms(stores.rooms) };
 
     await expect(postSeek(ident('bob'), {}, failing, deps())).rejects.toThrow('disk went away');
 
     const [restored] = await stores.seeks.listPool('bob', NOW);
     expect(restored?.id).toBe('id-1');
     expect(restored?.seeker).toEqual(ident('alice'));
+  });
+
+  // Whatever took the room write down usually takes the restore with it, and
+  // the restore's error explains nothing on its own.
+  it('reports the room failure even when the seek cannot be put back', async () => {
+    await post('alice');
+    const logged: Record<string, unknown>[] = [];
+    const failing: SeekPorts = {
+      rooms: brokenRooms(stores.rooms),
+      seeks: {
+        ...stores.seeks,
+        create: async () => {
+          throw new Error('so did the seek table');
+        },
+      },
+      log: { ...stores.log, error: (fields) => void logged.push(fields) },
+    };
+
+    await expect(postSeek(ident('bob'), {}, failing, deps())).rejects.toThrow('disk went away');
+    expect(logged).toHaveLength(1);
+    expect(logged[0]?.seekId).toBe('id-1');
   });
 
   describe('the cap', () => {

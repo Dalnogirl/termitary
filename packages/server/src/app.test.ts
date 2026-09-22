@@ -656,7 +656,7 @@ describe('REST routes', () => {
         method: 'POST',
         url: '/api/seeks',
         headers: { cookie },
-        ...(payload === undefined ? {} : { payload }),
+        payload: payload ?? {},
       });
 
     const board = async (cookie: string) => {
@@ -685,16 +685,24 @@ describe('REST routes', () => {
         expect((await board(cookie)).mine).toHaveLength(1);
       });
 
-      it('takes a body-less post as the default seek', async () => {
+      it('takes `{}` as the default seek, which is the Play button payload', async () => {
         const { cookie } = await ctx.signIn('alice@test.dev');
-        const res = await ctx.app.inject({
-          method: 'POST',
-          url: '/api/seeks',
-          headers: { cookie },
-        });
+        const res = await postSeek(cookie, {});
 
         expect(res.statusCode).toBe(200);
         expect((await board(cookie)).mine[0]?.preference).toEqual({});
+      });
+
+      // A body is required, as it is on /api/rooms. Fastify refuses an empty
+      // one before the handler runs, so a route that read it as a default
+      // would never get the chance.
+      it('refuses a post with no body at all', async () => {
+        const { cookie } = await ctx.signIn('alice@test.dev');
+        for (const headers of [{ cookie }, { cookie, 'content-type': 'application/json' }]) {
+          const res = await ctx.app.inject({ method: 'POST', url: '/api/seeks', headers });
+          expect(res.statusCode).toBe(400);
+        }
+        expect((await board(cookie)).mine).toHaveLength(0);
       });
 
       it('pairs the second player and seats them both', async () => {

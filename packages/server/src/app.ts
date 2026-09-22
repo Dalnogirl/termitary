@@ -136,8 +136,11 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
     listSeeks(requireIdentity(req), seeks),
   );
   app.post('/api/seeks', { preHandler: gate }, async (req, reply) => {
-    // A body-less post is the default seek, which is the Play button's call.
-    const body = PostSeekBodySchema.safeParse(req.body ?? {});
+    // Every field is optional, so `{}` is the default seek and the Play
+    // button's whole payload. A body is still required, as it is on
+    // /api/rooms: Fastify refuses an empty one before any handler runs, so a
+    // route that claimed to treat it as a default would never see it.
+    const body = PostSeekBodySchema.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'invalid-body' });
 
     const result = await postSeek(requireIdentity(req), body.data, ports);

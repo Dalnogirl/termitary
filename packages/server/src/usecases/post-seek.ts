@@ -33,7 +33,7 @@ export type PostSeekResult =
   | { readonly outcome: 'incompatible' }
   | { readonly outcome: 'own-seek' };
 
-export type SeekPorts = Pick<Ports, 'rooms' | 'seeks'>;
+export type SeekPorts = Pick<Ports, 'rooms' | 'seeks' | 'log'>;
 
 /** Everything nondeterministic, so a test can fix all three. */
 export type PairingDeps = {
@@ -46,7 +46,7 @@ const pairInto = async (
   me: Identity,
   mine: SeekPreference,
   claimed: Seek,
-  { rooms, seeks }: SeekPorts,
+  { rooms, seeks, log }: SeekPorts,
   deps: PairingDeps,
   now: Date,
 ): Promise<string> => {
@@ -63,7 +63,13 @@ const pairInto = async (
     // their place on the board and is told nothing, since they are not the
     // one holding the failed request. Restored rather than transacted: #50
     // swaps these two stores for adapters with no transaction between them.
-    await seeks.create(claimed);
+    try {
+      await seeks.create(claimed);
+    } catch (restoreErr) {
+      // Whatever took the room write down is the likely reason this failed
+      // too, so it is the error worth raising. The lost seek only gets a line.
+      log.error({ err: restoreErr, seekId: claimed.id }, 'could not restore claimed seek');
+    }
     throw err;
   }
   return room.id;
