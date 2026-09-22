@@ -1,11 +1,26 @@
 ---
 name: new-issue
-description: Draft and open a GitHub issue in this repo with the right labels, dependency edges and epic parent. Use when the user wants to file an issue, says "open an issue for this", "file a ticket", "/new-issue", or describes work that should be tracked rather than done now. Also use to fix the metadata on an issue that already exists.
+description: Draft and open a GitHub issue in this repo, sized to one implementation session, with the right labels, dependency edges and epic parent. Use when the user wants to file an issue, says "open an issue for this", "file a ticket", "/new-issue", or describes work that should be tracked rather than done now. Also use to fix the metadata on an issue that already exists.
 ---
 
 Open one issue, labelled and wired into the graph. Do not implement the work.
 
-## 1. Draft the body before touching `gh`
+## 1. Size it before drafting
+
+One issue is one agent session: roughly 150k tokens of context covering the code it has to read, the change, the tests, and the runs that go red before they go green. If the work does not fit in that, it is not an issue yet.
+
+Nobody can count tokens while drafting, so use the proxies:
+
+- More than two packages changed, or a change that has to land in `engine`, `protocol`, `server` and `web` to be usable at all.
+- A `## Scope` checklist whose items are not facets of one mechanism. Five boxes describing one change is fine. Three boxes describing three changes is three issues.
+- A migration, a new UI surface and a new wire message in the same body.
+- Any item that would need its own design decision before it can start.
+
+When it does not fit, split. Either a plain sequence of issues wired `blocked_by`, or an `epic` with sub-issues when the pieces only make sense under one umbrella. `#77` is the split done right: `protocol` and `server` in one issue, `web` in another. The epic body carries the shared reasoning and the rejected alternatives once; the children carry the work and stay boring.
+
+Split along seams that ship, not along layers for their own sake. Principle 3, every stage independently deployable, applies to issues too: each child should leave the app working.
+
+## 2. Draft the body before touching `gh`
 
 House style, from the existing issues. Match it.
 
@@ -17,7 +32,7 @@ House style, from the existing issues. Match it.
 
 No emoji. No closing summary.
 
-## 2. Pick labels
+## 3. Pick labels
 
 Two independent axes. Apply both.
 
@@ -40,7 +55,7 @@ Read the dependency direction before guessing: engine → protocol → server / 
 
 **`parked`** is separate from kind and stacks with it. It means nothing blocks this and it still is not scheduled — `#19` is postponed, `#50` is an umbrella with no queue. Never use it for work waiting on another issue; that is a dependency.
 
-## 3. Wire the graph
+## 4. Wire the graph
 
 The labels are the cheap half. These edges are what the label set deliberately does not carry.
 
@@ -67,7 +82,7 @@ gh api -X POST repos/:owner/:repo/issues/<EPIC>/sub_issues \
   -F sub_issue_id="$(gh api repos/:owner/:repo/issues/<N> --jq .id)"
 ```
 
-## 4. Confirm, then open
+## 5. Confirm, then open
 
 Show the user the title, the body and the labels. Opening an issue is outward-facing; do not create it unasked.
 
@@ -77,4 +92,4 @@ gh issue create --title "..." --body-file <path> --label <kind> --label <pkg> [-
 
 Story numbers (`S-6.4`) go in the title only when the issue is one step of a numbered phase already in flight. Standalone issues do not get one.
 
-Then add the edges from step 3 and print the issue URL.
+Then add the edges from step 4 and print the issue URL.
