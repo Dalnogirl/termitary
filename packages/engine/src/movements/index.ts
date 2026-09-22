@@ -12,6 +12,16 @@ import { spiderMovement } from './spider.js';
 
 export type MovementFn = (from: HexCoord, board: Board) => HexCoord[];
 
+/**
+ * The cells a piece of this type crosses going from `from` to `to`, origin
+ * first and destination last, or null when it does not slide there. `transit`
+ * is the board with the moving piece already lifted off, as movement sees it.
+ *
+ * A piece only has one where its route is the rule: an ant hugging the hive
+ * teaches freedom of movement, a grasshopper's jump teaches nothing.
+ */
+export type RouteFn = (transit: Board, from: HexCoord, to: HexCoord) => readonly HexCoord[] | null;
+
 export const movements = {
   queen: queenMovement,
   ant: antMovement,
