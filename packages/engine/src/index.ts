@@ -17,12 +17,16 @@ export {
   resign,
 } from './coordinator.js';
 export {
+  type ExpansionPiece,
   type Ruleset,
   BASE_RULESET,
+  EXPANSION_PIECES,
   LADYBUG_RULESET,
   MOSQUITO_RULESET,
   PILLBUG_RULESET,
   IllegalRulesetError,
+  isExpansionPiece,
+  rulesetFor,
   rulesetPieceTypes,
 } from './ruleset.js';
 export { replayFrames } from './replay.js';

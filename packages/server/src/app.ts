@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import { IllegalRulesetError } from '@termitary/engine';
-import type { AuthProvidersDto } from '@termitary/protocol';
+import type { AuthProvidersDto, PostSeekResponseDto } from '@termitary/protocol';
 import Fastify, {
   type FastifyInstance,
   type FastifyReply,
@@ -15,20 +15,25 @@ import { registerAuth } from './adapters/auth/fastify.js';
 import { type DbHandle, createDb } from './adapters/db/client.js';
 import { createDrizzleArchivedGameStore } from './adapters/drizzle-archived-game-store.js';
 import { createDrizzleRoomStore } from './adapters/drizzle-room-store.js';
+import { createDrizzleSeekStore } from './adapters/drizzle-seek-store.js';
 import { createDrizzleUserStore } from './adapters/drizzle-user-store.js';
 import { createInMemoryConnectionRegistry } from './adapters/in-memory-connection-registry.js';
 import type { Identity } from './domain/identity.js';
 import type { Ports } from './domain/ports.js';
 import { env } from './env.js';
 import { type CancelRoomResult, cancelRoom } from './usecases/cancel-room.js';
+import { type CancelSeekResult, cancelSeek } from './usecases/cancel-seek.js';
 import { CreateRoomBodySchema, coinFlip, createRoom } from './usecases/create-room.js';
 import { getArchivedGame } from './usecases/get-archived-game.js';
 import { getProfile } from './usecases/get-profile.js';
 import { listMyRooms } from './usecases/list-my-rooms.js';
 import { ArchivedGamesQuerySchema, listPlayerGames } from './usecases/list-player-games.js';
 import { listRooms } from './usecases/list-rooms.js';
+import { listSeeks, toSeekDto } from './usecases/list-seeks.js';
+import { PostSeekBodySchema, postSeek } from './usecases/post-seek.js';
 import { RenameProfileBodySchema, renameProfile } from './usecases/rename-profile.js';
 import { type SweepPorts, sweepAbandonedRooms } from './usecases/sweep-abandoned-rooms.js';
+import { type SeekSweepPorts, sweepExpiredSeeks } from './usecases/sweep-expired-seeks.js';
 import { handleConnection } from './ws/connection.js';
 import { type IdentityExtractor, createIdentityExtractor } from './ws/identity.js';
 
@@ -62,6 +67,7 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
 
   const dbHandle = options.db ?? createDb(env.databaseUrl);
   const rooms = createDrizzleRoomStore(dbHandle.db);
+  const seeks = createDrizzleSeekStore(dbHandle.db);
   const connections = createInMemoryConnectionRegistry();
   const archive = createDrizzleArchivedGameStore(dbHandle.db);
   const users = createDrizzleUserStore(dbHandle.db);
@@ -71,15 +77,11 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
   const extractIdentity = createIdentityExtractor(auth);
   // app.log is the Logger port's adapter: pino when index.ts injects one,
   // and Fastify's no-op logger otherwise, which is what keeps tests quiet.
-  const ports: Ports = { rooms, connections, archive, users, log: app.log };
+  const ports: Ports = { rooms, seeks, connections, archive, users, log: app.log };
 
   app.decorateRequest('identity', null);
 
-  const sweepTimer = startRoomSweep(
-    app,
-    ports,
-    options.roomSweepIntervalMs ?? env.roomSweepIntervalMs,
-  );
+  const sweepTimer = startSweep(app, ports, options.roomSweepIntervalMs ?? env.roomSweepIntervalMs);
 
   app.addHook('onClose', async () => {
     if (sweepTimer !== undefined) clearInterval(sweepTimer);
@@ -128,6 +130,32 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
     async (req, reply) => {
       const outcome = await cancelRoom(requireIdentity(req), req.params.id, rooms);
       return reply.code(CANCEL_ROOM_STATUS[outcome]).send();
+    },
+  );
+  app.get('/api/seeks', { preHandler: gate }, async (req) =>
+    listSeeks(requireIdentity(req), seeks),
+  );
+  app.post('/api/seeks', { preHandler: gate }, async (req, reply) => {
+    // A body-less post is the default seek, which is the Play button's call.
+    const body = PostSeekBodySchema.safeParse(req.body ?? {});
+    if (!body.success) return reply.code(400).send({ error: 'invalid-body' });
+
+    const result = await postSeek(requireIdentity(req), body.data, ports);
+    switch (result.outcome) {
+      case 'paired':
+        return { outcome: 'paired', roomId: result.roomId } satisfies PostSeekResponseDto;
+      case 'waiting':
+        return { outcome: 'waiting', seek: toSeekDto(result.seek) } satisfies PostSeekResponseDto;
+      default:
+        return reply.code(409).send({ error: POST_SEEK_ERROR[result.outcome] });
+    }
+  });
+  app.delete<{ Params: { id: string } }>(
+    '/api/seeks/:id',
+    { preHandler: gate },
+    async (req, reply) => {
+      const outcome = await cancelSeek(requireIdentity(req), req.params.id, seeks);
+      return reply.code(CANCEL_SEEK_STATUS[outcome]).send();
     },
   );
   app.patch('/api/profile', { preHandler: gate }, async (req, reply) => {
@@ -248,17 +276,39 @@ const CANCEL_ROOM_STATUS: Record<CancelRoomResult, number> = {
   forbidden: 403,
 };
 
-const sweepAndLog = (app: FastifyInstance, ports: SweepPorts): void => {
+const CANCEL_SEEK_STATUS: Record<CancelSeekResult, number> = {
+  cancelled: 204,
+  'not-found': 404,
+  forbidden: 403,
+};
+
+// Every refusal here is a race the caller lost or a limit they hit, not a
+// malformed request, so they share 409 and differ by code.
+const POST_SEEK_ERROR = {
+  'at-limit': 'seek-limit',
+  gone: 'seek-gone',
+  incompatible: 'seek-incompatible',
+  'own-seek': 'seek-own',
+} as const;
+
+// Two sweeps on one timer. A seek has nothing to archive and no state to
+// parse, so it needs no interval of its own and no second env variable.
+const sweepAndLog = (app: FastifyInstance, ports: SweepPorts & SeekSweepPorts): void => {
   void sweepAbandonedRooms(ports)
     .then((removed) => {
       if (removed > 0) app.log.info({ removed }, 'swept abandoned rooms');
     })
     .catch((err: unknown) => app.log.error({ err }, 'room sweep failed'));
+  void sweepExpiredSeeks(ports)
+    .then((removed) => {
+      if (removed > 0) app.log.info({ removed }, 'swept expired seeks');
+    })
+    .catch((err: unknown) => app.log.error({ err }, 'seek sweep failed'));
 };
 
-const startRoomSweep = (
+const startSweep = (
   app: FastifyInstance,
-  ports: SweepPorts,
+  ports: SweepPorts & SeekSweepPorts,
   intervalMs: number,
 ): NodeJS.Timeout | undefined => {
   if (intervalMs <= 0) return undefined;

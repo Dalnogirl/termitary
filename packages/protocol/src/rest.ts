@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { SeekPreference } from './seek-preference.js';
 import type { WireGameState, WireRuleset } from './wire.js';
 
 // REST bodies. Responses are plain types: both sides import the same
@@ -37,6 +38,36 @@ export type MyRoomSummaryDto = {
   readonly updatedAt: number;
   readonly ruleset: WireRuleset;
 };
+
+// An offer to play that nobody has taken yet. No seeker name: the board shows
+// terms and age, so a listing joins nothing.
+export type SeekDto = {
+  readonly seekId: string;
+  readonly preference: SeekPreference;
+  /** Epoch milliseconds, rendered as an age. */
+  readonly createdAt: number;
+};
+
+// Split rather than flagged, because the lobby gives your own seek a cancel
+// action and everyone else's a click that pairs.
+export type SeekBoardDto = {
+  readonly mine: readonly SeekDto[];
+  readonly pool: readonly SeekDto[];
+};
+
+/** The server parses it with `PostSeekBodySchema`. */
+export type PostSeekRequestDto = {
+  /** Absent is the default seek, which pairs with anything. */
+  readonly preference?: SeekPreference;
+  /** Set to take one listed seek instead of matching against the pool. */
+  readonly seekId?: string;
+};
+
+// Posting a seek either gets you a game or puts you on the board. The client
+// has one call and two answers, not a create followed by a poll.
+export type PostSeekResponseDto =
+  | { readonly outcome: 'paired'; readonly roomId: string }
+  | { readonly outcome: 'waiting'; readonly seek: SeekDto };
 
 // A keyset page. `nextCursor` is the cursor for the page after this one, and
 // is absent on the last page; it is opaque, and only ever handed back as-is.

@@ -1,4 +1,4 @@
-import type { WireGameState, WireRuleset } from '@termitary/protocol';
+import type { SeekPreference, WireGameState, WireRuleset } from '@termitary/protocol';
 import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { user } from './auth-schema.js';
 
@@ -63,6 +63,37 @@ export const rooms = sqliteTable(
 );
 
 export type RoomRow = typeof rooms.$inferSelect;
+
+// Five columns and no game. Cascade rather than set null: a seek whose seeker
+// is gone can never pair, where a room with an empty seat is still a game the
+// opponent can return to.
+export const seeks = sqliteTable(
+  'seeks',
+  {
+    id: text('id').primaryKey(),
+    seekerUserId: text('seeker_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // One key per expansion the seeker had an opinion about. An absent key is
+    // "either", so a row written before a new expansion existed reads as
+    // accepting it, and no migration rewrites stored preferences.
+    preference: text('preference', { mode: 'json' }).$type<SeekPreference>().notNull(),
+    visibility: text('visibility', { enum: ['pool', 'private'] }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  // `created_at` sits directly behind `visibility` so the index serves the
+  // ordering every pool read asks for. The expiry filter is deliberately not
+  // in it: a range column ahead of the sort key would cost the ordering, and
+  // matching reads the whole pool anyway, since compatibility is a predicate
+  // in TypeScript rather than SQL.
+  (table) => [
+    index('seeks_seeker_idx').on(table.seekerUserId),
+    index('seeks_pool_idx').on(table.visibility, table.createdAt),
+  ],
+);
+
+export type SeekRow = typeof seeks.$inferSelect;
 
 // Rooms are wiped within a day, so their version column never has to mean
 // anything. These rows are permanent and WireGameStateSchema is strict, so a

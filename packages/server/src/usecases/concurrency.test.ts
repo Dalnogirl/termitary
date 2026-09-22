@@ -22,8 +22,8 @@ type Inbox = { messages: ServerMessage[] };
 
 const setup = () => {
   const connections = createInMemoryConnectionRegistry();
-  const { rooms, archive, users, log } = createTestStores(PLAYERS);
-  const ports: Ports = { rooms, connections, archive, users, log };
+  const { rooms, seeks, archive, users, log } = createTestStores(PLAYERS);
+  const ports: Ports = { rooms, seeks, connections, archive, users, log };
   const connect = (playerId: string): Inbox => {
     const inbox: Inbox = { messages: [] };
     const sender: Sender = async (msg) => {
