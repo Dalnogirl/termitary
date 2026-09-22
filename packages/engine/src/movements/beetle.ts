@@ -1,8 +1,8 @@
 import { remove, stackAt } from '../board.js';
 import { neighbors } from '../hex.js';
 import { canSlide } from '../occupancy.js';
-import type { MovementFn } from './index.js';
-import { hasOccupiedNeighbor } from './utils.js';
+import type { MovementFn, RouteFn } from './index.js';
+import { hasOccupiedNeighbor, oneStepRoute } from './utils.js';
 
 export const beetleMovement: MovementFn = (from, board) => {
   const fromHeight = stackAt(board, from).length;
@@ -23,3 +23,10 @@ export const beetleMovement: MovementFn = (from, board) => {
     return sourceWasGround ? canSlide(transit, from, n) : true;
   });
 };
+
+/**
+ * Only the step along the ground. Climbing a neighbour or coming down off one
+ * crosses no gate, so there is nothing for a route to show; `oneStepRoute`
+ * returns null for both, since `slideStep` wants an empty cell.
+ */
+export const beetleRoute: RouteFn = oneStepRoute;

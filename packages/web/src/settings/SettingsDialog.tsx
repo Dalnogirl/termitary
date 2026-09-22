@@ -14,7 +14,7 @@ import type { ReactNode } from 'react';
 import { PieceMark } from '../board/PieceMark.js';
 import { PIECE_SETS, PIECE_SET_IDS, type PieceSet } from '../board/piece-sets.js';
 import type { PieceHue } from '../board/pieces.js';
-import { usePrefsStore } from '../store/prefs.js';
+import { type Animation, resolveAnimation, usePrefsStore } from '../store/prefs.js';
 
 const PREVIEW: readonly PieceType[] = [
   'queen',
@@ -60,7 +60,7 @@ type OptionProps = {
   readonly note: string;
   readonly selected: boolean;
   readonly onSelect: () => void;
-  readonly children: ReactNode;
+  readonly children?: ReactNode;
 };
 
 const Option = ({ group, name, note, selected, onSelect, children }: OptionProps) => (
@@ -79,6 +79,42 @@ const Option = ({ group, name, note, selected, onSelect, children }: OptionProps
     <span className="text-xs text-muted-foreground">{note}</span>
   </label>
 );
+
+const ANIMATIONS: readonly {
+  readonly id: Animation;
+  readonly name: string;
+  readonly note: string;
+}[] = [
+  {
+    id: 'on',
+    name: 'On',
+    note: 'A moving piece walks its real route, cell by cell. A jumping piece flies.',
+  },
+  { id: 'off', name: 'Off', note: 'Pieces appear where they land, with nothing in between.' },
+];
+
+const AnimationSection = () => {
+  const animation = resolveAnimation(usePrefsStore((s) => s.animation));
+  const setAnimation = usePrefsStore((s) => s.setAnimation);
+
+  return (
+    <fieldset className="grid gap-2 border-0 p-0 m-0">
+      <legend className="text-xs uppercase tracking-[0.12em] text-muted-foreground mb-2">
+        Motion
+      </legend>
+      {ANIMATIONS.map(({ id, name, note }) => (
+        <Option
+          key={id}
+          group="animation"
+          name={name}
+          note={note}
+          selected={animation === id}
+          onSelect={() => setAnimation(id)}
+        />
+      ))}
+    </fieldset>
+  );
+};
 
 const PieceSetSection = () => {
   const pieceSet = usePrefsStore((s) => s.pieceSet);
@@ -166,11 +202,12 @@ export const SettingsDialog = () => (
     <DialogContent>
       <DialogHeader>
         <DialogTitle>Settings</DialogTitle>
-        <DialogDescription>How pieces are drawn, everywhere they appear.</DialogDescription>
+        <DialogDescription>How pieces are drawn, and how they move.</DialogDescription>
       </DialogHeader>
       <div className="grid gap-5">
         <PieceSetSection />
         <PieceHueSection />
+        <AnimationSection />
       </div>
     </DialogContent>
   </Dialog>
