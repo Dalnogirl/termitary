@@ -29,4 +29,5 @@ export {
   rulesetFor,
   rulesetPieceTypes,
 } from './ruleset.js';
+export { slidePath } from './movements/slide-path.js';
 export { replayFrames } from './replay.js';
