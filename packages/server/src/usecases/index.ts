@@ -28,3 +28,14 @@ export {
   renameProfile,
 } from './rename-profile.js';
 export { resign } from './resign.js';
+export { cancelSeek, type CancelSeekResult } from './cancel-seek.js';
+export { listSeeks, toSeekDto } from './list-seeks.js';
+export {
+  PostSeekBodySchema,
+  type PairingDeps,
+  type PostSeekBody,
+  type PostSeekResult,
+  type SeekPorts,
+  postSeek,
+} from './post-seek.js';
+export { type SeekSweepPorts, sweepExpiredSeeks } from './sweep-expired-seeks.js';

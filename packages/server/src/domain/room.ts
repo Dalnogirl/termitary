@@ -37,6 +37,23 @@ export const createRoom = (
   updatedAt: now,
 });
 
+// Both seats filled from the start, which is what pairing produces: there is
+// no window where the room exists and one side is empty.
+export const createPairedRoom = (
+  id: string,
+  white: Identity,
+  black: Identity,
+  now: Date,
+  ruleset: Ruleset = BASE_RULESET,
+): Room => ({
+  id,
+  ruleset,
+  state: createGame(ruleset),
+  players: { white, black },
+  createdAt: now,
+  updatedAt: now,
+});
+
 // Stores write `updatedAt` as given, so anything that should move a room in
 // the lobby ordering or out of the sweep's reach has to say so here.
 export const touch = (room: Room, now: Date): Room => ({ ...room, updatedAt: now });

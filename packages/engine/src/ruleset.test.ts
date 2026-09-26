@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { applyMove, createGame, listValidMoves } from './coordinator.js';
 import {
   BASE_RULESET,
+  EXPANSION_PIECES,
   IllegalRulesetError,
   LADYBUG_RULESET,
   MOSQUITO_RULESET,
   type Ruleset,
+  isExpansionPiece,
+  rulesetFor,
 } from './ruleset.js';
 
 const without = (type: 'spider' | 'ant'): Ruleset => {
@@ -108,5 +111,37 @@ describe('the mosquito expansion', () => {
   it('offers the mosquito as an opening placement', () => {
     const opening = listValidMoves(createGame(MOSQUITO_RULESET));
     expect(opening.some((m) => m.kind === 'place' && m.piece.type === 'mosquito')).toBe(true);
+  });
+});
+
+describe('rulesetFor', () => {
+  it('is base when nothing is picked', () => {
+    expect(rulesetFor([])).toEqual({ pieces: { ...BASE_RULESET.pieces } });
+  });
+
+  it('deals one of each picked piece alongside the base set', () => {
+    expect(rulesetFor(['ladybug', 'mosquito'])).toEqual({
+      pieces: { ...BASE_RULESET.pieces, ladybug: 1, mosquito: 1 },
+    });
+  });
+
+  it('deals exactly one of a piece picked on its own', () => {
+    for (const piece of EXPANSION_PIECES) {
+      expect(rulesetFor([piece]).pieces[piece]).toBe(1);
+    }
+  });
+
+  it('deals every expansion when all are picked', () => {
+    expect(rulesetFor(EXPANSION_PIECES)).toEqual({
+      pieces: { ...BASE_RULESET.pieces, ladybug: 1, mosquito: 1, pillbug: 1 },
+    });
+  });
+});
+
+describe('isExpansionPiece', () => {
+  it('accepts every expansion and nothing else', () => {
+    for (const piece of EXPANSION_PIECES) expect(isExpansionPiece(piece)).toBe(true);
+    expect(isExpansionPiece('queen')).toBe(false);
+    expect(isExpansionPiece('')).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
-import type { WireGameState, WireRuleset } from '@termitary/protocol';
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import type { SeekPreference, WireGameState, WireRuleset } from '@termitary/protocol';
+import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { user } from './auth-schema.js';
 
 // Hand-written game tables. `auth-schema.ts` is CLI output and gets rewritten
@@ -63,6 +63,41 @@ export const rooms = sqliteTable(
 );
 
 export type RoomRow = typeof rooms.$inferSelect;
+
+// Five columns and no game. Cascade rather than set null: a seek whose seeker
+// is gone can never pair, where a room with an empty seat is still a game the
+// opponent can return to.
+export const seeks = sqliteTable(
+  'seeks',
+  {
+    id: text('id').primaryKey(),
+    seekerUserId: text('seeker_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // One key per expansion the seeker had an opinion about. An absent key is
+    // "either", so a row written before a new expansion existed reads as
+    // accepting it, and no migration rewrites stored preferences.
+    preference: text('preference', { mode: 'json' }).$type<SeekPreference>().notNull(),
+    visibility: text('visibility', { enum: ['pool', 'private'] }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  // One seek per player, enforced here rather than counted in the use case:
+  // a count read before an insert is a race, and this is the one guarantee
+  // the feature cannot be left to lose.
+  //
+  // `created_at` sits directly behind `visibility` in the pool index so it
+  // serves the ordering every pool read asks for. The expiry filter is
+  // deliberately not in it: a range column ahead of the sort key would cost
+  // the ordering, and matching reads the whole pool anyway, since
+  // compatibility is a predicate in TypeScript rather than SQL.
+  (table) => [
+    uniqueIndex('seeks_seeker_idx').on(table.seekerUserId),
+    index('seeks_pool_idx').on(table.visibility, table.createdAt),
+  ],
+);
+
+export type SeekRow = typeof seeks.$inferSelect;
 
 // Rooms are wiped within a day, so their version column never has to mean
 // anything. These rows are permanent and WireGameStateSchema is strict, so a

@@ -1,11 +1,17 @@
-import { BASE_RULESET } from '@termitary/engine';
+import { BASE_RULESET, rulesetFor } from '@termitary/engine';
 import type {
   ArchivedGameDetailDto,
   ArchivedGameSummaryDto,
+  MyRoomSummaryDto,
   Page,
+  PostSeekRequestDto,
+  PostSeekResponseDto,
   ProfileDto,
+  SeekBoardDto,
 } from '@termitary/protocol';
+import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { seeks as seeksTable } from './adapters/db/schema.js';
 import { createDrizzleArchivedGameStore } from './adapters/drizzle-archived-game-store.js';
 import { toArchivedGame } from './domain/archived-game.js';
 import { isFinished, createRoom as newRoom, seatPlayer, touch } from './domain/room.js';
@@ -639,6 +645,292 @@ describe('REST routes', () => {
       it('returns 401 without an auth cookie', async () => {
         const res = await ctx.app.inject({ method: 'GET', url: '/api/archived-games/r1' });
         expect(res.statusCode).toBe(401);
+      });
+    });
+  });
+
+  describe('seek routes', () => {
+    const postSeek = (cookie: string, payload?: PostSeekRequestDto) =>
+      ctx.app.inject({
+        method: 'POST',
+        url: '/api/seeks',
+        headers: { cookie },
+        payload: payload ?? {},
+      });
+
+    const board = async (cookie: string) => {
+      const res = await ctx.app.inject({ method: 'GET', url: '/api/seeks', headers: { cookie } });
+      expect(res.statusCode).toBe(200);
+      return res.json() as SeekBoardDto;
+    };
+
+    const myRooms = async (cookie: string) => {
+      const res = await ctx.app.inject({
+        method: 'GET',
+        url: '/api/rooms/mine',
+        headers: { cookie },
+      });
+      return res.json() as MyRoomSummaryDto[];
+    };
+
+    describe('POST /seeks', () => {
+      it('stands a seek on the board when nothing fits', async () => {
+        const { cookie } = await ctx.signIn('alice@test.dev');
+        const res = await postSeek(cookie);
+
+        expect(res.statusCode).toBe(200);
+        const body = res.json() as PostSeekResponseDto;
+        expect(body.outcome).toBe('waiting');
+        expect((await board(cookie)).mine).not.toBeNull();
+      });
+
+      it('takes `{}` as the default seek, which is the Play button payload', async () => {
+        const { cookie } = await ctx.signIn('alice@test.dev');
+        const res = await postSeek(cookie, {});
+
+        expect(res.statusCode).toBe(200);
+        expect((await board(cookie)).mine?.preference).toEqual({});
+      });
+
+      // A body is required, as it is on /api/rooms. Fastify refuses an empty
+      // one before the handler runs, so a route that read it as a default
+      // would never get the chance.
+      it('refuses a post with no body at all', async () => {
+        const { cookie } = await ctx.signIn('alice@test.dev');
+        for (const headers of [{ cookie }, { cookie, 'content-type': 'application/json' }]) {
+          const res = await ctx.app.inject({ method: 'POST', url: '/api/seeks', headers });
+          expect(res.statusCode).toBe(400);
+        }
+        expect((await board(cookie)).mine).toBeNull();
+      });
+
+      it('pairs the second player and seats them both', async () => {
+        const alice = await ctx.signIn('alice@test.dev');
+        const bob = await ctx.signIn('bob@test.dev');
+        await postSeek(alice.cookie);
+
+        const body = (await postSeek(bob.cookie)).json() as PostSeekResponseDto;
+
+        expect(body.outcome).toBe('paired');
+        const roomId = body.outcome === 'paired' ? body.roomId : '';
+        expect((await myRooms(alice.cookie)).map((room) => room.roomId)).toEqual([roomId]);
+        expect((await myRooms(bob.cookie)).map((room) => room.roomId)).toEqual([roomId]);
+        // The seek is spent, so the board both players see is empty again.
+        expect(await board(alice.cookie)).toEqual({ mine: null, pool: [] });
+      });
+
+      it('gives the pair every piece either side required', async () => {
+        const alice = await ctx.signIn('alice@test.dev');
+        const bob = await ctx.signIn('bob@test.dev');
+        await postSeek(alice.cookie, { preference: { pillbug: 'require' } });
+        await postSeek(bob.cookie, { preference: { ladybug: 'require' } });
+
+        expect((await myRooms(alice.cookie))[0]?.ruleset).toEqual(
+          rulesetFor(['ladybug', 'pillbug']),
+        );
+      });
+
+      it('leaves both waiting when the terms clash', async () => {
+        const alice = await ctx.signIn('alice@test.dev');
+        const bob = await ctx.signIn('bob@test.dev');
+        await postSeek(alice.cookie, { preference: { pillbug: 'require' } });
+
+        const body = (
+          await postSeek(bob.cookie, { preference: { pillbug: 'exclude' } })
+        ).json() as PostSeekResponseDto;
+
+        expect(body.outcome).toBe('waiting');
+        expect((await board(bob.cookie)).pool).toHaveLength(1);
+      });
+
+      it('pairs with one listed seek by id', async () => {
+        const alice = await ctx.signIn('alice@test.dev');
+        const bob = await ctx.signIn('bob@test.dev');
+        await postSeek(alice.cookie, { preference: { pillbug: 'require' } });
+        const [listed] = (await board(bob.cookie)).pool;
+
+        const body = (
+          await postSeek(bob.cookie, { seekId: listed?.seekId ?? '' })
+        ).json() as PostSeekResponseDto;
+
+        expect(body.outcome).toBe('paired');
+        expect((await myRooms(bob.cookie))[0]?.ruleset).toEqual(rulesetFor(['pillbug']));
+      });
+
+      it('refuses your own seek', async () => {
+        const { cookie } = await ctx.signIn('alice@test.dev');
+        const body = (await postSeek(cookie)).json() as PostSeekResponseDto;
+        const seekId = body.outcome === 'waiting' ? body.seek.seekId : '';
+
+        const res = await postSeek(cookie, { seekId });
+        expect(res.statusCode).toBe(409);
+        expect(res.json()).toEqual({ error: 'seek-own' });
+      });
+
+      it('refuses a seek someone else already took', async () => {
+        const alice = await ctx.signIn('alice@test.dev');
+        const bob = await ctx.signIn('bob@test.dev');
+        const carol = await ctx.signIn('carol@test.dev');
+        const posted = (await postSeek(alice.cookie)).json() as PostSeekResponseDto;
+        const seekId = posted.outcome === 'waiting' ? posted.seek.seekId : '';
+        await postSeek(bob.cookie, { seekId });
+
+        const res = await postSeek(carol.cookie, { seekId });
+        expect(res.statusCode).toBe(409);
+        expect(res.json()).toEqual({ error: 'seek-gone' });
+      });
+
+      it('refuses terms the taker will not play', async () => {
+        const alice = await ctx.signIn('alice@test.dev');
+        const bob = await ctx.signIn('bob@test.dev');
+        const posted = (
+          await postSeek(alice.cookie, { preference: { pillbug: 'require' } })
+        ).json() as PostSeekResponseDto;
+        const seekId = posted.outcome === 'waiting' ? posted.seek.seekId : '';
+
+        const res = await postSeek(bob.cookie, {
+          seekId,
+          preference: { pillbug: 'exclude' },
+        });
+        expect(res.statusCode).toBe(409);
+        expect(res.json()).toEqual({ error: 'seek-incompatible' });
+      });
+
+      it('leaves one seek on the board however many times you post', async () => {
+        const { cookie } = await ctx.signIn('alice@test.dev');
+        for (const preference of [{ ladybug: 'require' }, { pillbug: 'require' }, {}] as const) {
+          expect((await postSeek(cookie, { preference })).statusCode).toBe(200);
+        }
+
+        expect((await board(cookie)).mine?.preference).toEqual({});
+      });
+
+      it('rejects a preference the picker cannot produce', async () => {
+        const { cookie } = await ctx.signIn('alice@test.dev');
+        const res = await postSeek(cookie, {
+          preference: { ladybug: 'maybe' },
+        } as unknown as PostSeekRequestDto);
+
+        expect(res.statusCode).toBe(400);
+        expect(res.json()).toEqual({ error: 'invalid-body' });
+      });
+
+      it('returns 401 without an auth cookie', async () => {
+        const res = await ctx.app.inject({ method: 'POST', url: '/api/seeks' });
+        expect(res.statusCode).toBe(401);
+      });
+    });
+
+    describe('GET /seeks', () => {
+      it('splits your own seeks from the ones you can take', async () => {
+        const alice = await ctx.signIn('alice@test.dev');
+        const bob = await ctx.signIn('bob@test.dev');
+        await postSeek(alice.cookie, { preference: { pillbug: 'require' } });
+        await postSeek(bob.cookie, { preference: { pillbug: 'exclude' } });
+
+        const seen = await board(alice.cookie);
+        expect(seen.mine?.preference).toEqual({ pillbug: 'require' });
+        expect(seen.pool.map((seek) => seek.preference)).toEqual([{ pillbug: 'exclude' }]);
+      });
+
+      it('returns 401 without an auth cookie', async () => {
+        const res = await ctx.app.inject({ method: 'GET', url: '/api/seeks' });
+        expect(res.statusCode).toBe(401);
+      });
+    });
+
+    describe('DELETE /seeks/:id', () => {
+      it('takes your seek off the board', async () => {
+        const { cookie } = await ctx.signIn('alice@test.dev');
+        const posted = (await postSeek(cookie)).json() as PostSeekResponseDto;
+        const seekId = posted.outcome === 'waiting' ? posted.seek.seekId : '';
+
+        const res = await ctx.app.inject({
+          method: 'DELETE',
+          url: `/api/seeks/${seekId}`,
+          headers: { cookie },
+        });
+
+        expect(res.statusCode).toBe(204);
+        expect((await board(cookie)).mine).toBeNull();
+      });
+
+      it('refuses to cancel a seek that is not yours', async () => {
+        const alice = await ctx.signIn('alice@test.dev');
+        const bob = await ctx.signIn('bob@test.dev');
+        const posted = (await postSeek(alice.cookie)).json() as PostSeekResponseDto;
+        const seekId = posted.outcome === 'waiting' ? posted.seek.seekId : '';
+
+        const res = await ctx.app.inject({
+          method: 'DELETE',
+          url: `/api/seeks/${seekId}`,
+          headers: { cookie: bob.cookie },
+        });
+
+        expect(res.statusCode).toBe(403);
+        expect((await board(bob.cookie)).pool).toHaveLength(1);
+      });
+
+      it('answers 404 to a seek that does not exist', async () => {
+        const { cookie } = await ctx.signIn('alice@test.dev');
+        const res = await ctx.app.inject({
+          method: 'DELETE',
+          url: '/api/seeks/nope',
+          headers: { cookie },
+        });
+        expect(res.statusCode).toBe(404);
+      });
+
+      it('returns 401 without an auth cookie', async () => {
+        const res = await ctx.app.inject({ method: 'DELETE', url: '/api/seeks/nope' });
+        expect(res.statusCode).toBe(401);
+      });
+    });
+
+    // What a rollback to a server that predates an expansion leaves behind.
+    // Every route has to answer rather than fault, because the owner cannot
+    // see the row to cancel it and the taker did nothing wrong.
+    describe('a stored preference nothing can parse', () => {
+      const cornerCase = async () => {
+        const alice = await ctx.signIn('alice@test.dev');
+        const bob = await ctx.signIn('bob@test.dev');
+        const posted = (await postSeek(alice.cookie)).json() as PostSeekResponseDto;
+        const seekId = posted.outcome === 'waiting' ? posted.seek.seekId : '';
+        ctx.db.db
+          .update(seeksTable)
+          .set({ preference: { ladybug: 'maybe' } as never })
+          .where(eq(seeksTable.id, seekId))
+          .run();
+        return { alice, bob, seekId };
+      };
+
+      // The row still holds the unique index, so the owner has to be able to
+      // post over a seek they cannot see.
+      it('leaves the board empty and still lets its owner seek', async () => {
+        const { alice } = await cornerCase();
+
+        expect(await board(alice.cookie)).toEqual({ mine: null, pool: [] });
+        expect((await postSeek(alice.cookie)).statusCode).toBe(200);
+        expect((await board(alice.cookie)).mine).not.toBeNull();
+      });
+
+      it('answers a take with seek-gone instead of faulting', async () => {
+        const { bob, seekId } = await cornerCase();
+
+        const res = await postSeek(bob.cookie, { seekId });
+        expect(res.statusCode).toBe(409);
+        expect(res.json()).toEqual({ error: 'seek-gone' });
+      });
+
+      it('answers a cancel with 404 instead of faulting', async () => {
+        const { alice, seekId } = await cornerCase();
+
+        const res = await ctx.app.inject({
+          method: 'DELETE',
+          url: `/api/seeks/${seekId}`,
+          headers: { cookie: alice.cookie },
+        });
+        expect(res.statusCode).toBe(404);
       });
     });
   });

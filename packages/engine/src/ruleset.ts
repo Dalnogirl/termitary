@@ -9,7 +9,7 @@ export const BASE_RULESET: Ruleset = {
 };
 
 // An expansion piece is one entry on top of the base set, which is what lets
-// the web's picker merge several of them over base.
+// `rulesetFor` merge several of them over base.
 export const LADYBUG_RULESET: Ruleset = {
   pieces: { ...BASE_RULESET.pieces, ladybug: 1 },
 };
@@ -20,6 +20,24 @@ export const MOSQUITO_RULESET: Ruleset = {
 
 export const PILLBUG_RULESET: Ruleset = {
   pieces: { ...BASE_RULESET.pieces, pillbug: 1 },
+};
+
+export const EXPANSION_PIECES = ['ladybug', 'mosquito', 'pillbug'] as const;
+export type ExpansionPiece = (typeof EXPANSION_PIECES)[number];
+
+export const isExpansionPiece = (value: string): value is ExpansionPiece =>
+  (EXPANSION_PIECES as readonly string[]).includes(value);
+
+const EXPANSION_RULESETS: Readonly<Record<ExpansionPiece, Ruleset>> = {
+  ladybug: LADYBUG_RULESET,
+  mosquito: MOSQUITO_RULESET,
+  pillbug: PILLBUG_RULESET,
+};
+
+export const rulesetFor = (picked: readonly ExpansionPiece[]): Ruleset => {
+  const pieces: Partial<Record<PieceType, number>> = { ...BASE_RULESET.pieces };
+  for (const piece of picked) Object.assign(pieces, EXPANSION_RULESETS[piece].pieces);
+  return { pieces };
 };
 
 export class IllegalRulesetError extends Error {
