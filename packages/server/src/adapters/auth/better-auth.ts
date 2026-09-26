@@ -33,6 +33,7 @@ export const createAuth = (
     database: drizzleAdapter(db, { provider: 'sqlite', schema: authSchema }),
     secret: env.authSecret,
     baseURL: env.authBaseUrl,
+    trustedOrigins: [...env.trustedOrigins],
     emailAndPassword: { enabled: false },
     // The display name is ours, not better-auth's: whatever it writes to
     // `user.name` we never read.
