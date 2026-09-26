@@ -24,6 +24,9 @@ const stackedCell = (() => {
 })();
 
 const openRoom = async (page: Page): Promise<string> => {
+  // Home keeps the create dialog until #125; the lobby only seeks. A fixed
+  // seat is the point here, since the script needs white to move first.
+  await page.goto('/');
   await page.getByRole('button', { name: 'Create new game' }).click();
   await page.locator('label', { has: page.getByRole('radio', { name: /White/ }) }).click();
   await page.getByRole('button', { name: 'Create game' }).click();

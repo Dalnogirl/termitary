@@ -10,6 +10,8 @@ const ORIGIN = { q: 0, r: 0 };
 test('signs in, opens a room and places a piece by clicking the canvas', async ({ page }) => {
   await signIn(page, `smoke-${Date.now()}@test.dev`);
 
+  // Home keeps the create dialog until #125; the lobby only seeks.
+  await page.goto('/');
   await page.getByRole('button', { name: 'Create new game' }).click();
   // The radio is sr-only under its glyph, so the label is what a player hits.
   await page.locator('label', { has: page.getByRole('radio', { name: /White/ }) }).click();
