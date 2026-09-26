@@ -1,4 +1,4 @@
-import { BASE_RULESET, rulesetFor } from '@termitary/engine';
+import { rulesetFor } from '@termitary/engine';
 import type {
   ArchivedGameDetailDto,
   ArchivedGameSummaryDto,
@@ -14,10 +14,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { seeks as seeksTable } from './adapters/db/schema.js';
 import { createDrizzleArchivedGameStore } from './adapters/drizzle-archived-game-store.js';
 import { toArchivedGame } from './domain/archived-game.js';
-import { isFinished, createRoom as newRoom, seatPlayer, touch } from './domain/room.js';
+import { createPairedRoom, isFinished, touch } from './domain/room.js';
 import { type TestApp, createTestApp } from './testing/auth-helper.js';
-
-const BASE_WIRE = { pieces: { ...BASE_RULESET.pieces } };
 
 describe('REST routes', () => {
   let ctx: TestApp;
@@ -31,259 +29,6 @@ describe('REST routes', () => {
     ctx.db.close();
   });
 
-  describe('POST /rooms', () => {
-    it('creates a room and returns a roomId', async () => {
-      const { cookie } = await ctx.signIn('alice@test.dev');
-      const res = await ctx.app.inject({
-        method: 'POST',
-        url: '/api/rooms',
-        payload: { seat: 'white' },
-        headers: { cookie },
-      });
-      expect(res.statusCode).toBe(200);
-      const body = res.json() as { roomId: string };
-      expect(body.roomId).toMatch(/^[0-9a-f-]{36}$/);
-    });
-
-    it('returns 401 without an auth cookie', async () => {
-      const res = await ctx.app.inject({ method: 'POST', url: '/api/rooms' });
-      expect(res.statusCode).toBe(401);
-    });
-
-    it('deals the expansion pieces the body asked for, to both hands', async () => {
-      const { cookie } = await ctx.signIn('alice@test.dev');
-      const ladybug = { pieces: { ...BASE_RULESET.pieces, ladybug: 1 } };
-      const created = await ctx.app.inject({
-        method: 'POST',
-        url: '/api/rooms',
-        payload: { seat: 'white', ruleset: ladybug },
-        headers: { cookie },
-      });
-      expect(created.statusCode).toBe(200);
-      const { roomId } = created.json() as { roomId: string };
-
-      const mine = await ctx.app.inject({
-        method: 'GET',
-        url: '/api/rooms/mine',
-        headers: { cookie },
-      });
-      expect(mine.json()).toEqual([
-        { roomId, seat: 'white', playerCount: 1, updatedAt: expect.any(Number), ruleset: ladybug },
-      ]);
-    });
-
-    it('rejects a piece type it does not know rather than creating the room', async () => {
-      const { cookie } = await ctx.signIn('alice@test.dev');
-      const res = await ctx.app.inject({
-        method: 'POST',
-        url: '/api/rooms',
-        payload: { seat: 'white', ruleset: { pieces: { ...BASE_RULESET.pieces, wasp: 1 } } },
-        headers: { cookie },
-      });
-      expect(res.statusCode).toBe(400);
-
-      const mine = await ctx.app.inject({
-        method: 'GET',
-        url: '/api/rooms/mine',
-        headers: { cookie },
-      });
-      expect(mine.json()).toEqual([]);
-    });
-
-    it('rejects a queenless ruleset, which parses but cannot be played', async () => {
-      const { cookie } = await ctx.signIn('alice@test.dev');
-      const res = await ctx.app.inject({
-        method: 'POST',
-        url: '/api/rooms',
-        payload: { seat: 'white', ruleset: { pieces: { ant: 3 } } },
-        headers: { cookie },
-      });
-      expect(res.statusCode).toBe(400);
-      expect(res.json()).toEqual({ error: 'invalid-ruleset' });
-    });
-
-    it('seats the creator black and leaves white free', async () => {
-      const { cookie } = await ctx.signIn('alice@test.dev');
-      const created = await ctx.app.inject({
-        method: 'POST',
-        url: '/api/rooms',
-        payload: { seat: 'black' },
-        headers: { cookie },
-      });
-      expect(created.statusCode).toBe(200);
-      const { roomId } = created.json() as { roomId: string };
-
-      const mine = await ctx.app.inject({
-        method: 'GET',
-        url: '/api/rooms/mine',
-        headers: { cookie },
-      });
-      expect(mine.json()).toEqual([
-        {
-          roomId,
-          seat: 'black',
-          playerCount: 1,
-          updatedAt: expect.any(Number),
-          ruleset: BASE_WIRE,
-        },
-      ]);
-    });
-
-    it('resolves `random` to one of the two seats', async () => {
-      const { cookie } = await ctx.signIn('alice@test.dev');
-      const created = await ctx.app.inject({
-        method: 'POST',
-        url: '/api/rooms',
-        payload: { seat: 'random' },
-        headers: { cookie },
-      });
-      expect(created.statusCode).toBe(200);
-
-      const mine = await ctx.app.inject({
-        method: 'GET',
-        url: '/api/rooms/mine',
-        headers: { cookie },
-      });
-      const [room] = mine.json() as Array<{ seat: string }>;
-      expect(['white', 'black']).toContain(room?.seat);
-    });
-
-    it('rejects a missing body and a seat the schema does not know', async () => {
-      const { cookie } = await ctx.signIn('alice@test.dev');
-      for (const payload of [undefined, {}, { seat: 'green' }, { seat: null }]) {
-        const res = await ctx.app.inject({
-          method: 'POST',
-          url: '/api/rooms',
-          ...(payload === undefined ? {} : { payload }),
-          headers: { cookie },
-        });
-        expect(res.statusCode).toBe(400);
-      }
-
-      const mine = await ctx.app.inject({
-        method: 'GET',
-        url: '/api/rooms/mine',
-        headers: { cookie },
-      });
-      expect(mine.json()).toEqual([]);
-    });
-
-    it('the created room shows up in GET /rooms for everyone else', async () => {
-      const { cookie } = await ctx.signIn('alice@test.dev');
-      const created = await ctx.app.inject({
-        method: 'POST',
-        url: '/api/rooms',
-        payload: { seat: 'white' },
-        headers: { cookie },
-      });
-      const { roomId } = created.json() as { roomId: string };
-
-      const bob = await ctx.signIn('bob@test.dev');
-      const listed = await ctx.app.inject({
-        method: 'GET',
-        url: '/api/rooms',
-        headers: { cookie: bob.cookie },
-      });
-      expect(listed.statusCode).toBe(200);
-      const rooms = listed.json() as Array<{ roomId: string; playerCount: number }>;
-      expect(rooms.some((r) => r.roomId === roomId && r.playerCount === 1)).toBe(true);
-    });
-
-    it('the creator sees their own room under GET /rooms/mine, not GET /rooms', async () => {
-      const { cookie } = await ctx.signIn('alice@test.dev');
-      const created = await ctx.app.inject({
-        method: 'POST',
-        url: '/api/rooms',
-        payload: { seat: 'white' },
-        headers: { cookie },
-      });
-      const { roomId } = created.json() as { roomId: string };
-
-      const open = await ctx.app.inject({ method: 'GET', url: '/api/rooms', headers: { cookie } });
-      expect((open.json() as Array<{ roomId: string }>).map((r) => r.roomId)).not.toContain(roomId);
-
-      const mine = await ctx.app.inject({
-        method: 'GET',
-        url: '/api/rooms/mine',
-        headers: { cookie },
-      });
-      expect(mine.statusCode).toBe(200);
-      expect(mine.json()).toEqual([
-        {
-          roomId,
-          seat: 'white',
-          playerCount: 1,
-          updatedAt: expect.any(Number),
-          ruleset: BASE_WIRE,
-        },
-      ]);
-    });
-  });
-
-  describe('DELETE /rooms/:id', () => {
-    const createRoom = async (cookie: string): Promise<string> => {
-      const res = await ctx.app.inject({
-        method: 'POST',
-        url: '/api/rooms',
-        payload: { seat: 'white' },
-        headers: { cookie },
-      });
-      return (res.json() as { roomId: string }).roomId;
-    };
-
-    it('cancels a room the caller is alone in', async () => {
-      const { cookie } = await ctx.signIn('alice@test.dev');
-      const roomId = await createRoom(cookie);
-
-      const res = await ctx.app.inject({
-        method: 'DELETE',
-        url: `/api/rooms/${roomId}`,
-        headers: { cookie },
-      });
-      expect(res.statusCode).toBe(204);
-
-      const mine = await ctx.app.inject({
-        method: 'GET',
-        url: '/api/rooms/mine',
-        headers: { cookie },
-      });
-      expect(mine.json()).toEqual([]);
-    });
-
-    it('returns 403 for someone with no seat in the room', async () => {
-      const { cookie } = await ctx.signIn('alice@test.dev');
-      const roomId = await createRoom(cookie);
-      const eve = await ctx.signIn('eve@test.dev');
-
-      const res = await ctx.app.inject({
-        method: 'DELETE',
-        url: `/api/rooms/${roomId}`,
-        headers: { cookie: eve.cookie },
-      });
-      expect(res.statusCode).toBe(403);
-    });
-
-    it('returns 404 for an unknown room and 401 without an auth cookie', async () => {
-      const { cookie } = await ctx.signIn('alice@test.dev');
-      const missing = await ctx.app.inject({
-        method: 'DELETE',
-        url: '/api/rooms/nope',
-        headers: { cookie },
-      });
-      expect(missing.statusCode).toBe(404);
-
-      const anon = await ctx.app.inject({ method: 'DELETE', url: '/api/rooms/nope' });
-      expect(anon.statusCode).toBe(401);
-    });
-  });
-
-  describe('GET /rooms', () => {
-    it('returns 401 without an auth cookie', async () => {
-      const res = await ctx.app.inject({ method: 'GET', url: '/api/rooms' });
-      expect(res.statusCode).toBe(401);
-    });
-  });
-
   describe('GET /rooms/mine', () => {
     it('returns 401 without an auth cookie', async () => {
       const res = await ctx.app.inject({ method: 'GET', url: '/api/rooms/mine' });
@@ -291,19 +36,22 @@ describe('REST routes', () => {
     });
 
     it('is empty for a player seated nowhere', async () => {
-      const { cookie } = await ctx.signIn('alice@test.dev');
-      await ctx.app.inject({
-        method: 'POST',
-        url: '/api/rooms',
-        payload: { seat: 'white' },
-        headers: { cookie },
-      });
-
+      const alice = await ctx.signIn('alice@test.dev');
       const bob = await ctx.signIn('bob@test.dev');
+      for (const { cookie } of [alice, bob]) {
+        await ctx.app.inject({
+          method: 'POST',
+          url: '/api/seeks',
+          payload: {},
+          headers: { cookie },
+        });
+      }
+
+      const carol = await ctx.signIn('carol@test.dev');
       const mine = await ctx.app.inject({
         method: 'GET',
         url: '/api/rooms/mine',
-        headers: { cookie: bob.cookie },
+        headers: { cookie: carol.cookie },
       });
       expect(mine.json()).toEqual([]);
     });
@@ -321,11 +69,11 @@ describe('REST routes', () => {
         endReason?: 'queen-surrounded' | 'resignation';
       } = {},
     ): Promise<void> => {
-      const seated = seatPlayer(
-        newRoom(id, { playerId: seats.white.id }, 'white', new Date(1000)),
-        {
-          playerId: seats.black.id,
-        },
+      const seated = createPairedRoom(
+        id,
+        { playerId: seats.white.id },
+        { playerId: seats.black.id },
+        new Date(1000),
       );
       const room = touch(
         {
@@ -692,9 +440,8 @@ describe('REST routes', () => {
         expect((await board(cookie)).mine?.preference).toEqual({});
       });
 
-      // A body is required, as it is on /api/rooms. Fastify refuses an empty
-      // one before the handler runs, so a route that read it as a default
-      // would never get the chance.
+      // Fastify refuses an empty body before the handler runs, so a route that
+      // read it as a default would never get the chance.
       it('refuses a post with no body at all', async () => {
         const { cookie } = await ctx.signIn('alice@test.dev');
         for (const headers of [{ cookie }, { cookie, 'content-type': 'application/json' }]) {

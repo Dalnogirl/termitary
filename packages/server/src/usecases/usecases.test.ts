@@ -7,11 +7,9 @@ import { createInMemoryConnectionRegistry } from '../adapters/in-memory-connecti
 import type { Sender } from '../domain/connection-registry.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
-import { touch } from '../domain/room.js';
+import { createPairedRoom, touch } from '../domain/room.js';
 import { createTestStores } from '../testing/stores.js';
 import { archiveFinished } from './archive-finished.js';
-import { cancelRoom } from './cancel-room.js';
-import { createRoom } from './create-room.js';
 import { joinGame } from './join-game.js';
 import { makeMove } from './make-move.js';
 import { resign } from './resign.js';
@@ -55,19 +53,13 @@ const lastOf = (inbox: Inbox): ServerMessage => {
   return m;
 };
 
-// Provisions a room with `creator` seated as white. Mirrors production flow:
-// REST POST /rooms (creates the room and seats the creator) followed by the
-// creator's WS joinGame (re-attach branch, which adds them to the connection
-// registry so subsequent broadcasts reach them).
-const provisionRoom = async (ports: Ports, creator: string): Promise<string> => {
-  const { roomId } = await createRoom(
-    ident(creator),
-    { seat: 'white' },
-    ports.rooms,
-    () => 'white',
-  );
-  await joinGame(ident(creator), { type: 'joinGame', roomId }, ports);
-  return roomId;
+// A room as pairing leaves it, `white` against bob, with white's socket
+// already attached. Bob attaches on his own joinGame, as he would on /play.
+const provisionRoom = async (ports: Ports, white: string): Promise<string> => {
+  const room = createPairedRoom('r1', ident(white), ident('bob'), new Date(1000));
+  await ports.rooms.create(room);
+  await joinGame(ident(white), { type: 'joinGame', roomId: room.id }, ports);
+  return room.id;
 };
 
 describe('joinGame', () => {
@@ -85,7 +77,8 @@ describe('joinGame', () => {
     roomId = await provisionRoom(ports, 'alice');
   });
 
-  it('seats the joiner as black and notifies both players', async () => {
+  it('attaches the second player as black and tells white they arrived', async () => {
+    alice.messages.length = 0;
     await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
     const bobMsg = lastOf(bob);
@@ -95,40 +88,19 @@ describe('joinGame', () => {
     expect(bobMsg.roomId).toBe(roomId);
     expect(bobMsg.opponent).toEqual({ status: 'connected', userId: 'alice', name: 'Alice' });
 
-    const aliceKinds = alice.messages.map((m) => m.type);
-    expect(aliceKinds).toContain('stateUpdated');
-    expect(aliceKinds).toContain('presenceUpdate');
-    const alicePresence = alice.messages.find((m) => m.type === 'presenceUpdate');
-    if (alicePresence?.type !== 'presenceUpdate') throw new Error('unreachable');
-    expect(alicePresence.opponent).toEqual({ status: 'connected', userId: 'bob', name: 'Bob' });
-
-    const stored = await ports.rooms.get(roomId);
-    expect(stored?.players.black?.playerId).toBe('bob');
-  });
-
-  it('still sends the seated opponent state when the name lookup fails', async () => {
-    // The name rides on the presence channel, so losing it must not cost the
-    // opponent the board they are about to play on. Only the joiner's own
-    // name fails here; the lookup for the joiner's gameJoined still works.
-    const failing: Ports = {
-      ...ports,
-      users: {
-        ...ports.users,
-        namesOf: async (ids) =>
-          ids.includes('bob') ? Promise.reject(new Error('db down')) : ports.users.namesOf(ids),
+    expect(alice.messages).toEqual([
+      {
+        type: 'presenceUpdate',
+        roomId,
+        opponent: { status: 'connected', userId: 'bob', name: 'Bob' },
       },
-    };
-    await joinGame(ident('bob'), { type: 'joinGame', roomId }, failing);
-
-    expect(alice.messages.map((m) => m.type)).toContain('stateUpdated');
+    ]);
   });
 
-  it('reports opponent=empty in gameJoined when joining a one-seat room alone', async () => {
-    // provisionRoom() already re-attached alice; here we just inspect the
-    // message she received from that initial joinGame call.
+  it('reports the opponent disconnected until they open the game', async () => {
     const aliceJoined = alice.messages.find((m) => m.type === 'gameJoined');
     if (aliceJoined?.type !== 'gameJoined') throw new Error('unreachable');
-    expect(aliceJoined.opponent).toEqual({ status: 'empty' });
+    expect(aliceJoined.opponent).toEqual({ status: 'disconnected', userId: 'bob', name: 'Bob' });
   });
 
   it('reports opponent=disconnected on re-attach when peer has no live socket', async () => {
@@ -152,14 +124,14 @@ describe('joinGame', () => {
     expect(msg.message).toBe('room not found');
   });
 
-  it('errors when the room is full', async () => {
-    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+  it('refuses a player holding neither seat', async () => {
     const carol = connect('carol');
     await joinGame(ident('carol'), { type: 'joinGame', roomId }, ports);
     const msg = lastOf(carol);
     expect(msg.type).toBe('error');
     if (msg.type !== 'error') throw new Error('unreachable');
     expect(msg.message).toBe('room is full');
+    expect(carol.messages).toHaveLength(1);
   });
 
   it('re-attaches when the same player joins again, sending current state', async () => {
@@ -319,10 +291,14 @@ describe('resign', () => {
     expect(msg.state.status).toBe('finished');
   });
 
+  // Deleting an account empties its seat, which is the one way a room loses a
+  // player now that every room is born paired.
   it('refuses to award a win to an empty seat', async () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
-    const roomId = await provisionRoom(ports, 'alice');
+    const paired = createPairedRoom('r1', ident('alice'), ident('bob'), new Date(1000));
+    await ports.rooms.create({ ...paired, players: { white: ident('alice'), black: undefined } });
+    const roomId = paired.id;
 
     await resign(ident('alice'), { type: 'resign', roomId }, ports);
 
@@ -350,37 +326,6 @@ describe('resign', () => {
     expect(eveMsg.type).toBe('error');
     if (eveMsg.type !== 'error') throw new Error('unreachable');
     expect(eveMsg.message).toBe('not in room');
-  });
-});
-
-describe('cancelRoom', () => {
-  it('deletes a room nobody joined', async () => {
-    const { ports, connect } = setup();
-    connect('alice');
-    const roomId = await provisionRoom(ports, 'alice');
-
-    expect(await cancelRoom(ident('alice'), roomId, ports.rooms)).toBe('cancelled');
-    expect(await ports.rooms.get(roomId)).toBeUndefined();
-  });
-
-  it('refuses once an opponent is seated', async () => {
-    const { ports, connect } = setup();
-    connect('alice');
-    connect('bob');
-    const roomId = await provisionRoom(ports, 'alice');
-    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
-
-    expect(await cancelRoom(ident('alice'), roomId, ports.rooms)).toBe('forbidden');
-    expect(await ports.rooms.get(roomId)).toBeDefined();
-  });
-
-  it('refuses a caller with no seat, and reports an unknown room', async () => {
-    const { ports, connect } = setup();
-    connect('alice');
-    const roomId = await provisionRoom(ports, 'alice');
-
-    expect(await cancelRoom(ident('eve'), roomId, ports.rooms)).toBe('forbidden');
-    expect(await cancelRoom(ident('alice'), 'nope', ports.rooms)).toBe('not-found');
   });
 });
 

@@ -40,8 +40,8 @@ const attemptResign = async (
     });
     return;
   }
-  // An empty seat cannot be awarded a win. The UI routes a solo room to
-  // cancelRoom; this is the guard for anything else on the wire.
+  // An empty seat cannot be awarded a win. Rooms are born paired, so only a
+  // deleted account leaves one.
   if (!isFull(room)) {
     await sendError(connections, identity, 'no opponent to resign to', 'resign');
     return;

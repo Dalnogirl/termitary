@@ -1,32 +1,10 @@
-import { z } from 'zod';
 import type { SeekPreference } from './seek-preference.js';
 import type { WireGameState, WireRuleset } from './wire.js';
 
 // REST bodies. Responses are plain types: both sides import the same
 // declaration, so the compiler checks them. A request body is input nobody
-// controls, so the field schemas it is built from live here and the object the
-// route parses is assembled next to the use case that takes it.
-export type RoomSummaryDto = {
-  readonly roomId: string;
-  readonly playerCount: 0 | 1 | 2;
-  readonly status: 'in_progress' | 'finished';
-  readonly ruleset: WireRuleset;
-};
-
-export type CreateRoomResponseDto = {
-  readonly roomId: string;
-};
-
-/** The seat a creator asks for. `random` is resolved during creation. */
-export const SeatChoiceSchema = z.enum(['white', 'black', 'random']);
-export type SeatChoice = z.infer<typeof SeatChoiceSchema>;
-
-/** The server parses it with `CreateRoomBodySchema`. */
-export type CreateRoomRequestDto = {
-  readonly seat: SeatChoice;
-  /** Absent means base, the same absence `WireGameState.ruleset` uses. */
-  readonly ruleset?: WireRuleset;
-};
+// controls, so the field schemas it is built from live in this package and the
+// object the route parses is assembled next to the use case that takes it.
 
 // A room the caller holds a seat in. Every row is in progress and seated by
 // construction, so there is no `status` and `seat` is never null.

@@ -1,7 +1,7 @@
 import type { Ports } from '../domain/ports.js';
 import { archiveFinished } from './archive-finished.js';
 
-export const ABANDONED_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
+export const FINISHED_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type SweepPorts = Pick<Ports, 'rooms' | 'archive' | 'users' | 'log'>;
 
@@ -10,11 +10,11 @@ export type SweepPorts = Pick<Ports, 'rooms' | 'archive' | 'users' | 'log'>;
  * sweep re-archives (a no-op) and deletes; a crash before the archive leaves
  * the room for the next sweep to retry. Nothing is deleted unarchived.
  */
-export const sweepAbandonedRooms = async (
+export const sweepFinishedRooms = async (
   { rooms, archive, users, log }: SweepPorts,
   now: Date = new Date(),
 ): Promise<number> => {
-  const cutoff = new Date(now.getTime() - ABANDONED_ROOM_TTL_MS);
+  const cutoff = new Date(now.getTime() - FINISHED_ROOM_TTL_MS);
 
   let removed = 0;
   for (const room of await rooms.listFinishedBefore(cutoff)) {
@@ -28,5 +28,5 @@ export const sweepAbandonedRooms = async (
     removed += 1;
   }
 
-  return removed + (await rooms.deleteAbandonedBefore(cutoff));
+  return removed;
 };

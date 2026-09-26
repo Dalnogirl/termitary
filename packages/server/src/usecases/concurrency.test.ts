@@ -7,10 +7,8 @@ import type { Sender } from '../domain/connection-registry.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { ConcurrentModificationError, type RoomStore } from '../domain/room-store.js';
-import { seatPlayer, touch } from '../domain/room.js';
+import { createPairedRoom, touch } from '../domain/room.js';
 import { createTestStores } from '../testing/stores.js';
-import { cancelRoom } from './cancel-room.js';
-import { createRoom } from './create-room.js';
 import { joinGame } from './join-game.js';
 import { makeMove } from './make-move.js';
 import { MAX_SAVE_ATTEMPTS } from './retry-on-conflict.js';
@@ -47,15 +45,11 @@ const errorIn = (inbox: Inbox): string => {
   return last.message;
 };
 
-const provision = async (ports: Ports, creator: string): Promise<string> => {
-  const { roomId } = await createRoom(
-    ident(creator),
-    { seat: 'white' },
-    ports.rooms,
-    () => 'white',
-  );
-  await joinGame(ident(creator), { type: 'joinGame', roomId }, ports);
-  return roomId;
+const provision = async (ports: Ports): Promise<string> => {
+  const room = createPairedRoom('r1', ident('alice'), ident('bob'), new Date(1000));
+  await ports.rooms.create(room);
+  await joinGame(ident('alice'), { type: 'joinGame', roomId: room.id }, ports);
+  return room.id;
 };
 
 const readForUpdate = async (rooms: RoomStore, roomId: string) => {
@@ -105,7 +99,7 @@ describe('a move racing another write', () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
     const bob = connect('bob');
-    const roomId = await provision(ports, 'alice');
+    const roomId = await provision(ports);
     await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
     return { ports, alice, bob, roomId };
   };
@@ -167,39 +161,5 @@ describe('a move racing another write', () => {
     ).rejects.toBeInstanceOf(ConcurrentModificationError);
     expect(attempts).toBe(MAX_SAVE_ATTEMPTS);
     expect((await ports.rooms.get(roomId))?.state.history).toHaveLength(0);
-  });
-});
-
-describe('a join racing another write', () => {
-  const setupOpenRoom = async () => {
-    const { ports, connect } = setup();
-    const bob = connect('bob');
-    const roomId = await provision(ports, 'alice');
-    return { ports, bob, roomId };
-  };
-
-  it('does not put two players in one seat', async () => {
-    const { ports, bob, roomId } = await setupOpenRoom();
-    const racing = racingOnce(ports, async (rooms) => {
-      const { value: room, version } = await readForUpdate(rooms, roomId);
-      await rooms.save(touch(seatPlayer(room, ident('carol')), new Date()), version);
-    });
-
-    await joinGame(ident('bob'), { type: 'joinGame', roomId }, racing);
-
-    expect(errorIn(bob)).toBe('room is full');
-    expect((await ports.rooms.get(roomId))?.players.black).toEqual(ident('carol'));
-  });
-
-  it('does not bring back a room cancelled in the meantime', async () => {
-    const { ports, bob, roomId } = await setupOpenRoom();
-    const racing = racingOnce(ports, async (rooms) => {
-      expect(await cancelRoom(ident('alice'), roomId, rooms)).toBe('cancelled');
-    });
-
-    await joinGame(ident('bob'), { type: 'joinGame', roomId }, racing);
-
-    expect(errorIn(bob)).toBe('room not found');
-    expect(await ports.rooms.get(roomId)).toBeUndefined();
   });
 });

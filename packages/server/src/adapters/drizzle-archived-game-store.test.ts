@@ -11,7 +11,7 @@ import { type WireGameState, toWire } from '@termitary/protocol';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { toArchivedGame } from '../domain/archived-game.js';
-import { createRoom, isFinished, seatPlayer, touch } from '../domain/room.js';
+import { createPairedRoom, isFinished, touch } from '../domain/room.js';
 import { describeArchivedGameStoreContract } from './archived-game-store.contract.js';
 import { user } from './db/auth-schema.js';
 import { type DbHandle, createDb } from './db/client.js';
@@ -28,9 +28,7 @@ const seedUser = (db: DbHandle, id: string): void => {
 const FINISHED = { status: 'finished', result: 'draw', endReason: 'queen-surrounded' } as const;
 
 const finishedGame = (id: string) => {
-  const seated = seatPlayer(createRoom(id, { playerId: 'p1' }, 'white', new Date(1000)), {
-    playerId: 'p2',
-  });
+  const seated = createPairedRoom(id, { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000));
   const room = touch({ ...seated, state: { ...seated.state, ...FINISHED } }, new Date(2000));
   if (!isFinished(room)) throw new Error('unreachable: the room was just finished');
   return toArchivedGame(
@@ -54,9 +52,12 @@ const PILLBUG_SCRIPT: readonly Move[] = [
 ];
 
 const pillbugGame = (id: string) => {
-  const seated = seatPlayer(
-    createRoom(id, { playerId: 'p1' }, 'white', new Date(1000), PILLBUG_RULESET),
+  const seated = createPairedRoom(
+    id,
+    { playerId: 'p1' },
     { playerId: 'p2' },
+    new Date(1000),
+    PILLBUG_RULESET,
   );
   const played = PILLBUG_SCRIPT.reduce(applyMove, createGame(PILLBUG_RULESET));
   const room = touch({ ...seated, state: resign(played, 'white') }, new Date(2000));

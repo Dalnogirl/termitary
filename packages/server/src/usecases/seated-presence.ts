@@ -3,7 +3,7 @@ import type { UserStore } from '../domain/user-store.js';
 
 // Shown where a seat is still held but the account behind it is gone. Keeping
 // the seat visible matters more than the name: dropping to 'empty' would read
-// as a free seat and turn the opponent's Resign into Cancel game.
+// as a free seat, which the opponent's resign would then be refused against.
 const DELETED = 'Deleted player';
 
 /** Presence for a seated player, carrying the id their profile link needs. */

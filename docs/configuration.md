@@ -20,7 +20,7 @@ Only the dev script loads it. Tests pass credentials in directly, and a deployme
 | `DATABASE_URL` | `data/termitary.db` | SQLite file. `:memory:` under `NODE_ENV=test`. Production requires it, and requires an absolute path. |
 | `BETTER_AUTH_SECRET` | a dev-only constant | Signs session cookies. Production refuses to boot without it. |
 | `BETTER_AUTH_URL` | `http://localhost:3001` | The origin the browser reaches the API on, and the base of every OAuth callback. |
-| `ROOM_SWEEP_INTERVAL_MS` | `3600000` | How often abandoned rooms are swept. `0` disables the sweep. |
+| `ROOM_SWEEP_INTERVAL_MS` | `3600000` | How often finished rooms are archived and removed, and expired seeks dropped. `0` disables the sweep. |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | none | Google sign-in. |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | none | GitHub sign-in. |
 

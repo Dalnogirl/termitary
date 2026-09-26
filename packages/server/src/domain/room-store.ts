@@ -37,25 +37,16 @@ export type RoomStore = {
   delete(id: string): Promise<void>;
   /**
    * Games in progress the player holds a seat in, most recently played first.
-   * The predicate lives in the store for the same reason as
-   * `deleteAbandonedBefore`: callers never scan the whole table.
+   * The predicate lives in the store so callers never scan the whole table.
    */
   listSeatedBy(playerId: string): Promise<readonly RoomOverview[]>;
-  /** Games in progress with a free seat that the player is not already in. */
-  listOpenExcluding(playerId: string): Promise<readonly RoomOverview[]>;
   /**
    * Finished games last written before `cutoff`, whole rather than projected:
    * the sweep archives each one before deleting it, which needs the state.
+   * A game in progress is never listed, however old, because both players can
+   * still return to it.
    */
   listFinishedBefore(cutoff: Date): Promise<readonly Room[]>;
-  /**
-   * Removes rooms last written before `cutoff` with a free seat, which nobody
-   * can be waiting in. A full game in progress is never swept, however old,
-   * because both players can still return to it. Finished games are left to
-   * `listFinishedBefore` and `delete`, so none is dropped unarchived.
-   * Returns the number of rooms removed.
-   */
-  deleteAbandonedBefore(cutoff: Date): Promise<number>;
 };
 
 export class RoomAlreadyExistsError extends Error {

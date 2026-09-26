@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { Identity } from '../domain/identity.js';
-import { createRoom, seatPlayer, touch } from '../domain/room.js';
+import { createPairedRoom, touch } from '../domain/room.js';
 import { createTestStores } from '../testing/stores.js';
 import {
-  ABANDONED_ROOM_TTL_MS,
+  FINISHED_ROOM_TTL_MS,
   type SweepPorts,
-  sweepAbandonedRooms,
-} from './sweep-abandoned-rooms.js';
+  sweepFinishedRooms,
+} from './sweep-finished-rooms.js';
 
 const ident = (id: string): Identity => ({ playerId: id });
 const at = (ms: number) => new Date(ms);
-const PAST_CUTOFF = at(ABANDONED_ROOM_TTL_MS + 1);
+const PAST_CUTOFF = at(FINISHED_ROOM_TTL_MS + 1);
 // Far enough on that a room last written at 5000 is past the cutoff too.
-const WELL_PAST_CUTOFF = at(ABANDONED_ROOM_TTL_MS + 5001);
+const WELL_PAST_CUTOFF = at(FINISHED_ROOM_TTL_MS + 5001);
 
 const FINISHED = { status: 'finished', result: 'draw', endReason: 'queen-surrounded' } as const;
 
@@ -23,51 +23,40 @@ const setup = (): SweepPorts =>
   ]);
 
 const finishedGame = (id: string, writtenAt: Date) => {
-  const room = seatPlayer(createRoom(id, ident('alice'), 'white', at(0)), ident('bob'));
+  const room = createPairedRoom(id, ident('alice'), ident('bob'), at(0));
   return touch({ ...room, state: { ...room.state, ...FINISHED } }, writtenAt);
 };
 
-describe('sweepAbandonedRooms', () => {
-  it('keeps a room that reached the cutoff exactly', async () => {
+describe('sweepFinishedRooms', () => {
+  it('keeps a finished game that reached the cutoff exactly', async () => {
     const ports = setup();
-    await ports.rooms.create(createRoom('r1', ident('alice'), 'white', at(0)));
+    await ports.rooms.create(finishedGame('r1', at(0)));
 
-    expect(await sweepAbandonedRooms(ports, at(ABANDONED_ROOM_TTL_MS))).toBe(0);
+    expect(await sweepFinishedRooms(ports, at(FINISHED_ROOM_TTL_MS))).toBe(0);
     expect(await ports.rooms.get('r1')).toBeDefined();
   });
 
-  it('removes a room with a free seat once it is past the cutoff', async () => {
+  it('leaves a game in progress alone however old', async () => {
     const ports = setup();
-    await ports.rooms.create(createRoom('r1', ident('alice'), 'white', at(0)));
+    await ports.rooms.create(createPairedRoom('r1', ident('alice'), ident('bob'), at(0)));
 
-    expect(await sweepAbandonedRooms(ports, PAST_CUTOFF)).toBe(1);
-    expect(await ports.rooms.get('r1')).toBeUndefined();
-  });
-
-  it('leaves a full game in progress alone however old', async () => {
-    const ports = setup();
-    await ports.rooms.create(
-      seatPlayer(createRoom('r1', ident('alice'), 'white', at(0)), ident('bob')),
-    );
-
-    expect(await sweepAbandonedRooms(ports, at(ABANDONED_ROOM_TTL_MS * 365))).toBe(0);
+    expect(await sweepFinishedRooms(ports, at(FINISHED_ROOM_TTL_MS * 365))).toBe(0);
     expect(await ports.rooms.get('r1')).toBeDefined();
   });
 
   it('counts every room it removes', async () => {
     const ports = setup();
-    await ports.rooms.create(createRoom('r1', ident('alice'), 'white', at(0)));
-    await ports.rooms.create(createRoom('r2', ident('bob'), 'white', at(0)));
-    await ports.rooms.create(finishedGame('r3', at(0)));
+    await ports.rooms.create(finishedGame('r1', at(0)));
+    await ports.rooms.create(finishedGame('r2', at(0)));
 
-    expect(await sweepAbandonedRooms(ports, PAST_CUTOFF)).toBe(3);
+    expect(await sweepFinishedRooms(ports, PAST_CUTOFF)).toBe(2);
   });
 
   it('archives a finished game before deleting it', async () => {
     const ports = setup();
     await ports.rooms.create(finishedGame('r1', at(5000)));
 
-    expect(await sweepAbandonedRooms(ports, WELL_PAST_CUTOFF)).toBe(1);
+    expect(await sweepFinishedRooms(ports, WELL_PAST_CUTOFF)).toBe(1);
     expect(await ports.rooms.get('r1')).toBeUndefined();
     expect(await ports.archive.get('r1')).toMatchObject({
       id: 'r1',
@@ -92,7 +81,7 @@ describe('sweepAbandonedRooms', () => {
     };
     await ports.rooms.create(finishedGame('r1', at(5000)));
 
-    expect(await sweepAbandonedRooms({ ...ports, archive }, WELL_PAST_CUTOFF)).toBe(0);
+    expect(await sweepFinishedRooms({ ...ports, archive }, WELL_PAST_CUTOFF)).toBe(0);
     expect(await ports.rooms.get('r1')).toBeDefined();
   });
 
@@ -111,7 +100,7 @@ describe('sweepAbandonedRooms', () => {
       state: first.state as never,
     });
 
-    expect(await sweepAbandonedRooms(ports, WELL_PAST_CUTOFF)).toBe(1);
+    expect(await sweepFinishedRooms(ports, WELL_PAST_CUTOFF)).toBe(1);
     expect((await ports.archive.get('r1'))?.finishedAt).toEqual(at(4000));
   });
 });
