@@ -59,44 +59,44 @@ export const LobbyPage = () => {
   const pool = board.data?.pool ?? [];
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 p-6 gap-8 max-w-3xl mx-auto w-full">
-      <section className="flex flex-col gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Your games</h1>
-        <Listing
-          isLoading={mine.isLoading}
-          error={mine.error}
-          empty="No games in progress. Find one below."
-        >
-          {myRooms.map((room) => (
-            <RoomRow
-              key={room.roomId}
-              roomId={room.roomId}
-              detail={myRoomDetail(room)}
-              badges={expansionsIn(room.ruleset).map((e) => e.label)}
-              action={myRoomAction(room)}
-              onOpen={() => openRoom(room.roomId)}
-            />
-          ))}
-        </Listing>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold tracking-tight">Find a game</h2>
-          <button
-            type="button"
-            className="text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => {
-              void board.refetch();
-              void mine.refetch();
-            }}
+    <div className="mx-auto grid w-full max-w-5xl flex-1 min-h-0 content-start items-start gap-8 p-6 md:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="flex flex-col gap-8">
+        <section className="flex flex-col gap-3">
+          <h1 className="text-2xl font-bold tracking-tight">Your games</h1>
+          <Listing
+            isLoading={mine.isLoading}
+            error={mine.error}
+            empty="No games in progress. Find one below."
           >
-            Refresh
-          </button>
-        </div>
+            {myRooms.map((room) => (
+              <RoomRow
+                key={room.roomId}
+                roomId={room.roomId}
+                detail={myRoomDetail(room)}
+                badges={expansionsIn(room.ruleset).map((e) => e.label)}
+                action={myRoomAction(room)}
+                onOpen={() => openRoom(room.roomId)}
+              />
+            ))}
+          </Listing>
+        </section>
 
-        {mySeek === null ? (
-          <div className="flex flex-col gap-3">
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold tracking-tight">Find a game</h2>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                void board.refetch();
+                void mine.refetch();
+              }}
+            >
+              Refresh
+            </button>
+          </div>
+
+          {mySeek === null ? (
             <Button
               size="lg"
               className="self-start"
@@ -107,53 +107,56 @@ export const LobbyPage = () => {
             >
               {play.isPending ? 'Finding a game…' : 'Play'}
             </Button>
-            <SeekOptions preference={preference} onChange={setPreference} />
-          </div>
-        ) : (
-          // One seek at a time: Play is replaced rather than disabled, so a
-          // second post cannot race the pairing the lobby is waiting on.
-          <div className="flex items-center gap-3">
-            <Button size="lg" disabled>
-              Looking for an opponent…
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              disabled={busy}
-              onClick={() =>
-                void cancel
-                  .mutateAsync(mySeek.seekId)
-                  .catch(showError('Could not cancel your seek'))
-              }
-            >
-              Cancel
-            </Button>
-          </div>
-        )}
-
-        <Listing
-          isLoading={board.isLoading}
-          error={board.error}
-          empty="Nobody is waiting. Press Play and your seek is the first one here."
-        >
-          {[
-            ...(mySeek === null ? [] : [<SeekRow key={mySeek.seekId} seek={mySeek} mine />]),
-            ...pool.map((seek) => (
-              <SeekRow
-                key={seek.seekId}
-                seek={seek}
-                mine={false}
+          ) : (
+            // One seek at a time: Play is replaced rather than disabled, so a
+            // second post cannot race the pairing the lobby is waiting on.
+            <div className="flex items-center gap-3">
+              <Button size="lg" disabled>
+                Looking for an opponent…
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
                 disabled={busy}
-                onJoin={() =>
-                  claim
-                    .mutateAsync(seek.seekId)
-                    .then(enterIfPaired, showError('Could not join that game'))
+                onClick={() =>
+                  void cancel
+                    .mutateAsync(mySeek.seekId)
+                    .catch(showError('Could not cancel your seek'))
                 }
-              />
-            )),
-          ]}
-        </Listing>
-      </section>
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+
+          <Listing
+            isLoading={board.isLoading}
+            error={board.error}
+            empty="Nobody is waiting. Press Play and your seek is the first one here."
+          >
+            {[
+              ...(mySeek === null ? [] : [<SeekRow key={mySeek.seekId} seek={mySeek} mine />]),
+              ...pool.map((seek) => (
+                <SeekRow
+                  key={seek.seekId}
+                  seek={seek}
+                  mine={false}
+                  disabled={busy}
+                  onJoin={() =>
+                    claim
+                      .mutateAsync(seek.seekId)
+                      .then(enterIfPaired, showError('Could not join that game'))
+                  }
+                />
+              )),
+            ]}
+          </Listing>
+        </section>
+      </div>
+
+      <aside className="md:sticky md:top-6">
+        <SeekOptions preference={preference} onChange={setPreference} locked={mySeek !== null} />
+      </aside>
     </div>
   );
 };

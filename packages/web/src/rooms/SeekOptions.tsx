@@ -13,62 +13,65 @@ const CHOICES: readonly { readonly value: TriState; readonly label: string }[] =
 type Props = {
   readonly preference: SeekPreference;
   readonly onChange: (preference: SeekPreference) => void;
+  /** A standing seek keeps the terms it was posted with. */
+  readonly locked: boolean;
 };
 
-// A disclosure rather than a dialog: the default seek takes any pieces, so the
-// Play button works without anyone opening this.
-export const SeekOptions = ({ preference, onChange }: Props) => {
+export const SeekOptions = ({ preference, onChange, locked }: Props) => {
   const accepted = acceptedRulesets(preference);
   const all = acceptedRulesets(ANY_GAME);
   return (
-    <details className="group text-sm">
-      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-        Options · {accepted === all ? 'any pieces' : `${accepted} of ${all} rulesets`}
-      </summary>
-      <div className="grid gap-2 pt-3">
+    <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-sm font-semibold">Expansion pieces</h2>
+        <p className="m-0 text-xs text-muted-foreground">
+          {locked
+            ? 'Cancel your seek to change these.'
+            : accepted === all
+              ? 'Any pieces. Play pairs with whoever is waiting.'
+              : `Play accepts ${accepted} of ${all} rulesets.`}
+        </p>
+      </div>
+      <fieldset disabled={locked} className="m-0 grid gap-3 border-0 p-0 disabled:opacity-60">
         {EXPANSIONS.map(({ piece, label, note }) => (
-          <fieldset
-            key={piece}
-            className="m-0 flex items-center gap-3 rounded-lg border border-border p-3"
-          >
+          <fieldset key={piece} className="m-0 flex flex-col gap-1.5 border-0 p-0">
             <legend className="sr-only">{label}</legend>
-            <span className="flex shrink-0">
+            <div className="flex items-center gap-2">
               <PieceTile type={piece} color="white" />
-            </span>
-            <span className="flex flex-1 flex-col gap-1">
-              <span className="text-sm font-medium">{label}</span>
-              <span className="text-xs text-muted-foreground">{note}</span>
-            </span>
-            <span className="flex shrink-0 overflow-hidden rounded-md border border-border">
-              {CHOICES.map(({ value, label: choiceLabel }) => {
-                const selected = choiceFor(preference, piece) === value;
-                return (
-                  <label
-                    key={value}
-                    className={cn(
-                      'cursor-pointer px-2.5 py-1 text-xs transition-colors',
-                      'focus-within:ring-2 focus-within:ring-foreground/30',
-                      selected
-                        ? 'bg-foreground text-background'
-                        : 'text-muted-foreground hover:bg-muted/50',
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      name={`seek-${piece}`}
-                      value={value}
-                      checked={selected}
-                      onChange={() => onChange(withChoice(preference, piece, value))}
-                      className="sr-only"
-                    />
-                    {choiceLabel}
-                  </label>
-                );
-              })}
-            </span>
+              <span className="flex-1 text-sm font-medium">{label}</span>
+              <span className="flex shrink-0 overflow-hidden rounded-md border border-border">
+                {CHOICES.map(({ value, label: choiceLabel }) => {
+                  const selected = choiceFor(preference, piece) === value;
+                  return (
+                    <label
+                      key={value}
+                      className={cn(
+                        'px-2.5 py-1 text-xs transition-colors',
+                        'focus-within:ring-2 focus-within:ring-foreground/30',
+                        locked ? 'cursor-not-allowed' : 'cursor-pointer',
+                        selected
+                          ? 'bg-foreground text-background'
+                          : 'text-muted-foreground hover:bg-muted/50',
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name={`seek-${piece}`}
+                        value={value}
+                        checked={selected}
+                        onChange={() => onChange(withChoice(preference, piece, value))}
+                        className="sr-only"
+                      />
+                      {choiceLabel}
+                    </label>
+                  );
+                })}
+              </span>
+            </div>
+            <p className="m-0 text-xs text-muted-foreground">{note}</p>
           </fieldset>
         ))}
-      </div>
-    </details>
+      </fieldset>
+    </section>
   );
 };
