@@ -18,7 +18,7 @@ import type { Room } from '../domain/room.js';
 import type { Db } from './db/client.js';
 import { CURRENT_STATE_VERSION, type RoomRow, rooms as roomsTable } from './db/schema.js';
 
-const seat = (userId: string | null) => (userId === null ? undefined : { playerId: userId });
+const seat = (userId: string) => ({ playerId: userId });
 
 const rulesetOf = (stored: RoomRow['ruleset']) =>
   stored === null ? BASE_RULESET : fromWireRuleset(WireRulesetSchema.parse(stored));
@@ -70,8 +70,8 @@ const toOverview = (row: OverviewRow): RoomOverview => ({
 });
 
 const mutableColumns = (room: Room) => ({
-  whiteUserId: room.players.white?.playerId ?? null,
-  blackUserId: room.players.black?.playerId ?? null,
+  whiteUserId: room.players.white.playerId,
+  blackUserId: room.players.black.playerId,
   status: room.state.status,
   state: toWire(room.state),
   stateVersion: CURRENT_STATE_VERSION,

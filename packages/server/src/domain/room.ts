@@ -2,7 +2,7 @@ import { BASE_RULESET, type GameState, type Ruleset, createGame } from '@termita
 import type { Color } from '@termitary/engine';
 import type { Identity } from './identity.js';
 
-export type Seats = Readonly<Record<Color, Identity | undefined>>;
+export type Seats = Readonly<Record<Color, Identity>>;
 
 export type Room = {
   readonly id: string;
@@ -40,11 +40,8 @@ export const createPairedRoom = (
 // the lobby ordering or out of the sweep's reach has to say so here.
 export const touch = (room: Room, now: Date): Room => ({ ...room, updatedAt: now });
 
-export const isFull = (room: Room): boolean =>
-  room.players.white !== undefined && room.players.black !== undefined;
-
 export const seatOf = (players: Seats, playerId: string): Color | undefined =>
-  SEAT_ORDER.find((color) => players[color]?.playerId === playerId);
+  SEAT_ORDER.find((color) => players[color].playerId === playerId);
 
 export const colorOf = (room: Room, playerId: string): Color | undefined =>
   seatOf(room.players, playerId);

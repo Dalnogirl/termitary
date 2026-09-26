@@ -33,10 +33,15 @@ export const rooms = sqliteTable(
   'rooms',
   {
     id: text('id').primaryKey(),
-    // Null is an empty seat, so deleting an account unseats the player and
-    // leaves the opponent's game intact.
-    whiteUserId: text('white_user_id').references(() => user.id, { onDelete: 'set null' }),
-    blackUserId: text('black_user_id').references(() => user.id, { onDelete: 'set null' }),
+    // Restrict, not cascade: cascade would delete a live game out from under
+    // the opponent. Deleting an account has to remove every room it sits in
+    // first, finished ones included, since the sweep only takes those later.
+    whiteUserId: text('white_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    blackUserId: text('black_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
     // Denormalized from state.status so the lobby list doesn't parse every game.
     status: text('status', { enum: ['in_progress', 'finished'] }).notNull(),
     state: text('state', { mode: 'json' }).$type<WireGameState>().notNull(),

@@ -3,7 +3,7 @@ import type { ClientResign } from '@termitary/protocol';
 import { toWire } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
-import { colorOf, isFull, touch } from '../domain/room.js';
+import { colorOf, touch } from '../domain/room.js';
 import { archiveFinished } from './archive-finished.js';
 import { retryOnConflict } from './retry-on-conflict.js';
 import { sendError } from './send-error.js';
@@ -40,13 +40,6 @@ const attemptResign = async (
     });
     return;
   }
-  // An empty seat cannot be awarded a win. Rooms are born paired, so only a
-  // deleted account leaves one.
-  if (!isFull(room)) {
-    await sendError(connections, identity, 'no opponent to resign to', 'resign');
-    return;
-  }
-
   const updated = touch({ ...room, state: resignGame(room.state, color) }, new Date());
   await rooms.save(updated, version);
   await connections.broadcast(updated.id, {

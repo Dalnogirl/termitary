@@ -182,16 +182,16 @@ describe('DrizzleRoomStore', () => {
       await expect(store.get('r1')).rejects.toThrow();
     }));
 
-  it('unseats a player when their account is deleted', async () =>
+  it('refuses to delete an account seated in a room', async () =>
     withStore(async ({ db, store }) => {
       await store.create(
         createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
       );
 
-      db.db.delete(user).where(eq(user.id, 'p2')).run();
+      expect(() => db.db.delete(user).where(eq(user.id, 'p2')).run()).toThrow(/FOREIGN KEY/);
 
       const stored = await store.get('r1');
-      expect(stored?.players).toEqual({ white: { playerId: 'p1' }, black: undefined });
+      expect(stored?.players).toEqual({ white: { playerId: 'p1' }, black: { playerId: 'p2' } });
     }));
 
   it('survives closing and reopening the database file', async () => {

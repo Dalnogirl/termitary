@@ -8,11 +8,10 @@ import { seatOf } from '../domain/room.js';
 const summarizeMine = (playerId: string, room: RoomOverview): MyRoomSummaryDto | undefined => {
   const seat = seatOf(room.players, playerId);
   if (seat === undefined) return undefined;
-  const { white, black } = room.players;
   return {
     roomId: room.id,
     seat,
-    playerCount: white !== undefined && black !== undefined ? 2 : 1,
+    playerCount: 2,
     updatedAt: room.updatedAt.getTime(),
     ruleset: toWireRuleset(room.ruleset),
   };

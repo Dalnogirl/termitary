@@ -30,20 +30,17 @@ export type ArchivedGame = ArchivedGameOverview & {
 };
 
 const player = (
-  identity: { readonly playerId: string } | undefined,
+  identity: { readonly playerId: string },
   names: ReadonlyMap<string, string>,
-): ArchivedPlayer | undefined =>
-  identity === undefined
-    ? undefined
-    : { playerId: identity.playerId, name: names.get(identity.playerId) };
+): ArchivedPlayer => ({ playerId: identity.playerId, name: names.get(identity.playerId) });
 
 export const archivedSeatOf = (players: ArchivedSeats, playerId: string): Color | undefined =>
   (['white', 'black'] as const).find((color) => players[color]?.playerId === playerId);
 
-export const seatIds = (room: FinishedRoom): readonly string[] =>
-  [room.players.white, room.players.black]
-    .filter((seat) => seat !== undefined)
-    .map((seat) => seat.playerId);
+export const seatIds = (room: FinishedRoom): readonly string[] => [
+  room.players.white.playerId,
+  room.players.black.playerId,
+];
 
 export const toArchivedGame = (
   room: FinishedRoom,

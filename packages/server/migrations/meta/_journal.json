@@ -64,6 +64,13 @@
       "when": 1790440163775,
       "tag": "0008_delete_open_rooms",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1790447004639,
+      "tag": "0009_seats_not_null",
+      "breakpoints": true
     }
   ]
 }
