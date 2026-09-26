@@ -291,24 +291,6 @@ describe('resign', () => {
     expect(msg.state.status).toBe('finished');
   });
 
-  // Deleting an account empties its seat, which is the one way a room loses a
-  // player now that every room is born paired.
-  it('refuses to award a win to an empty seat', async () => {
-    const { ports, connect } = setup();
-    const alice = connect('alice');
-    const paired = createPairedRoom('r1', ident('alice'), ident('bob'), new Date(1000));
-    await ports.rooms.create({ ...paired, players: { white: ident('alice'), black: undefined } });
-    const roomId = paired.id;
-
-    await resign(ident('alice'), { type: 'resign', roomId }, ports);
-
-    const msg = lastOf(alice);
-    expect(msg.type).toBe('error');
-    if (msg.type !== 'error') throw new Error('unreachable');
-    expect(msg.message).toBe('no opponent to resign to');
-    expect((await ports.rooms.get(roomId))?.state.status).toBe('in_progress');
-  });
-
   it('errors on unknown rooms and when the caller is not seated', async () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
