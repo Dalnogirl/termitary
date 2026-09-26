@@ -20,7 +20,6 @@ test('one player seeks from the lobby, another joins it, and both reach the boar
 
   // A required ladybug marks the row on the other side and proves the terms
   // travel into the paired ruleset.
-  await seeker.getByText(/^Options/).click();
   await seeker
     .getByRole('group', { name: 'Ladybug' })
     .locator('label', { has: seeker.getByRole('radio', { name: 'Yes' }) })
@@ -29,6 +28,7 @@ test('one player seeks from the lobby, another joins it, and both reach the boar
 
   const mySeek = seeker.getByRole('listitem').filter({ hasText: 'Your seek' });
   await expect(mySeek).toContainText('Ladybug');
+  await expect(seeker.getByRole('button', { name: 'Looking for an opponent…' })).toBeDisabled();
 
   const joiner = await signedInPlayer(browser, `joiner-${stamp}@test.dev`);
   const joinerPosts = roomPosts(joiner);
@@ -57,8 +57,10 @@ test('cancelling a seek leaves the player in the lobby', async ({ browser }) => 
   await player.getByRole('button', { name: 'Play', exact: true }).click();
 
   const mySeek = player.getByRole('listitem').filter({ hasText: 'Your seek' });
-  await mySeek.getByRole('button', { name: 'Cancel' }).click();
+  await expect(mySeek).toBeVisible();
+  await player.getByRole('button', { name: 'Cancel' }).click();
   await expect(mySeek).toBeHidden();
+  await expect(player.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
 
   // Longer than the lobby spends looking for a room after a seek goes.
   await player.waitForTimeout(3_000);
