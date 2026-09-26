@@ -1,13 +1,9 @@
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
-import type { CreateRoomRequestDto } from '@termitary/protocol';
 import { Link, useNavigate } from 'react-router';
-import { toast } from 'sonner';
 import { useSession } from '../network/auth-client.js';
 import { fetchMyRooms } from '../network/rooms-api.js';
-import { useCreateRoom } from '../network/use-create-room.js';
-import { CreateRoomDialog } from '../rooms/CreateRoomDialog.js';
 import { RoomRow, myRoomAction, myRoomDetail } from '../rooms/RoomRow.js';
 import { expansionsIn } from '../rooms/expansions.js';
 import { paths } from '../routes/paths.js';
@@ -21,20 +17,8 @@ export const SignedInHome = () => {
   const navigate = useNavigate();
   const { data: session } = useSession();
   const mine = useQuery({ queryKey: ['rooms', 'mine'], queryFn: fetchMyRooms });
-  const createRoom = useCreateRoom();
 
   const openRoom = (roomId: string) => void navigate(paths.play(roomId), { viewTransition: true });
-
-  const handleCreate = async (request: CreateRoomRequestDto): Promise<boolean> => {
-    try {
-      const { roomId } = await createRoom.mutateAsync(request);
-      openRoom(roomId);
-      return true;
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not create game');
-      return false;
-    }
-  };
 
   const rooms = mine.data ?? [];
   const settled = !mine.isLoading && mine.error === null;
@@ -54,8 +38,8 @@ export const SignedInHome = () => {
 
       {settled && rooms.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          Nothing in progress. Start one and the board fills the screen. The game behind this panel
-          is live in the meantime, so click a piece if you want a move against yourself.
+          Nothing in progress. The game behind this panel is live in the meantime, so click a piece
+          if you want a move against yourself.
         </p>
       )}
 
@@ -75,12 +59,6 @@ export const SignedInHome = () => {
       )}
 
       <div className="flex flex-wrap gap-2">
-        <CreateRoomDialog
-          triggerLabel="Create new game"
-          triggerSize="lg"
-          isPending={createRoom.isPending}
-          onCreate={handleCreate}
-        />
         <Link
           to={paths.hotseat}
           viewTransition

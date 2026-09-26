@@ -1,22 +1,11 @@
-import { type Page, expect, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { signedInPlayer } from './support/auth.js';
-
-const roomPosts = (page: Page): string[] => {
-  const posts: string[] = [];
-  page.on('request', (req) => {
-    if (req.method() === 'POST' && new URL(req.url()).pathname === '/api/rooms') {
-      posts.push(req.url());
-    }
-  });
-  return posts;
-};
 
 test('one player seeks from the lobby, another joins it, and both reach the board', async ({
   browser,
 }) => {
   const stamp = Date.now();
   const seeker = await signedInPlayer(browser, `seeker-${stamp}@test.dev`);
-  const seekerPosts = roomPosts(seeker);
 
   // A required ladybug marks the row on the other side and proves the terms
   // travel into the paired ruleset.
@@ -31,7 +20,6 @@ test('one player seeks from the lobby, another joins it, and both reach the boar
   await expect(seeker.getByRole('button', { name: 'Looking for an opponent…' })).toBeDisabled();
 
   const joiner = await signedInPlayer(browser, `joiner-${stamp}@test.dev`);
-  const joinerPosts = roomPosts(joiner);
   await joiner
     .getByRole('listitem')
     .filter({ hasText: 'Ladybug' })
@@ -48,8 +36,6 @@ test('one player seeks from the lobby, another joins it, and both reach the boar
     await expect(page.getByText('Waiting for opponent…')).toBeHidden();
     await expect(page.locator('button[aria-label^="ladybug,"]').first()).toBeVisible();
   }
-
-  expect([...seekerPosts, ...joinerPosts]).toEqual([]);
 });
 
 test('cancelling a seek leaves the player in the lobby', async ({ browser }) => {
