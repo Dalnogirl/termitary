@@ -2,7 +2,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BASE_RULESET, listValidMoves } from '@termitary/engine';
-import { fromWire, toWireMove } from '@termitary/protocol';
+import {
+  type MyRoomSummaryDto,
+  type PostSeekResponseDto,
+  fromWire,
+  toWireMove,
+} from '@termitary/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type DbHandle, createDb } from './adapters/db/client.js';
 import { type TestApp, createTestApp } from './testing/auth-helper.js';
@@ -45,17 +50,28 @@ describe('room persistence across a restart', () => {
 
     try {
       const alice = await first.ctx.signIn('alice@example.test');
-      cookie = alice.cookie;
-      userId = alice.userId;
+      const bob = await first.ctx.signIn('bob@example.test');
+      const seek = (as: { cookie: string }) =>
+        first.ctx.app.inject({
+          method: 'POST',
+          url: '/api/seeks',
+          payload: {},
+          headers: { cookie: as.cookie },
+        });
+      await seek(alice);
+      const paired = (await seek(bob)).json<PostSeekResponseDto>();
+      if (paired.outcome !== 'paired') throw new Error(`expected a pairing, got ${paired.outcome}`);
+      roomId = paired.roomId;
 
-      const created = await first.ctx.app.inject({
-        method: 'POST',
-        url: '/api/rooms',
-        payload: { seat: 'white' },
-        headers: { cookie },
+      // Seats are a coin flip, and the opening move is white's to make.
+      const mine = await first.ctx.app.inject({
+        method: 'GET',
+        url: '/api/rooms/mine',
+        headers: { cookie: alice.cookie },
       });
-      expect(created.statusCode).toBe(200);
-      roomId = created.json<{ roomId: string }>().roomId;
+      const white = mine.json<MyRoomSummaryDto[]>()[0]?.seat === 'white' ? alice : bob;
+      cookie = white.cookie;
+      userId = white.userId;
 
       const ws = await connect(first.wsUrl, userId, cookie);
       expectKind(await ws.next(), 'connected');
@@ -85,7 +101,7 @@ describe('room persistence across a restart', () => {
         {
           roomId,
           seat: 'white',
-          playerCount: 1,
+          playerCount: 2,
           updatedAt: expect.any(Number),
           ruleset: BASE_WIRE,
         },

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ArchivedGameStore } from '../domain/archived-game-store.js';
 import type { ArchivedGame } from '../domain/archived-game.js';
 import { toArchivedGame } from '../domain/archived-game.js';
-import { createRoom, isFinished, seatPlayer, touch } from '../domain/room.js';
+import { createPairedRoom, isFinished, touch } from '../domain/room.js';
 
 export type ArchivedGameStoreHarness = {
   readonly archive: ArchivedGameStore;
@@ -37,10 +37,7 @@ const gameOf = (
     ruleset?: Ruleset;
   } = {},
 ): ArchivedGame => {
-  const seated = seatPlayer(
-    createRoom(id, ident(white), 'white', new Date(startedAt), ruleset),
-    ident(black),
-  );
+  const seated = createPairedRoom(id, ident(white), ident(black), new Date(startedAt), ruleset);
   const room = touch({ ...seated, state: { ...seated.state, ...FINISHED } }, new Date(finishedAt));
   if (!isFinished(room)) throw new Error('unreachable: the room was just finished');
   return toArchivedGame(

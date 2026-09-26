@@ -2,7 +2,6 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
-import { IllegalRulesetError } from '@termitary/engine';
 import type { AuthProvidersDto, PostSeekResponseDto } from '@termitary/protocol';
 import Fastify, {
   type FastifyInstance,
@@ -21,19 +20,16 @@ import { createInMemoryConnectionRegistry } from './adapters/in-memory-connectio
 import type { Identity } from './domain/identity.js';
 import type { Ports } from './domain/ports.js';
 import { env } from './env.js';
-import { type CancelRoomResult, cancelRoom } from './usecases/cancel-room.js';
 import { type CancelSeekResult, cancelSeek } from './usecases/cancel-seek.js';
-import { CreateRoomBodySchema, coinFlip, createRoom } from './usecases/create-room.js';
 import { getArchivedGame } from './usecases/get-archived-game.js';
 import { getProfile } from './usecases/get-profile.js';
 import { listMyRooms } from './usecases/list-my-rooms.js';
 import { ArchivedGamesQuerySchema, listPlayerGames } from './usecases/list-player-games.js';
-import { listRooms } from './usecases/list-rooms.js';
 import { listSeeks, toSeekDto } from './usecases/list-seeks.js';
 import { PostSeekBodySchema, postSeek } from './usecases/post-seek.js';
 import { RenameProfileBodySchema, renameProfile } from './usecases/rename-profile.js';
-import { type SweepPorts, sweepAbandonedRooms } from './usecases/sweep-abandoned-rooms.js';
 import { type SeekSweepPorts, sweepExpiredSeeks } from './usecases/sweep-expired-seeks.js';
+import { type SweepPorts, sweepFinishedRooms } from './usecases/sweep-finished-rooms.js';
 import { handleConnection } from './ws/connection.js';
 import { type IdentityExtractor, createIdentityExtractor } from './ws/identity.js';
 
@@ -103,43 +99,17 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
       providers: configuredSocialProviders(auth),
     }),
   );
-  app.get('/api/rooms', { preHandler: gate }, async (req) =>
-    listRooms(requireIdentity(req), rooms),
-  );
   app.get('/api/rooms/mine', { preHandler: gate }, async (req) =>
     listMyRooms(requireIdentity(req), rooms),
-  );
-  app.post('/api/rooms', { preHandler: gate }, async (req, reply) => {
-    const body = CreateRoomBodySchema.safeParse(req.body);
-    if (!body.success) return reply.code(400).send({ error: 'invalid-body' });
-    try {
-      return await createRoom(requireIdentity(req), body.data, rooms, coinFlip);
-    } catch (err) {
-      // A ruleset the schema accepts can still be unplayable, queenless being
-      // the one that matters. The engine owns that judgement, so the route
-      // waits for it rather than repeating the rule.
-      if (err instanceof IllegalRulesetError) {
-        return reply.code(400).send({ error: 'invalid-ruleset' });
-      }
-      throw err;
-    }
-  });
-  app.delete<{ Params: { id: string } }>(
-    '/api/rooms/:id',
-    { preHandler: gate },
-    async (req, reply) => {
-      const outcome = await cancelRoom(requireIdentity(req), req.params.id, rooms);
-      return reply.code(CANCEL_ROOM_STATUS[outcome]).send();
-    },
   );
   app.get('/api/seeks', { preHandler: gate }, async (req) =>
     listSeeks(requireIdentity(req), seeks),
   );
   app.post('/api/seeks', { preHandler: gate }, async (req, reply) => {
     // Every field is optional, so `{}` is the default seek and the Play
-    // button's whole payload. A body is still required, as it is on
-    // /api/rooms: Fastify refuses an empty one before any handler runs, so a
-    // route that claimed to treat it as a default would never see it.
+    // button's whole payload. A body is still required: Fastify refuses an
+    // empty one before any handler runs, so a route that claimed to treat it
+    // as a default would never see it.
     const body = PostSeekBodySchema.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'invalid-body' });
 
@@ -273,12 +243,6 @@ const logRequest = async (req: FastifyRequest, reply: FastifyReply): Promise<voi
   );
 };
 
-const CANCEL_ROOM_STATUS: Record<CancelRoomResult, number> = {
-  cancelled: 204,
-  'not-found': 404,
-  forbidden: 403,
-};
-
 const CANCEL_SEEK_STATUS: Record<CancelSeekResult, number> = {
   cancelled: 204,
   'not-found': 404,
@@ -296,9 +260,9 @@ const POST_SEEK_ERROR = {
 // Two sweeps on one timer. A seek has nothing to archive and no state to
 // parse, so it needs no interval of its own and no second env variable.
 const sweepAndLog = (app: FastifyInstance, ports: SweepPorts & SeekSweepPorts): void => {
-  void sweepAbandonedRooms(ports)
+  void sweepFinishedRooms(ports)
     .then((removed) => {
-      if (removed > 0) app.log.info({ removed }, 'swept abandoned rooms');
+      if (removed > 0) app.log.info({ removed }, 'swept finished rooms');
     })
     .catch((err: unknown) => app.log.error({ err }, 'room sweep failed'));
   void sweepExpiredSeeks(ports)

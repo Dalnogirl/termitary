@@ -9,7 +9,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { useQueryClient } from '@tanstack/react-query';
 import type { OpponentPresence } from '@termitary/protocol';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -18,8 +17,6 @@ import { InputProvider } from '../controller/InputProvider.js';
 import { RoomProvider } from '../controller/RoomContext.js';
 import type { RoomStatus } from '../controller/room.js';
 import { useRoomConnection } from '../controller/use-room-connection.js';
-import { cancelRoom } from '../network/rooms-api.js';
-import { CopyInviteButton } from '../rooms/CopyInviteButton.js';
 import { useGameStore } from '../store/store.js';
 import { GameLayout } from './GameLayout.js';
 import { paths } from './paths.js';
@@ -70,31 +67,13 @@ export const PlayPage = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const room = useRoomConnection(roomId);
-  const queryClient = useQueryClient();
   const [showQuitDialog, setShowQuitDialog] = useState(false);
   const gameStatus = useGameStore((s) => s.liveGame.status);
 
-  // Nobody has taken the other seat, so there is no game to lose: the room is
-  // cancelled outright rather than resigned. Presence only means that once the
-  // handshake has answered; before it, 'empty' is just the initial reading.
-  const alone = room.status === 'in-room' && room.opponent.status === 'empty';
-
+  // The room survives a resignation, so this stays on the finished board.
   const handleConfirmQuit = (): void => {
     setShowQuitDialog(false);
-    if (roomId === undefined) return;
-    if (!alone) {
-      // The room survives a resignation, so this stays on the finished board.
-      room.resign();
-      return;
-    }
-    void cancelRoom(roomId)
-      .then(() => {
-        void queryClient.invalidateQueries({ queryKey: ['rooms'] });
-        void navigate(paths.lobby, { viewTransition: true });
-      })
-      .catch((err: unknown) => {
-        toast.error(err instanceof Error ? err.message : 'Could not cancel the game');
-      });
+    room.resign();
   };
 
   useEffect(() => {
@@ -119,10 +98,7 @@ export const PlayPage = () => {
       <InputProvider controller={room.controller}>
         <div className="flex flex-col flex-1 min-h-0">
           <div className="flex items-center justify-between gap-4 px-5 py-2 border-b border-border text-xs text-muted-foreground">
-            <span className="flex items-center gap-3">
-              <CopyInviteButton />
-              <ConnectionBadge status={room.status} opponent={room.opponent} />
-            </span>
+            <ConnectionBadge status={room.status} opponent={room.opponent} />
             {!gameOver && (
               <Button
                 variant="ghost"
@@ -130,7 +106,7 @@ export const PlayPage = () => {
                 disabled={room.status !== 'in-room'}
                 onClick={() => setShowQuitDialog(true)}
               >
-                {alone ? 'Cancel game' : 'Resign'}
+                Resign
               </Button>
             )}
           </div>
@@ -139,18 +115,15 @@ export const PlayPage = () => {
         <AlertDialog open={showQuitDialog} onOpenChange={setShowQuitDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>{alone ? 'Cancel game?' : 'Resign?'}</AlertDialogTitle>
+              <AlertDialogTitle>Resign?</AlertDialogTitle>
               <AlertDialogDescription>
-                {alone
-                  ? 'Nobody has joined yet, so the room is closed and nothing is recorded.'
-                  : 'Resigning loses the game. The final position stays here for both of you to look at. To take a break instead, navigate away and re-open this URL to come back.'}
+                Resigning loses the game. The final position stays here for both of you to look at.
+                To take a break instead, navigate away and re-open this URL to come back.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Keep playing</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmQuit}>
-                {alone ? 'Cancel game' : 'Resign'}
-              </AlertDialogAction>
+              <AlertDialogAction onClick={handleConfirmQuit}>Resign</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

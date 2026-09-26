@@ -93,6 +93,10 @@ export const env = {
   // web client hits localhost, and a session cookie set on one is never sent
   // to the other. Every OAuth callback hangs off it too.
   authBaseUrl: process.env.BETTER_AUTH_URL ?? `http://localhost:${port}`,
+  // OAuth returns the browser to `authBaseUrl`, and in development that is not
+  // the page the player left: better-auth refuses to redirect on to vite
+  // unless its origin is trusted.
+  trustedOrigins: nodeEnv === 'production' ? [] : ['http://localhost:5173'],
   roomSweepIntervalMs: Number(process.env.ROOM_SWEEP_INTERVAL_MS ?? 60 * 60 * 1000),
   socialProviders: resolveSocialProviders(),
 } as const;

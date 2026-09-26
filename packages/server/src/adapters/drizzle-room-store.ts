@@ -7,7 +7,7 @@ import {
   toWire,
   toWireRuleset,
 } from '@termitary/protocol';
-import { and, desc, eq, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
 import {
   ConcurrentModificationError,
   RoomAlreadyExistsError,
@@ -153,24 +153,6 @@ export const createDrizzleRoomStore = (db: Db): RoomStore => ({
       .all()
       .map(toOverview),
 
-  listOpenExcluding: async (playerId): Promise<readonly RoomOverview[]> =>
-    db
-      .select(overviewColumns)
-      .from(roomsTable)
-      .where(
-        and(
-          eq(roomsTable.status, 'in_progress'),
-          or(isNull(roomsTable.whiteUserId), isNull(roomsTable.blackUserId)),
-          // `IS NOT`, not `ne()`: on an empty seat `white_user_id != ?` is
-          // NULL and drops the row, which is the open room we want to keep.
-          sql`${roomsTable.whiteUserId} IS NOT ${playerId}`,
-          sql`${roomsTable.blackUserId} IS NOT ${playerId}`,
-        ),
-      )
-      .orderBy(desc(roomsTable.createdAt))
-      .all()
-      .map(toOverview),
-
   listFinishedBefore: async (cutoff): Promise<readonly Room[]> =>
     db
       .select()
@@ -178,15 +160,4 @@ export const createDrizzleRoomStore = (db: Db): RoomStore => ({
       .where(and(lt(roomsTable.updatedAt, cutoff), eq(roomsTable.status, 'finished')))
       .all()
       .map(toRoom),
-
-  deleteAbandonedBefore: async (cutoff) =>
-    db
-      .delete(roomsTable)
-      .where(
-        and(
-          lt(roomsTable.updatedAt, cutoff),
-          or(isNull(roomsTable.whiteUserId), isNull(roomsTable.blackUserId)),
-        ),
-      )
-      .run().changes,
 });

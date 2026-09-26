@@ -17,28 +17,10 @@ export type FinishedRoom = Room & { readonly state: Extract<GameState, { status:
 
 export const isFinished = (room: Room): room is FinishedRoom => room.state.status === 'finished';
 
-// The order `seatPlayer` fills free seats in. The creator picks their own
-// seat, so this only decides where a joiner lands in an empty room.
 const SEAT_ORDER = ['white', 'black'] as const;
 
-export const createRoom = (
-  id: string,
-  creator: Identity,
-  seat: Color,
-  now: Date,
-  ruleset: Ruleset = BASE_RULESET,
-): Room => ({
-  id,
-  ruleset,
-  state: createGame(ruleset),
-  players:
-    seat === 'white' ? { white: creator, black: undefined } : { white: undefined, black: creator },
-  createdAt: now,
-  updatedAt: now,
-});
-
-// Both seats filled from the start, which is what pairing produces: there is
-// no window where the room exists and one side is empty.
+// Both seats filled from the start. Pairing is the only way a room comes to
+// exist, so there is no window where one side is empty.
 export const createPairedRoom = (
   id: string,
   white: Identity,
@@ -70,16 +52,6 @@ export const colorOf = (room: Room, playerId: string): Color | undefined =>
 export const otherPlayer = (room: Room, playerId: string): Identity | undefined => {
   const color = colorOf(room, playerId);
   return color === undefined ? undefined : room.players[color === 'white' ? 'black' : 'white'];
-};
-
-export const seatPlayer = (room: Room, joiner: Identity): Room => {
-  const free = SEAT_ORDER.find((color) => room.players[color] === undefined);
-  return free === undefined ? room : { ...room, players: { ...room.players, [free]: joiner } };
-};
-
-export const unseatPlayer = (room: Room, playerId: string): Room => {
-  const color = colorOf(room, playerId);
-  return color === undefined ? room : { ...room, players: { ...room.players, [color]: undefined } };
 };
 
 export const currentPlayerIdentity = (room: Room): Identity | undefined =>

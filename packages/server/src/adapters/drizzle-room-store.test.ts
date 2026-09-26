@@ -6,7 +6,7 @@ import { type WireGameState, toWire } from '@termitary/protocol';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import type { RoomStore } from '../domain/room-store.js';
-import { createRoom, touch } from '../domain/room.js';
+import { createPairedRoom, touch } from '../domain/room.js';
 import { user } from './db/auth-schema.js';
 import { type DbHandle, createDb } from './db/client.js';
 import { CURRENT_STATE_VERSION, rooms as roomsTable } from './db/schema.js';
@@ -56,7 +56,7 @@ describe('DrizzleRoomStore', () => {
   it('round-trips a played game, board and history included', async () =>
     withStore(async ({ store }) => {
       const room = {
-        ...createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)),
+        ...createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
         state: placeAnt(0, 0),
       };
       await store.create(room);
@@ -70,13 +70,15 @@ describe('DrizzleRoomStore', () => {
 
   it('mirrors state.status into its own column', async () =>
     withStore(async ({ db, store }) => {
-      await store.create(createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)));
+      await store.create(
+        createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
+      );
       expect(rowOf(db, 'r1')?.status).toBe('in_progress');
     }));
 
   it('increments version on every save and leaves created_at alone', async () =>
     withStore(async ({ db, store }) => {
-      const room = createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000));
+      const room = createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000));
       await store.create(room);
       expect(rowOf(db, 'r1')?.version).toBe(1);
 
@@ -92,13 +94,17 @@ describe('DrizzleRoomStore', () => {
 
   it('stamps the current state payload version', async () =>
     withStore(async ({ db, store }) => {
-      await store.create(createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)));
+      await store.create(
+        createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
+      );
       expect(rowOf(db, 'r1')?.stateVersion).toBe(CURRENT_STATE_VERSION);
     }));
 
   it('reads a null ruleset column as base', async () =>
     withStore(async ({ db, store }) => {
-      await store.create(createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)));
+      await store.create(
+        createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
+      );
       // What a row written before the column looks like.
       db.db.update(roomsTable).set({ ruleset: null }).where(eq(roomsTable.id, 'r1')).run();
 
@@ -108,7 +114,7 @@ describe('DrizzleRoomStore', () => {
   it('replays a state stored before it carried a ruleset', async () =>
     withStore(async ({ db, store }) => {
       const room = {
-        ...createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)),
+        ...createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
         state: placeAnt(0, 0),
       };
       await store.create(room);
@@ -128,21 +134,25 @@ describe('DrizzleRoomStore', () => {
 
   it('lists a room whose ruleset cannot be parsed, as base', async () =>
     withStore(async ({ db, store }) => {
-      await store.create(createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)));
+      await store.create(
+        createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
+      );
       db.db
         .update(roomsTable)
         .set({ ruleset: { pieces: { queen: 'lots' } } as never })
         .where(eq(roomsTable.id, 'r1'))
         .run();
 
-      const [listed] = await store.listOpenExcluding('nobody');
+      const [listed] = await store.listSeatedBy('p1');
       expect(listed?.ruleset).toEqual(BASE_RULESET);
       await expect(store.get('r1')).rejects.toThrow();
     }));
 
   it('rejects a state payload it cannot parse', async () =>
     withStore(async ({ db, store }) => {
-      await store.create(createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)));
+      await store.create(
+        createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
+      );
       db.db
         .update(roomsTable)
         .set({ state: { status: 'in_progress' } as never })
@@ -153,27 +163,30 @@ describe('DrizzleRoomStore', () => {
 
   it('lists a room whose state cannot be parsed', async () =>
     withStore(async ({ db, store }) => {
-      await store.create(createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)));
-      await store.create(createRoom('r2', { playerId: 'p2' }, 'white', new Date(1000)));
+      await store.create(
+        createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
+      );
+      await store.create(
+        createPairedRoom('r2', { playerId: 'p2' }, { playerId: 'p1' }, new Date(1000)),
+      );
       db.db
         .update(roomsTable)
         .set({ state: { status: 'in_progress' } as never })
         .where(eq(roomsTable.id, 'r1'))
         .run();
 
-      // The lobby projects columns and never touches `state`, so one bad row
-      // does not fail the listing for every user.
-      const listed = await store.listOpenExcluding('nobody');
+      // The listing projects columns and never touches `state`, so one bad row
+      // does not fail it.
+      const listed = await store.listSeatedBy('p1');
       expect(listed.map((r) => r.id).sort()).toEqual(['r1', 'r2']);
       await expect(store.get('r1')).rejects.toThrow();
     }));
 
   it('unseats a player when their account is deleted', async () =>
     withStore(async ({ db, store }) => {
-      await store.create({
-        ...createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)),
-        players: { white: { playerId: 'p1' }, black: { playerId: 'p2' } },
-      });
+      await store.create(
+        createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
+      );
 
       db.db.delete(user).where(eq(user.id, 'p2')).run();
 
@@ -186,13 +199,14 @@ describe('DrizzleRoomStore', () => {
     try {
       const path = join(dir, 'test.db');
       const room = {
-        ...createRoom('r1', { playerId: 'p1' }, 'white', new Date(1000)),
+        ...createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
         state: placeAnt(0, 0),
       };
 
       const first = createDb(path);
       try {
         seedUser(first, 'p1');
+        seedUser(first, 'p2');
         await createDrizzleRoomStore(first.db).create(room);
       } finally {
         first.close();

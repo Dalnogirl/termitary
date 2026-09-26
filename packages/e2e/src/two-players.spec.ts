@@ -23,15 +23,33 @@ const stackedCell = (() => {
   throw new Error('the fixture ends with nothing stacked');
 })();
 
-const openRoom = async (page: Page): Promise<string> => {
-  // Home keeps the create dialog until #125; the lobby only seeks. A fixed
-  // seat is the point here, since the script needs white to move first.
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Create new game' }).click();
-  await page.locator('label', { has: page.getByRole('radio', { name: /White/ }) }).click();
-  await page.getByRole('button', { name: 'Create game' }).click();
-  await page.waitForURL('**/play/**');
-  return page.url();
+// Both players take the default seek, which pairs into the base game the
+// fixture was played under.
+const pair = async (seeker: Page, joiner: Page): Promise<void> => {
+  await seeker.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(seeker.getByRole('listitem').filter({ hasText: 'Your seek' })).toBeVisible();
+  // A board with no seek of your own is read once, not polled.
+  await joiner.reload();
+  await joiner.getByRole('listitem').getByRole('button', { name: 'Join' }).click();
+  await joiner.waitForURL('**/play/**');
+  await seeker.waitForURL('**/play/**', { timeout: 15_000 });
+};
+
+// Seats are a coin flip. Only the side to move has an enabled hand, and the
+// fixture opens with a placement, so that slot names white. Until the room
+// answers, a page has no colour and plays both sides like hot-seat, so the
+// count waits for Resign, which enables on the same answer.
+const bySeat = async <T extends { page: Page }>(a: T, b: T): Promise<[white: T, black: T]> => {
+  const opening = script[0]?.move;
+  if (opening?.kind !== 'place') throw new Error('the fixture does not open with a placement');
+  for (const { page } of [a, b]) {
+    await expect(page.getByRole('button', { name: 'Resign' })).toBeEnabled();
+  }
+  const slot = (page: Page) =>
+    page.locator(`button[aria-label^="${opening.piece.type},"]:not([disabled])`);
+  const [inA, inB] = [await slot(a.page).count(), await slot(b.page).count()];
+  expect(inA + inB).toBe(1);
+  return inA === 1 ? [a, b] : [b, a];
 };
 
 test('two players play a game from the lobby to a surrounded queen', async ({ browser }) => {
@@ -40,13 +58,12 @@ test('two players play a game from the lobby to a surrounded queen', async ({ br
   test.slow();
 
   const stamp = Date.now();
-  const white = await signedInPlayer(browser, `white-${stamp}@test.dev`);
-  const black = await signedInPlayer(browser, `black-${stamp}@test.dev`);
+  const seat = async (email: string) => ({ email, page: await signedInPlayer(browser, email) });
+  const seeker = await seat(`seeker-${stamp}@test.dev`);
+  const joiner = await seat(`joiner-${stamp}@test.dev`);
 
-  await black.goto(await openRoom(white));
-  // Seated rather than merely looking: the empty seat is what white was told
-  // about, so white's side is where it stops being empty.
-  await expect(white.getByText('Waiting for opponent…')).toBeHidden();
+  await pair(seeker.page, joiner.page);
+  const [{ page: white }, { page: black, email: blackEmail }] = await bySeat(seeker, joiner);
 
   for (const [index, { move, landed }] of script.entries()) {
     const mover = index % 2 === 0 ? white : black;
@@ -72,7 +89,7 @@ test('two players play a game from the lobby to a surrounded queen', async ({ br
   await expect(black.getByRole('alertdialog').getByRole('link')).toHaveText(/^[a-z]+-[a-z]+$/);
 
   await black.getByRole('button', { name: 'Back to lobby' }).click();
-  await black.getByRole('link', { name: `black-${stamp}@test.dev` }).click();
+  await black.getByRole('link', { name: blackEmail }).click();
 
   await expect(
     black.getByRole('listitem').filter({ hasText: 'Lost, queen surrounded' }),

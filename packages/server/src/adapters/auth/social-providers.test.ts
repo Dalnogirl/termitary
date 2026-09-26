@@ -83,7 +83,7 @@ describe('social sign-in', () => {
   });
 
   it('does not need a session to list them', async () => {
-    const gated = await app.inject({ method: 'GET', url: '/api/rooms' });
+    const gated = await app.inject({ method: 'GET', url: '/api/rooms/mine' });
     expect(gated.statusCode).toBe(401);
 
     const res = await app.inject({ method: 'GET', url: '/api/auth-providers' });

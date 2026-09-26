@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { Color } from '@termitary/engine';
 import { type SeekPreference, SeekPreferenceSchema } from '@termitary/protocol';
 import { z } from 'zod';
 import type { Identity } from '../domain/identity.js';
@@ -6,8 +7,6 @@ import type { Ports } from '../domain/ports.js';
 import { createPairedRoom } from '../domain/room.js';
 import { SeekerAlreadySeekingError } from '../domain/seek-store.js';
 import { type Seek, compatible, createSeek, isExpired, pairedRuleset } from '../domain/seek.js';
-import type { SeatPicker } from './create-room.js';
-import { coinFlip } from './create-room.js';
 
 export const PostSeekBodySchema = z.object({
   // Absent is the default seek: no opinion on any expansion, pairs with
@@ -24,6 +23,11 @@ export type PostSeekResult =
   | { readonly outcome: 'gone' }
   | { readonly outcome: 'incompatible' }
   | { readonly outcome: 'own-seek' };
+
+/** Picks white's player. An argument so tests can fix the flip. */
+export type SeatPicker = () => Color;
+
+export const coinFlip: SeatPicker = () => (Math.random() < 0.5 ? 'white' : 'black');
 
 export type SeekPorts = Pick<Ports, 'rooms' | 'seeks' | 'log'>;
 

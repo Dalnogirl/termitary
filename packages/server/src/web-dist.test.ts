@@ -71,7 +71,7 @@ describe('the built SPA', () => {
   });
 
   it('still gates the API behind it', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/rooms' });
+    const res = await app.inject({ method: 'GET', url: '/api/rooms/mine' });
     expect(res.statusCode).toBe(401);
   });
 });
