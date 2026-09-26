@@ -92,8 +92,9 @@ export const SignedInHome = () => {
 
       <div className="flex flex-wrap items-center gap-4">
         <Link to={paths.lobby} viewTransition className={`${linkClass} text-xs`}>
-          {rooms.length > SHOWN ? `All ${rooms.length} of your games` : 'Open games'} and free seats
-          →
+          {rooms.length > SHOWN
+            ? `All ${rooms.length} of your games, and find an opponent →`
+            : 'Find an opponent →'}
         </Link>
         {session && (
           <Link

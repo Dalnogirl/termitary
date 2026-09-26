@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import type { MyRoomSummaryDto } from '@termitary/protocol';
 import { relativeTime } from '../lib/relative-time.js';
+import { Badge } from './Badge.js';
 
 export const RoomRow = ({
   roomId,
@@ -21,12 +22,7 @@ export const RoomRow = ({
       <span className="flex items-center gap-2">
         <span className="font-mono text-sm">{roomId}</span>
         {badges.map((badge) => (
-          <span
-            key={badge}
-            className="rounded-full border border-border px-2 py-0.5 text-[0.65rem] uppercase tracking-wide text-muted-foreground"
-          >
-            {badge}
-          </span>
+          <Badge key={badge}>{badge}</Badge>
         ))}
       </span>
       <span className="text-xs text-muted-foreground">{detail}</span>
