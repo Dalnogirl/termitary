@@ -34,8 +34,8 @@ export const rooms = sqliteTable(
   {
     id: text('id').primaryKey(),
     // Restrict, not cascade: cascade would delete a live game out from under
-    // the opponent. Deleting an account has to remove every room it sits in
-    // first, finished ones included, since the sweep only takes those later.
+    // the opponent. Deleting an account has to end every game it sits in
+    // first, which archives it and takes the room.
     whiteUserId: text('white_user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),

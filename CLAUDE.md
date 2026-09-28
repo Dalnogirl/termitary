@@ -83,8 +83,8 @@ Coverage is high and includes a randomized fuzzer (`src/e2e.test.ts`): 30 games 
 
 Hexagonal layering, and the seams are load-bearing because the adapters get swapped for AWS ones later (#50):
 
-- `domain/` — `Room` (seats as a positional `[white, black]` tuple), `Identity`, and the `RoomStore` / `ConnectionRegistry` / `ArchivedGameStore` / `UserStore` port types.
-- `adapters/` — Drizzle implementations of `RoomStore`, `ArchivedGameStore` and `UserStore`, an in-memory `ConnectionRegistry`, plus better-auth and the session extractor. None of the three data ports has a fake: a test that wants them calls `createTestStores()` from `src/testing/stores.ts`, which builds all three over one in-memory database and seeds the `user` rows the seat foreign keys need.
+- `domain/` — `Room` (seats as a positional `[white, black]` tuple), `Identity`, and the `RoomStore` / `ConnectionRegistry` / `ArchivedGameStore` / `UserStore` / `UnitOfWork` port types.
+- `adapters/` — Drizzle implementations of `RoomStore`, `ArchivedGameStore`, `UserStore` and `UnitOfWork`, an in-memory `ConnectionRegistry`, plus better-auth and the session extractor. None of the three data ports has a fake: a test that wants them calls `createTestStores()` from `src/testing/stores.ts`, which builds all three over one in-memory database and seeds the `user` rows the seat foreign keys need.
 - `usecases/` — one file per action (`postSeek`, `cancelSeek`, `joinGame`, `makeMove`, `resign`), each taking `(identity, msg, ports)` and pushing results through `connections.sendTo`.
 - `ws/` — socket lifecycle, zod parsing of inbound frames, and a dispatcher switching on `msg.type` with a `never` exhaustiveness check.
 
@@ -92,11 +92,11 @@ Pairing is the only way a room comes to exist. `POST /api/seeks` either claims a
 
 Auth: `/api/rooms/mine`, `/api/seeks` and `/ws` are gated on a better-auth session cookie. `/api/auth-providers` is the one route that is deliberately ungated, because `/signin` is the page with no session to send. better-auth rather than hand-rolled sessions, because password hashing, reset flows and token rotation are a lot of surface for a hobby project, and email OTP means no password storage at all. `ws/identity.ts` is the only place the server knows better-auth exists; everything downstream sees `(req) => Promise<Identity | null>`, which is the seam #50 swaps for Cognito. Sign-in is email OTP or a social provider, and in dev the OTP is printed to the server console rather than emailed. Google and GitHub are registered only when `env.socialProviders` found a complete credential pair, so a checkout with none of the four variables still runs on OTP alone. `docs/configuration.md` lists every variable and what a missing one does.
 
-Seat and presence are separate concepts. A socket close notifies the opponent of `disconnected` but leaves seats intact, so a reconnect is another `joinGame`. `joinGame` only re-attaches: a player holding neither seat is refused. No seat is ever empty: both seat columns are `NOT NULL` with `onDelete: 'restrict'`, so the database refuses to delete a seated account.
+Seat and presence are separate concepts. A socket close during a game notifies the opponent of `disconnected` but leaves seats intact, so a reconnect is another `joinGame`. Once the game ends there is no room to look the opponent up in, so nobody is notified. `joinGame` only re-attaches: a player holding neither seat is refused. No seat is ever empty: both seat columns are `NOT NULL` with `onDelete: 'restrict'`, so the database refuses to delete a seated account.
 
-`Room` carries its own `createdAt` and `updatedAt`: `createPairedRoom(id, white, black, now)` stamps them and `touch(room, now)` moves `updatedAt`, and the stores write both as given rather than stamping a clock of their own. A save that forgets `touch` freezes the room in the lobby ordering, and a finished one reaches the sweep early.
+`Room` carries its own `createdAt` and `updatedAt`: `createPairedRoom(id, white, black, now)` stamps them and `touch(room, now)` moves `updatedAt`, and the stores write both as given rather than stamping a clock of their own. A save that forgets `touch` freezes the room in the lobby ordering, and a finished one is archived with the wrong `finishedAt`.
 
-A finished game is archived the moment it ends, by `makeMove` and `resign`, with `sweepFinishedRooms` as the backstop: it archives each finished room before deleting it, and leaves the room alone if the archive throws. A room leaves only through `listFinishedBefore`, so none is dropped unarchived, and a game in progress is never swept however old.
+A finished game leaves `rooms` in the same commit that archives it, so no finished room is ever stored. `makeMove` and `resign` commit `rooms.deleteOp` and `archive.recordOp` through the `UnitOfWork` port and broadcast only after it succeeds. If the archive insert fails, the move fails with it: the room keeps its previous state and the player gets an error. The ops are opaque `WriteOp`s each store builds for its own table, and the commit runs them as plain synchronous functions because better-sqlite3 refuses an async transaction callback; on DynamoDB (#50) the same list is a `TransactWriteItems`. A seated player who comes back to an archived room, through `joinGame`, `makeMove` or `resign`, gets `gameArchived` and the web client follows it to `/archived-games/:id`. Anyone else gets `room not found`.
 
 Tests use `createTestApp()` from `src/testing/auth-helper.ts`: in-memory SQLite, captured OTPs, and a `signIn(email)` returning a usable cookie. Use `app.inject` for REST; `ws/integration.test.ts` shows the WebSocket pattern.
 
@@ -129,6 +129,10 @@ The renderer names what it draws: a tile is `piece` carrying `pieceColor` and `p
   - Write one only for what code cannot state: a non-obvious *why*, surprising behaviour in something external (a library hook that skips a branch, an ordering a call depends on), or a deliberate deferral.
   - Never restate the code, describe another implementation, or narrate what a test asserts.
   - Keep them to a line or two. A paragraph above a function usually means the function wants splitting.
+
+## Review
+
+After finishing a coherent piece of work (a feature, a fix, a refactor that stands on its own), run the `code-reviewer` agent on the diff before reporting done or committing. Fix what it finds or say why not; don't hand back unreviewed work. Skip it for docs-only or one-line changes.
 
 ## State of the work
 

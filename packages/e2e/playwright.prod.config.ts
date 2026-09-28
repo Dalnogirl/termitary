@@ -50,7 +50,7 @@ export default defineConfig({
       GOOGLE_CLIENT_SECRET: 'prod-e2e',
       GITHUB_CLIENT_ID: 'prod-e2e',
       GITHUB_CLIENT_SECRET: 'prod-e2e',
-      ROOM_SWEEP_INTERVAL_MS: '0',
+      SEEK_SWEEP_INTERVAL_MS: '0',
     },
   },
 });

@@ -4,7 +4,8 @@ import { fromWireMove, toWire } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { type Room, colorOf, touch } from '../domain/room.js';
-import { archiveFinished } from './archive-finished.js';
+import { answerMissingRoom } from './answer-missing-room.js';
+import { commitPlayed } from './commit-played.js';
 import { retryOnConflict } from './retry-on-conflict.js';
 import { sendError } from './send-error.js';
 
@@ -14,11 +15,12 @@ export const makeMove = (identity: Identity, msg: ClientMakeMove, ports: Ports):
 const attemptMove = async (
   identity: Identity,
   msg: ClientMakeMove,
-  { rooms, connections, archive, users, log }: Ports,
+  ports: Ports,
 ): Promise<void> => {
+  const { rooms, connections } = ports;
   const current = await rooms.getForUpdate(msg.roomId);
   if (current === undefined) {
-    await sendError(connections, identity, 'room not found', 'makeMove');
+    await answerMissingRoom(identity, msg.roomId, 'makeMove', ports);
     return;
   }
   const { value: room, version } = current;
@@ -46,18 +48,10 @@ const attemptMove = async (
   }
 
   const updated = touch(played, new Date());
-  await rooms.save(updated, version);
+  if (!(await commitPlayed(identity, updated, version, 'makeMove', ports))) return;
   await connections.broadcast(updated.id, {
     type: 'stateUpdated',
     roomId: updated.id,
     state: toWire(updated.state),
   });
-
-  // The move is committed and both players have seen it, so a failed archive
-  // is not theirs to hear about. The sweep archives before it deletes.
-  try {
-    await archiveFinished(updated, { archive, users });
-  } catch (err) {
-    log.error({ roomId: updated.id, err }, 'archiving a finished game failed');
-  }
 };

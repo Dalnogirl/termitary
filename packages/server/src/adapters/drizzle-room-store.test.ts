@@ -10,7 +10,9 @@ import { createPairedRoom, touch } from '../domain/room.js';
 import { user } from './db/auth-schema.js';
 import { type DbHandle, createDb } from './db/client.js';
 import { CURRENT_STATE_VERSION, rooms as roomsTable } from './db/schema.js';
+import { createDrizzleArchivedGameStore } from './drizzle-archived-game-store.js';
 import { createDrizzleRoomStore } from './drizzle-room-store.js';
+import { createDrizzleUnitOfWork } from './drizzle-unit-of-work.js';
 import { describeRoomStoreContract } from './room-store.contract.js';
 
 const seedUser = (db: DbHandle, id: string): void => {
@@ -31,6 +33,8 @@ describeRoomStoreContract('DrizzleRoomStore', async () => {
   const db = createDb(':memory:');
   return {
     store: createDrizzleRoomStore(db.db),
+    archive: createDrizzleArchivedGameStore(db.db),
+    unitOfWork: createDrizzleUnitOfWork(db.db),
     seedUser: async (id) => seedUser(db, id),
     cleanup: () => db.close(),
   };

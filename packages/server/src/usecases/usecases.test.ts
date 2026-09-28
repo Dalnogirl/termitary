@@ -7,9 +7,8 @@ import { createInMemoryConnectionRegistry } from '../adapters/in-memory-connecti
 import type { Sender } from '../domain/connection-registry.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
-import { createPairedRoom, touch } from '../domain/room.js';
+import { createPairedRoom } from '../domain/room.js';
 import { createTestStores } from '../testing/stores.js';
-import { archiveFinished } from './archive-finished.js';
 import { joinGame } from './join-game.js';
 import { makeMove } from './make-move.js';
 import { resign } from './resign.js';
@@ -26,8 +25,8 @@ type Inbox = { messages: ServerMessage[] };
 
 const setup = () => {
   const connections = createInMemoryConnectionRegistry();
-  const { rooms, seeks, archive, users, log } = createTestStores(PLAYERS);
-  const ports: Ports = { rooms, seeks, connections, archive, users, log };
+  const { close: _close, ...stores } = createTestStores(PLAYERS);
+  const ports: Ports = { ...stores, connections };
   const inboxes = new Map<string, Inbox>();
   const senders = new Map<string, Sender>();
   const connect = (playerId: string): Inbox => {
@@ -253,7 +252,7 @@ describe('makeMove', () => {
 });
 
 describe('resign', () => {
-  it('finishes the game for both players and keeps the room', async () => {
+  it('finishes the game for both players and closes the room', async () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
     const bob = connect('bob');
@@ -272,23 +271,19 @@ describe('resign', () => {
       expect(msg.state.endReason).toBe('resignation');
     }
 
-    const room = await ports.rooms.get(roomId);
-    expect(room?.state.status).toBe('finished');
+    expect(await ports.rooms.get(roomId)).toBeUndefined();
   });
 
-  it('answers a second resignation with the finished state, not an error', async () => {
+  it('sends the late half of a double resignation to the archive, not an error', async () => {
     const { ports, connect } = setup();
-    const alice = connect('alice');
+    const bob = connect('bob');
     const roomId = await provisionRoom(ports, 'alice');
     await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
     await resign(ident('alice'), { type: 'resign', roomId }, ports);
-    await resign(ident('alice'), { type: 'resign', roomId }, ports);
+    await resign(ident('bob'), { type: 'resign', roomId }, ports);
 
-    const msg = lastOf(alice);
-    expect(msg.type).toBe('stateUpdated');
-    if (msg.type !== 'stateUpdated') throw new Error('unreachable');
-    expect(msg.state.status).toBe('finished');
+    expect(lastOf(bob)).toEqual({ type: 'gameArchived', roomId });
   });
 
   it('errors on unknown rooms and when the caller is not seated', async () => {
@@ -425,15 +420,18 @@ describe('archiving a finished game', () => {
     ]);
   });
 
-  it('keeps the game playable when the archive is down', async () => {
-    const { ports } = setup();
+  it('refuses the move that ends the game when the archive cannot take it', async () => {
+    const { ports, connect } = setup();
+    const alice = connect('alice');
+    const bob = connect('bob');
     const roomId = await provisionRoom(ports, 'alice');
     await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    const before = await ports.rooms.getForUpdate(roomId);
+    bob.messages.length = 0;
     const broken: Ports = {
       ...ports,
-      archive: {
-        ...ports.archive,
-        record: async () => {
+      unitOfWork: {
+        commit: async () => {
           throw new Error('archive is down');
         },
       },
@@ -441,22 +439,54 @@ describe('archiving a finished game', () => {
 
     await resign(ident('alice'), { type: 'resign', roomId }, broken);
 
-    const room = await ports.rooms.get(roomId);
-    expect(room?.state.status).toBe('finished');
+    expect(lastOf(alice)).toEqual({
+      type: 'error',
+      message: 'could not finish the game',
+      requestKind: 'resign',
+    });
+    expect(bob.messages).toEqual([]);
+    expect(await ports.rooms.getForUpdate(roomId)).toEqual(before);
   });
+});
 
-  it('leaves the live archive row alone when the sweep backstops it', async () => {
-    const { ports } = setup();
-    const roomId = await provisionRoom(ports, 'alice');
+describe('a seated player returning to an archived game', () => {
+  const archivedRoom = async () => {
+    const env = setup();
+    const roomId = await provisionRoom(env.ports, 'alice');
+    await resign(ident('alice'), { type: 'resign', roomId }, env.ports);
+    return { ...env, roomId };
+  };
+
+  it('is sent to the archive on joinGame', async () => {
+    const { ports, connect, roomId } = await archivedRoom();
+    const bob = connect('bob');
+
     await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
 
-    await resign(ident('alice'), { type: 'resign', roomId }, ports);
-    const first = await ports.archive.get(roomId);
+    expect(lastOf(bob)).toEqual({ type: 'gameArchived', roomId });
+  });
 
-    const room = await ports.rooms.get(roomId);
-    if (!room) throw new Error('room missing');
-    await archiveFinished(touch(room, new Date(9_000_000)), ports);
+  it('is sent to the archive on makeMove', async () => {
+    const { ports, connect, roomId } = await archivedRoom();
+    const alice = connect('alice');
+    const move = listValidMoves(oneMoveFromSurrounded())[0];
+    if (move === undefined) throw new Error('no valid moves');
 
-    expect(await ports.archive.get(roomId)).toEqual(first);
+    await makeMove(ident('alice'), { type: 'makeMove', roomId, move: toWireMove(move) }, ports);
+
+    expect(lastOf(alice)).toEqual({ type: 'gameArchived', roomId });
+  });
+
+  it('while anyone else is told there is no room', async () => {
+    const { ports, connect, roomId } = await archivedRoom();
+    const eve = connect('eve');
+
+    await joinGame(ident('eve'), { type: 'joinGame', roomId }, ports);
+
+    expect(lastOf(eve)).toEqual({
+      type: 'error',
+      message: 'room not found',
+      requestKind: 'joinGame',
+    });
   });
 });

@@ -1,5 +1,6 @@
 import type { GameState, Ruleset } from '@termitary/engine';
 import type { Room, Seats } from './room.js';
+import type { WriteOp } from './unit-of-work.js';
 
 // What the lobby needs. The listing queries return this rather than whole
 // rooms so the lobby never deserializes a game, and one unreadable game
@@ -34,19 +35,17 @@ export type RoomStore = {
    * wants `updatedAt` to move calls `touch` first.
    */
   save(room: Room, expected: number): Promise<void>;
-  delete(id: string): Promise<void>;
+  /**
+   * The delete a finished game commits alongside its archive row, on the same
+   * compare-and-swap terms as `save`: the commit throws
+   * `ConcurrentModificationError` when the row has moved on or gone.
+   */
+  deleteOp(id: string, expected: number): WriteOp;
   /**
    * Games in progress the player holds a seat in, most recently played first.
    * The predicate lives in the store so callers never scan the whole table.
    */
   listSeatedBy(playerId: string): Promise<readonly RoomOverview[]>;
-  /**
-   * Finished games last written before `cutoff`, whole rather than projected:
-   * the sweep archives each one before deleting it, which needs the state.
-   * A game in progress is never listed, however old, because both players can
-   * still return to it.
-   */
-  listFinishedBefore(cutoff: Date): Promise<readonly Room[]>;
 };
 
 export class RoomAlreadyExistsError extends Error {

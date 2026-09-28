@@ -7,7 +7,7 @@ import {
   toWire,
   toWireRuleset,
 } from '@termitary/protocol';
-import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, or, sql } from 'drizzle-orm';
 import {
   ConcurrentModificationError,
   RoomAlreadyExistsError,
@@ -17,6 +17,7 @@ import {
 import type { Room } from '../domain/room.js';
 import type { Db } from './db/client.js';
 import { CURRENT_STATE_VERSION, type RoomRow, rooms as roomsTable } from './db/schema.js';
+import { toWriteOp } from './drizzle-unit-of-work.js';
 
 const seat = (userId: string) => ({ playerId: userId });
 
@@ -133,9 +134,14 @@ export const createDrizzleRoomStore = (db: Db): RoomStore => ({
     if (changes === 0) throw new ConcurrentModificationError(room.id);
   },
 
-  delete: async (id) => {
-    db.delete(roomsTable).where(eq(roomsTable.id, id)).run();
-  },
+  deleteOp: (id, expected) =>
+    toWriteOp((tx) => {
+      const { changes } = tx
+        .delete(roomsTable)
+        .where(and(eq(roomsTable.id, id), eq(roomsTable.version, expected)))
+        .run();
+      if (changes === 0) throw new ConcurrentModificationError(id);
+    }),
 
   // Projected, not whole rooms: the lobby never parses a game, so one
   // unreadable row cannot fail the listing for every user.
@@ -152,12 +158,4 @@ export const createDrizzleRoomStore = (db: Db): RoomStore => ({
       .orderBy(desc(roomsTable.updatedAt))
       .all()
       .map(toOverview),
-
-  listFinishedBefore: async (cutoff): Promise<readonly Room[]> =>
-    db
-      .select()
-      .from(roomsTable)
-      .where(and(lt(roomsTable.updatedAt, cutoff), eq(roomsTable.status, 'finished')))
-      .all()
-      .map(toRoom),
 });

@@ -197,6 +197,15 @@ describe('createRoomController', () => {
     expect(controller.store.getState().status).toBe('in-room');
   });
 
+  it('marks the room archived when the server says its game has moved there', () => {
+    const controller = setup();
+
+    deliver({ type: 'gameArchived', roomId: 'r1' });
+
+    expect(controller.store.getState().status).toBe('archived');
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
   it('keeps taking the fatal path for errors that are not move rejections', () => {
     const controller = setup();
 

@@ -49,6 +49,13 @@ export const ServerPresenceUpdateSchema = z
   .strict();
 export type ServerPresenceUpdate = z.infer<typeof ServerPresenceUpdateSchema>;
 
+// The room is gone because its game was archived under the same id. Sent only
+// to a player who sat in it; anyone else gets `room not found`.
+export const ServerGameArchivedSchema = z
+  .object({ type: z.literal('gameArchived'), roomId: z.string().min(1) })
+  .strict();
+export type ServerGameArchived = z.infer<typeof ServerGameArchivedSchema>;
+
 export const ServerErrorSchema = z
   .object({
     type: z.literal('error'),
@@ -63,6 +70,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   ServerGameJoinedSchema,
   ServerStateUpdatedSchema,
   ServerPresenceUpdateSchema,
+  ServerGameArchivedSchema,
   ServerErrorSchema,
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

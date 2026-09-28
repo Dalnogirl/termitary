@@ -1,5 +1,6 @@
 import type { ArchivedGame, ArchivedGameOverview } from './archived-game.js';
 import type { PlayerGameOutcome } from './player-record.js';
+import type { WriteOp } from './unit-of-work.js';
 
 /** The last row of a page. Paging resumes strictly after it. */
 export type ArchivedGameCursor = {
@@ -15,10 +16,11 @@ export type ArchivedGamePageQuery = {
 export type ArchivedGameStore = {
   /**
    * Writes a finished game, keyed by its room id. Recording the same game
-   * twice is a no-op: the live path and the sweep backstop both write, and
-   * the row is immutable once it exists.
+   * twice is a no-op: the row is immutable once it exists.
    */
   record(game: ArchivedGame): Promise<void>;
+  /** `record`, as an op to commit together with the room's delete. */
+  recordOp(game: ArchivedGame): WriteOp;
   /**
    * A player's finished games, most recently finished first. Keyset paging,
    * not offset: a game finishing mid-page would shift every later offset, and

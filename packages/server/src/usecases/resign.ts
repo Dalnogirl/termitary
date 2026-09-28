@@ -4,23 +4,25 @@ import { toWire } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { colorOf, touch } from '../domain/room.js';
-import { archiveFinished } from './archive-finished.js';
+import { answerMissingRoom } from './answer-missing-room.js';
+import { commitPlayed } from './commit-played.js';
 import { retryOnConflict } from './retry-on-conflict.js';
 import { sendError } from './send-error.js';
 
-// Both players stay bound to the room: the finished game is the point, and
-// either of them can sit on it until the sweep takes the room.
 export const resign = (identity: Identity, msg: ClientResign, ports: Ports): Promise<void> =>
   retryOnConflict(() => attemptResign(identity, msg, ports));
 
 const attemptResign = async (
   identity: Identity,
   msg: ClientResign,
-  { rooms, connections, archive, users, log }: Ports,
+  ports: Ports,
 ): Promise<void> => {
+  const { rooms, connections } = ports;
+  // Also the late half of two players resigning inside one round trip: the
+  // first one's commit has already archived the game and taken the room.
   const current = await rooms.getForUpdate(msg.roomId);
   if (current === undefined) {
-    await sendError(connections, identity, 'room not found', 'resign');
+    await answerMissingRoom(identity, msg.roomId, 'resign', ports);
     return;
   }
   const { value: room, version } = current;
@@ -29,30 +31,15 @@ const attemptResign = async (
     await sendError(connections, identity, 'not in room', 'resign');
     return;
   }
-  // Both players resigning inside one round trip is a race nobody loses
-  // twice: answer the late one with the result rather than an error, which
-  // the client treats as fatal and leaves the finished board over.
   if (room.state.status === 'finished') {
-    await connections.sendTo(identity.playerId, {
-      type: 'stateUpdated',
-      roomId: room.id,
-      state: toWire(room.state),
-    });
+    await sendError(connections, identity, 'game already finished', 'resign');
     return;
   }
   const updated = touch({ ...room, state: resignGame(room.state, color) }, new Date());
-  await rooms.save(updated, version);
+  if (!(await commitPlayed(identity, updated, version, 'resign', ports))) return;
   await connections.broadcast(updated.id, {
     type: 'stateUpdated',
     roomId: updated.id,
     state: toWire(updated.state),
   });
-
-  // Same terms as makeMove: the resignation stands whether or not the archive
-  // takes it, and the sweep retries what this drops.
-  try {
-    await archiveFinished(updated, { archive, users });
-  } catch (err) {
-    log.error({ roomId: updated.id, err }, 'archiving a resigned game failed');
-  }
 };

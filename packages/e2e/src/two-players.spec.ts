@@ -88,6 +88,12 @@ test('two players play a game from the lobby to a surrounded queen', async ({ br
   // never been told any other way.
   await expect(black.getByRole('alertdialog').getByRole('link')).toHaveText(/^[a-z]+-[a-z]+$/);
 
+  // The room went with the game, so coming back to it lands on the archive.
+  const roomId = new URL(white.url()).pathname.split('/').at(-1);
+  await white.reload();
+  await white.waitForURL(`**/archived-games/${roomId}`);
+  await expect(white.getByText('This game does not exist.')).toHaveCount(0);
+
   await black.getByRole('button', { name: 'Back to lobby' }).click();
   await black.getByRole('link', { name: blackEmail }).click();
 

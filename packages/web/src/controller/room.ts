@@ -7,7 +7,9 @@ import { getWsUrl } from '../network/url.js';
 import { gameStore } from '../store/store.js';
 import type { Controller } from './port.js';
 
-export type RoomStatus = 'connecting' | 'in-room' | 'reconnecting' | 'error';
+// 'archived' is terminal like 'error': the game has ended and its room is gone,
+// so the page moves to the archived game.
+export type RoomStatus = 'connecting' | 'in-room' | 'reconnecting' | 'archived' | 'error';
 
 export type RoomState = {
   readonly status: RoomStatus;
@@ -64,6 +66,11 @@ export const createRoomController = ({ roomId }: Options): RoomController => {
 
   const offPresenceUpdate = client.on('presenceUpdate', (msg) => {
     store.setState({ opponent: msg.opponent });
+  });
+
+  const offGameArchived = client.on('gameArchived', () => {
+    pendingSnapshot = null;
+    store.setState({ status: 'archived' });
   });
 
   const offError = client.on('error', (msg) => {
@@ -156,6 +163,7 @@ export const createRoomController = ({ roomId }: Options): RoomController => {
     offGameJoined();
     offStateUpdated();
     offPresenceUpdate();
+    offGameArchived();
     offError();
     offStatus();
     client.close();

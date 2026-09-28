@@ -8,6 +8,7 @@ import type {
 } from '../domain/archived-game.js';
 import type { Db } from './db/client.js';
 import { type ArchivedGameRow, CURRENT_ARCHIVE_STATE_VERSION, archivedGames } from './db/schema.js';
+import { type Tx, toWriteOp } from './drizzle-unit-of-work.js';
 
 // A seat survives its account: the FK goes null on deletion, the snapshotted
 // name stays. Only a game archived with the seat already empty has neither.
@@ -52,6 +53,28 @@ const toGame = (row: ArchivedGameRow): ArchivedGame => {
   return { ...toOverview(row), state };
 };
 
+// Insert-or-ignore: the row is immutable once written, so a retried archive of
+// the same game has nothing to change.
+const insertGame = (tx: Tx, game: ArchivedGame): void => {
+  tx.insert(archivedGames)
+    .values({
+      id: game.id,
+      whiteUserId: game.players.white?.playerId ?? null,
+      blackUserId: game.players.black?.playerId ?? null,
+      whiteName: game.players.white?.name ?? null,
+      blackName: game.players.black?.name ?? null,
+      result: game.result,
+      endReason: game.endReason,
+      state: toWire(game.state),
+      stateVersion: CURRENT_ARCHIVE_STATE_VERSION,
+      moveCount: game.moveCount,
+      startedAt: game.startedAt,
+      finishedAt: game.finishedAt,
+    })
+    .onConflictDoNothing({ target: archivedGames.id })
+    .run();
+};
+
 // The ordering is (finished_at, id) descending, so resuming after a cursor is
 // that same pair compared as a tuple. SQLite has row values, drizzle does not.
 const startsAfter = (cursor: ArchivedGameCursor | undefined) =>
@@ -63,27 +86,11 @@ const startsAfter = (cursor: ArchivedGameCursor | undefined) =>
       );
 
 export const createDrizzleArchivedGameStore = (db: Db): ArchivedGameStore => ({
-  // Written twice whenever the sweep backstops a game the live path already
-  // archived, so the second write has to be a no-op rather than a rewrite.
   record: async (game) => {
-    db.insert(archivedGames)
-      .values({
-        id: game.id,
-        whiteUserId: game.players.white?.playerId ?? null,
-        blackUserId: game.players.black?.playerId ?? null,
-        whiteName: game.players.white?.name ?? null,
-        blackName: game.players.black?.name ?? null,
-        result: game.result,
-        endReason: game.endReason,
-        state: toWire(game.state),
-        stateVersion: CURRENT_ARCHIVE_STATE_VERSION,
-        moveCount: game.moveCount,
-        startedAt: game.startedAt,
-        finishedAt: game.finishedAt,
-      })
-      .onConflictDoNothing({ target: archivedGames.id })
-      .run();
+    db.transaction((tx) => insertGame(tx, game));
   },
+
+  recordOp: (game) => toWriteOp((tx) => insertGame(tx, game)),
 
   listForPlayer: async (playerId, page): Promise<readonly ArchivedGameOverview[]> =>
     db
