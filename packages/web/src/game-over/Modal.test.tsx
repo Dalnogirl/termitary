@@ -15,7 +15,7 @@ const OPPONENT: OpponentPresence = {
   name: 'Amber Beetle',
 };
 
-const show = (myColor: 'white' | 'black' | null, opponent: OpponentPresence = OPPONENT) =>
+const show = (myColor: 'white' | 'black' | null, opponent: OpponentPresence | null = OPPONENT) =>
   render(
     <MemoryRouter>
       <RoomProvider myColor={myColor} opponent={opponent}>
@@ -64,7 +64,7 @@ describe('game-over Modal', () => {
 
   it('keeps colours in hot-seat, where neither seat is yours', () => {
     load(resigned());
-    show(null, { status: 'empty' });
+    show(null, null);
 
     expect(screen.getByText('Black wins')).toBeDefined();
   });

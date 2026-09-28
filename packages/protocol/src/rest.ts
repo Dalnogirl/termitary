@@ -11,7 +11,6 @@ import type { WireGameState, WireRuleset } from './wire.js';
 export type MyRoomSummaryDto = {
   readonly roomId: string;
   readonly seat: 'white' | 'black';
-  readonly playerCount: 1 | 2;
   /** Epoch milliseconds, rendered as a relative time. */
   readonly updatedAt: number;
   readonly ruleset: WireRuleset;

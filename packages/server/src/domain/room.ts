@@ -46,9 +46,12 @@ export const seatOf = (players: Seats, playerId: string): Color | undefined =>
 export const colorOf = (room: Room, playerId: string): Color | undefined =>
   seatOf(room.players, playerId);
 
+export const playerAcross = (room: Room, color: Color): Identity =>
+  room.players[color === 'white' ? 'black' : 'white'];
+
 export const otherPlayer = (room: Room, playerId: string): Identity | undefined => {
   const color = colorOf(room, playerId);
-  return color === undefined ? undefined : room.players[color === 'white' ? 'black' : 'white'];
+  return color === undefined ? undefined : playerAcross(room, color);
 };
 
 export const currentPlayerIdentity = (room: Room): Identity | undefined =>

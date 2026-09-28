@@ -22,7 +22,6 @@ import { GameLayout } from './GameLayout.js';
 import { paths } from './paths.js';
 
 const PRESENCE_DOT: Record<OpponentPresence['status'], string> = {
-  empty: 'bg-muted-foreground/40',
   connected: 'bg-emerald-500',
   disconnected: 'bg-amber-500',
 };
@@ -30,20 +29,16 @@ const PRESENCE_DOT: Record<OpponentPresence['status'], string> = {
 const PresenceBadge = ({ opponent }: { opponent: OpponentPresence }) => (
   <span className="inline-flex items-center gap-1.5">
     <span className={`inline-block size-2 rounded-full ${PRESENCE_DOT[opponent.status]}`} />
-    {opponent.status === 'empty' ? (
-      <span>Waiting for opponent…</span>
-    ) : (
-      <span>
-        <Link
-          to={paths.profile(opponent.userId)}
-          viewTransition
-          className="no-underline text-foreground hover:underline"
-        >
-          {opponent.name}
-        </Link>
-        {opponent.status === 'disconnected' && ' disconnected'}
-      </span>
-    )}
+    <span>
+      <Link
+        to={paths.profile(opponent.userId)}
+        viewTransition
+        className="no-underline text-foreground hover:underline"
+      >
+        {opponent.name}
+      </Link>
+      {opponent.status === 'disconnected' && ' disconnected'}
+    </span>
   </span>
 );
 
@@ -53,15 +48,18 @@ const PresenceBadge = ({ opponent }: { opponent: OpponentPresence }) => (
 const ConnectionBadge = ({
   status,
   opponent,
-}: { status: RoomStatus; opponent: OpponentPresence }) =>
-  status === 'reconnecting' ? (
-    <span className="inline-flex items-center gap-1.5 text-amber-600">
-      <span className="inline-block size-2 animate-pulse rounded-full bg-amber-500" />
-      <span>Reconnecting…</span>
-    </span>
-  ) : (
-    <PresenceBadge opponent={opponent} />
-  );
+}: { status: RoomStatus; opponent: OpponentPresence | null }) => {
+  if (status === 'reconnecting') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-amber-600">
+        <span className="inline-block size-2 animate-pulse rounded-full bg-amber-500" />
+        <span>Reconnecting…</span>
+      </span>
+    );
+  }
+  // The empty span holds Resign to the right while gameJoined is in flight.
+  return opponent === null ? <span /> : <PresenceBadge opponent={opponent} />;
+};
 
 export const PlayPage = () => {
   const { roomId } = useParams<{ roomId: string }>();

@@ -101,7 +101,6 @@ describe('room persistence across a restart', () => {
         {
           roomId,
           seat: 'white',
-          playerCount: 2,
           updatedAt: expect.any(Number),
           ruleset: BASE_WIRE,
         },

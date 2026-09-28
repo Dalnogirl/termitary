@@ -53,11 +53,11 @@ const Title = ({
   result,
   myColor,
   opponent,
-}: { result: FinishedResult; myColor: Color | null; opponent: OpponentPresence }) => {
+}: { result: FinishedResult; myColor: Color | null; opponent: OpponentPresence | null }) => {
   const winner = WINNING_COLOR[result];
   if (myColor === null || winner === null) return <>{TITLE[result]}</>;
   if (winner === myColor) return <>You win</>;
-  if (opponent.status === 'empty') return <>{TITLE[result]}</>;
+  if (opponent === null) return <>{TITLE[result]}</>;
   return (
     <>
       <Link

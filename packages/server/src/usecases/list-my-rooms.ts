@@ -11,7 +11,6 @@ const summarizeMine = (playerId: string, room: RoomOverview): MyRoomSummaryDto |
   return {
     roomId: room.id,
     seat,
-    playerCount: 2,
     updatedAt: room.updatedAt.getTime(),
     ruleset: toWireRuleset(room.ruleset),
   };

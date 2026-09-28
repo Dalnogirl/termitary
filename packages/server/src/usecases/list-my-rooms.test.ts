@@ -28,14 +28,12 @@ describe('listMyRooms', () => {
         {
           roomId: 'white-room',
           seat: 'white',
-          playerCount: 2,
           updatedAt: 1234,
           ruleset: BASE_WIRE,
         },
         {
           roomId: 'black-room',
           seat: 'black',
-          playerCount: 2,
           updatedAt: 1234,
           ruleset: BASE_WIRE,
         },

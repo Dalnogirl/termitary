@@ -27,7 +27,6 @@ const SEEK: SeekDto = { seekId: 's1', preference: {}, createdAt: 0 };
 const room = (roomId: string): MyRoomSummaryDto => ({
   roomId,
   seat: 'white',
-  playerCount: 2,
   updatedAt: 0,
   ruleset: toWireRuleset(BASE_RULESET),
 });

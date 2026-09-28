@@ -33,10 +33,5 @@ export const RoomRow = ({
   </li>
 );
 
-export const myRoomDetail = (room: MyRoomSummaryDto): string => {
-  const opponent = room.playerCount === 2 ? 'Opponent seated' : 'Waiting for opponent';
-  return `Playing ${room.seat} · ${opponent} · ${relativeTime(room.updatedAt)}`;
-};
-
-export const myRoomAction = (room: MyRoomSummaryDto): string =>
-  room.playerCount === 2 ? 'Reconnect' : 'Return';
+export const myRoomDetail = (room: MyRoomSummaryDto): string =>
+  `Playing ${room.seat} · ${relativeTime(room.updatedAt)}`;

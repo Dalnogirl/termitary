@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { fetchMyRooms } from '../network/rooms-api.js';
 import { useSeeks } from '../network/use-seeks.js';
-import { RoomRow, myRoomAction, myRoomDetail } from '../rooms/RoomRow.js';
+import { RoomRow, myRoomDetail } from '../rooms/RoomRow.js';
 import { SeekOptions } from '../rooms/SeekOptions.js';
 import { SeekRow } from '../rooms/SeekRow.js';
 import { expansionsIn } from '../rooms/expansions.js';
@@ -74,7 +74,7 @@ export const LobbyPage = () => {
                 roomId={room.roomId}
                 detail={myRoomDetail(room)}
                 badges={expansionsIn(room.ruleset).map((e) => e.label)}
-                action={myRoomAction(room)}
+                action="Reconnect"
                 onOpen={() => openRoom(room.roomId)}
               />
             ))}
