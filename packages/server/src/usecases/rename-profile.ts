@@ -1,9 +1,6 @@
-import { type ProfileDto, ProfileNameSchema } from '@termitary/protocol';
-import { z } from 'zod';
+import type { ProfileDto } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import { type ProfilePorts, getProfile } from './get-profile.js';
-
-export const RenameProfileBodySchema = z.object({ name: ProfileNameSchema });
 
 export type RenameProfileResult =
   | { readonly outcome: 'renamed'; readonly profile: ProfileDto }
