@@ -1,8 +1,8 @@
 import { eq, inArray } from 'drizzle-orm';
 import { generateProfileName } from '../domain/profile-name.js';
 import type { Profile, UserStore } from '../domain/user-store.js';
-import { user } from './db/auth-schema.js';
 import type { Db } from './db/client.js';
+import { violates } from './db/constraint.js';
 import { type ProfileRow, profiles } from './db/schema.js';
 
 const toProfile = (row: ProfileRow): Profile => ({
@@ -52,16 +52,17 @@ export const createDrizzleUserStore = (db: Db): UserStore => ({
   ensure: async (userId, now) => toProfile(ensureProfileRow(db, userId, now)),
 
   rename: async (userId, name, now) => {
-    // The profile FK cascades, so an account deleted mid-flight has no row to
-    // update and the insert below would violate the key instead of reporting.
-    const accountExists = db.select({ id: user.id }).from(user).where(eq(user.id, userId)).get();
-    if (accountExists === undefined) return null;
-    const row = db
-      .insert(profiles)
-      .values({ userId, name, createdAt: now, updatedAt: now })
-      .onConflictDoUpdate({ target: profiles.userId, set: { name, updatedAt: now } })
-      .returning()
-      .get();
-    return toProfile(row);
+    try {
+      const row = db
+        .insert(profiles)
+        .values({ userId, name, createdAt: now, updatedAt: now })
+        .onConflictDoUpdate({ target: profiles.userId, set: { name, updatedAt: now } })
+        .returning()
+        .get();
+      return toProfile(row);
+    } catch (err) {
+      if (violates(err, 'SQLITE_CONSTRAINT_FOREIGNKEY')) return null;
+      throw err;
+    }
   },
 });
