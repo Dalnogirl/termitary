@@ -3,6 +3,7 @@ import type { ConnectionRegistry } from './connection-registry.js';
 import type { Logger } from './logger.js';
 import type { RoomStore } from './room-store.js';
 import type { SeekStore } from './seek-store.js';
+import type { UnitOfWork } from './unit-of-work.js';
 import type { UserStore } from './user-store.js';
 
 export type Ports = {
@@ -11,5 +12,6 @@ export type Ports = {
   readonly connections: ConnectionRegistry;
   readonly archive: ArchivedGameStore;
   readonly users: UserStore;
+  readonly unitOfWork: UnitOfWork;
   readonly log: Logger;
 };

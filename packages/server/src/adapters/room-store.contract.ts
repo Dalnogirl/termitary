@@ -1,14 +1,26 @@
 import { BASE_RULESET, type Ruleset } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
+import type { ArchivedGameStore } from '../domain/archived-game-store.js';
+import { toArchivedGame } from '../domain/archived-game.js';
 import {
   ConcurrentModificationError,
   RoomAlreadyExistsError,
   type RoomStore,
 } from '../domain/room-store.js';
-import { type Room, createPairedRoom, touch } from '../domain/room.js';
+import {
+  type FinishedRoom,
+  type Room,
+  createPairedRoom,
+  isFinished,
+  touch,
+} from '../domain/room.js';
+import type { UnitOfWork } from '../domain/unit-of-work.js';
 
 export type StoreHarness = {
   readonly store: RoomStore;
+  /** A finished game's delete commits with its archive row, so both come along. */
+  readonly archive: ArchivedGameStore;
+  readonly unitOfWork: UnitOfWork;
   /** Seats are a foreign key in persisting stores; the id has to exist. */
   seedUser(id: string): Promise<void>;
   cleanup?(): void;
@@ -26,7 +38,7 @@ const saveFresh = async (store: RoomStore, room: Room): Promise<void> => {
 const at = (ms: number) => new Date(ms);
 
 // Rooms carry their own timestamps, so a store that stamped its own clock
-// would fail every ordering and sweep case below.
+// would fail every ordering case below.
 const roomAt = (id: string, white: string, black: string, ms: number, ruleset?: Ruleset) =>
   createPairedRoom(id, ident(white), ident(black), at(ms), ruleset);
 
@@ -36,6 +48,12 @@ const NO_SPIDERS: Ruleset = { pieces: { queen: 1, ant: 3, beetle: 2, grasshopper
 
 // Playing to a real queen surround here would say nothing about the store.
 const FINISHED = { status: 'finished', result: 'draw', endReason: 'queen-surrounded' } as const;
+
+const finished = (room: Room): FinishedRoom => {
+  const done = { ...room, state: { ...room.state, ...FINISHED } };
+  if (!isFinished(done)) throw new Error('unreachable');
+  return done;
+};
 
 // Anything asserted here belongs to the port, not to an implementation.
 export const describeRoomStoreContract = (
@@ -112,16 +130,70 @@ export const describeRoomStoreContract = (
         expect(await store.get('r1')).toEqual(updated);
       }));
 
-    it('delete removes rooms', async () =>
-      withStore(async ({ store }) => {
+    it('a committed deleteOp removes the room', async () =>
+      withStore(async ({ store, unitOfWork }) => {
         await store.create(roomAt('r1', 'p1', 'p2', 1000));
-        await store.delete('r1');
+        const read = await store.getForUpdate('r1');
+        if (read === undefined) throw new Error('expected r1');
+
+        await unitOfWork.commit([store.deleteOp('r1', read.version)]);
+
         expect(await store.get('r1')).toBeUndefined();
       }));
 
-    it('delete on a missing room is a no-op', async () =>
-      withStore(async ({ store }) => {
-        await expect(store.delete('nope')).resolves.toBeUndefined();
+    it('a deleteOp at a stale version is a conflict and deletes nothing', async () =>
+      withStore(async ({ store, unitOfWork }) => {
+        const room = roomAt('r1', 'p1', 'p2', 1000);
+        await store.create(room);
+        const read = await store.getForUpdate('r1');
+        if (read === undefined) throw new Error('expected r1');
+        await store.save(touch(room, at(2000)), read.version);
+
+        await expect(
+          unitOfWork.commit([store.deleteOp('r1', read.version)]),
+        ).rejects.toBeInstanceOf(ConcurrentModificationError);
+        expect(await store.get('r1')).toBeDefined();
+      }));
+
+    it('a deleteOp on a missing room is a conflict', async () =>
+      withStore(async ({ store, unitOfWork }) => {
+        await expect(unitOfWork.commit([store.deleteOp('nope', 1)])).rejects.toBeInstanceOf(
+          ConcurrentModificationError,
+        );
+      }));
+
+    it('archives a finished game and deletes its room in one commit', async () =>
+      withStore(async ({ store, archive, unitOfWork }) => {
+        const room = roomAt('r1', 'p1', 'p2', 1000);
+        await store.create(room);
+        const read = await store.getForUpdate('r1');
+        if (read === undefined) throw new Error('expected r1');
+        const game = toArchivedGame(finished(touch(room, at(2000))), new Map());
+
+        await unitOfWork.commit([store.deleteOp('r1', read.version), archive.recordOp(game)]);
+
+        expect(await store.get('r1')).toBeUndefined();
+        expect(await archive.get('r1')).toEqual(game);
+      }));
+
+    it('a failing archive insert leaves the room at its previous state and version', async () =>
+      withStore(async ({ store, archive, unitOfWork }) => {
+        const room = roomAt('r1', 'p1', 'p2', 1000);
+        await store.create(room);
+        const read = await store.getForUpdate('r1');
+        if (read === undefined) throw new Error('expected r1');
+        // A seat nobody seeded: the archive's foreign key refuses the row.
+        const unrecordable = toArchivedGame(
+          finished({ ...room, players: { ...room.players, white: ident('ghost') } }),
+          new Map(),
+        );
+
+        await expect(
+          unitOfWork.commit([store.deleteOp('r1', read.version), archive.recordOp(unrecordable)]),
+        ).rejects.toThrow();
+
+        expect(await store.getForUpdate('r1')).toEqual(read);
+        expect(await archive.get('r1')).toBeUndefined();
       }));
 
     it('listSeatedBy returns an overview per room the player sits in', async () =>
@@ -176,14 +248,14 @@ export const describeRoomStoreContract = (
         expect(await store.listSeatedBy('p1')).toEqual([]);
       }));
 
-    it('a save moves the clock a sweep measures', async () =>
+    it('save writes the updatedAt the room carries', async () =>
       withStore(async ({ store }) => {
         const room = roomAt('r1', 'p1', 'p2', 1000);
-        await store.create({ ...room, state: { ...room.state, ...FINISHED } });
+        await store.create(room);
 
-        await saveFresh(store, touch({ ...room, state: { ...room.state, ...FINISHED } }, at(5000)));
+        await saveFresh(store, touch(room, at(5000)));
 
-        expect(await store.listFinishedBefore(at(4000))).toEqual([]);
+        expect((await store.get('r1'))?.updatedAt).toEqual(at(5000));
       }));
 
     it('save leaves the room start alone', async () =>
@@ -196,27 +268,9 @@ export const describeRoomStoreContract = (
         expect((await store.get('r1'))?.createdAt).toEqual(at(1000));
       }));
 
-    it('listFinishedBefore returns whole finished rooms older than the cutoff', async () =>
-      withStore(async ({ store }) => {
-        const room = roomAt('r1', 'p1', 'p2', 1000);
-        const finished = touch({ ...room, state: { ...room.state, ...FINISHED } }, at(2000));
-        await store.create(finished);
-
-        expect(await store.listFinishedBefore(at(2000))).toEqual([]);
-        expect(await store.listFinishedBefore(at(3000))).toEqual([finished]);
-      }));
-
-    it('listFinishedBefore skips games still in progress', async () =>
-      withStore(async ({ store }) => {
-        await store.create(roomAt('r1', 'p1', 'p2', 1000));
-
-        expect(await store.listFinishedBefore(at(9999))).toEqual([]);
-      }));
-
-    it('both listings are empty before anything is created', async () =>
+    it('listSeatedBy is empty before anything is created', async () =>
       withStore(async ({ store }) => {
         expect(await store.listSeatedBy('p1')).toEqual([]);
-        expect(await store.listFinishedBefore(at(9999))).toEqual([]);
       }));
 
     it('get on missing room returns undefined', async () =>
@@ -269,16 +323,16 @@ export const describeRoomStoreContract = (
         await expect(store.save(touch(room, at(3000)), second.version)).resolves.toBeUndefined();
       }));
 
-    // The room the sweep deleted stays deleted: `save` is an update, not an
+    // A room a finished game deleted stays deleted: `save` is an update, not an
     // upsert, so a move that read it first cannot write it back.
     it('save on a deleted room is refused rather than recreating it', async () =>
-      withStore(async ({ store }) => {
+      withStore(async ({ store, unitOfWork }) => {
         const room = roomAt('r1', 'p1', 'p2', 1000);
         await store.create(room);
         const read = await store.getForUpdate('r1');
         if (read === undefined) throw new Error('expected r1');
 
-        await store.delete('r1');
+        await unitOfWork.commit([store.deleteOp('r1', read.version)]);
 
         await expect(store.save(touch(room, at(2000)), read.version)).rejects.toBeInstanceOf(
           ConcurrentModificationError,

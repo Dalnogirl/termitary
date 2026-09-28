@@ -205,6 +205,7 @@ describe('message schemas', () => {
       { type: 'stateUpdated', roomId: 'r1', state },
       { type: 'presenceUpdate', roomId: 'r1', opponent: seated },
       { type: 'presenceUpdate', roomId: 'r1', opponent: { ...seated, status: 'disconnected' } },
+      { type: 'gameArchived', roomId: 'r1' },
       { type: 'error', message: 'oops' },
       { type: 'error', message: 'oops', requestKind: 'makeMove' },
     ];

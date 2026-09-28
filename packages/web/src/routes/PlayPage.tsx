@@ -68,7 +68,8 @@ export const PlayPage = () => {
   const [showQuitDialog, setShowQuitDialog] = useState(false);
   const gameStatus = useGameStore((s) => s.liveGame.status);
 
-  // The room survives a resignation, so this stays on the finished board.
+  // The finished board stays up behind the game-over modal; only a return
+  // to the room is sent on to the archive.
   const handleConfirmQuit = (): void => {
     setShowQuitDialog(false);
     room.resign();
@@ -80,7 +81,13 @@ export const PlayPage = () => {
     void navigate(paths.lobby, { viewTransition: true });
   }, [room.status, room.errorMsg, navigate]);
 
-  if (room.status === 'error') return null;
+  // Replace, so Back from the archive does not land on a room that is gone.
+  useEffect(() => {
+    if (room.status !== 'archived' || roomId === undefined) return;
+    void navigate(paths.archivedGame(roomId), { replace: true, viewTransition: true });
+  }, [room.status, roomId, navigate]);
+
+  if (room.status === 'error' || room.status === 'archived') return null;
   if (room.controller === null) {
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground">

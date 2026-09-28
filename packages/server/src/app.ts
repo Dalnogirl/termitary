@@ -15,6 +15,7 @@ import { type DbHandle, createDb } from './adapters/db/client.js';
 import { createDrizzleArchivedGameStore } from './adapters/drizzle-archived-game-store.js';
 import { createDrizzleRoomStore } from './adapters/drizzle-room-store.js';
 import { createDrizzleSeekStore } from './adapters/drizzle-seek-store.js';
+import { createDrizzleUnitOfWork } from './adapters/drizzle-unit-of-work.js';
 import { createDrizzleUserStore } from './adapters/drizzle-user-store.js';
 import { createInMemoryConnectionRegistry } from './adapters/in-memory-connection-registry.js';
 import type { Identity } from './domain/identity.js';
@@ -29,7 +30,6 @@ import { listSeeks, toSeekDto } from './usecases/list-seeks.js';
 import { PostSeekBodySchema, postSeek } from './usecases/post-seek.js';
 import { RenameProfileBodySchema, renameProfile } from './usecases/rename-profile.js';
 import { type SeekSweepPorts, sweepExpiredSeeks } from './usecases/sweep-expired-seeks.js';
-import { type SweepPorts, sweepFinishedRooms } from './usecases/sweep-finished-rooms.js';
 import { handleConnection } from './ws/connection.js';
 import { type IdentityExtractor, createIdentityExtractor } from './ws/identity.js';
 
@@ -41,8 +41,8 @@ declare module 'fastify' {
 
 export type BuildAppOptions = {
   loggerInstance?: FastifyServerOptions['loggerInstance'];
-  /** 0 disables the periodic sweep. */
-  roomSweepIntervalMs?: number;
+  /** 0 disables the periodic seek sweep. */
+  seekSweepIntervalMs?: number;
   // Test seam: callers may inject a pre-built db + auth (e.g. an in-memory
   // sqlite shared between asserts). Defaults wire from env.
   db?: DbHandle;
@@ -67,17 +67,26 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
   const connections = createInMemoryConnectionRegistry();
   const archive = createDrizzleArchivedGameStore(dbHandle.db);
   const users = createDrizzleUserStore(dbHandle.db);
+  const unitOfWork = createDrizzleUnitOfWork(dbHandle.db);
 
   // Before `createAuth`, which writes a profile through this port on sign-up.
   const auth = options.auth ?? createAuth(dbHandle.db, users, app.log);
   const extractIdentity = createIdentityExtractor(auth);
   // app.log is the Logger port's adapter: pino when index.ts injects one,
   // and Fastify's no-op logger otherwise, which is what keeps tests quiet.
-  const ports: Ports = { rooms, seeks, connections, archive, users, log: app.log };
+  const ports: Ports = {
+    rooms,
+    seeks,
+    connections,
+    archive,
+    users,
+    unitOfWork,
+    log: app.log,
+  };
 
   app.decorateRequest('identity', null);
 
-  const sweepTimer = startSweep(app, ports, options.roomSweepIntervalMs ?? env.roomSweepIntervalMs);
+  const sweepTimer = startSweep(app, ports, options.seekSweepIntervalMs ?? env.seekSweepIntervalMs);
 
   app.addHook('onClose', async () => {
     if (sweepTimer !== undefined) clearInterval(sweepTimer);
@@ -257,14 +266,7 @@ const POST_SEEK_ERROR = {
   'own-seek': 'seek-own',
 } as const;
 
-// Two sweeps on one timer. A seek has nothing to archive and no state to
-// parse, so it needs no interval of its own and no second env variable.
-const sweepAndLog = (app: FastifyInstance, ports: SweepPorts & SeekSweepPorts): void => {
-  void sweepFinishedRooms(ports)
-    .then((removed) => {
-      if (removed > 0) app.log.info({ removed }, 'swept finished rooms');
-    })
-    .catch((err: unknown) => app.log.error({ err }, 'room sweep failed'));
+const sweepAndLog = (app: FastifyInstance, ports: SeekSweepPorts): void => {
   void sweepExpiredSeeks(ports)
     .then((removed) => {
       if (removed > 0) app.log.info({ removed }, 'swept expired seeks');
@@ -274,7 +276,7 @@ const sweepAndLog = (app: FastifyInstance, ports: SweepPorts & SeekSweepPorts): 
 
 const startSweep = (
   app: FastifyInstance,
-  ports: SweepPorts & SeekSweepPorts,
+  ports: SeekSweepPorts,
   intervalMs: number,
 ): NodeJS.Timeout | undefined => {
   if (intervalMs <= 0) return undefined;

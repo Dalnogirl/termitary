@@ -71,6 +71,13 @@
       "when": 1790447004639,
       "tag": "0009_seats_not_null",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1790590603447,
+      "tag": "0010_delete_finished_rooms",
+      "breakpoints": true
     }
   ]
 }

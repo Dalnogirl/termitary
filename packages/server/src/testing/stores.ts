@@ -4,11 +4,13 @@ import { profiles } from '../adapters/db/schema.js';
 import { createDrizzleArchivedGameStore } from '../adapters/drizzle-archived-game-store.js';
 import { createDrizzleRoomStore } from '../adapters/drizzle-room-store.js';
 import { createDrizzleSeekStore } from '../adapters/drizzle-seek-store.js';
+import { createDrizzleUnitOfWork } from '../adapters/drizzle-unit-of-work.js';
 import { createDrizzleUserStore } from '../adapters/drizzle-user-store.js';
 import type { ArchivedGameStore } from '../domain/archived-game-store.js';
 import type { Logger } from '../domain/logger.js';
 import type { RoomStore } from '../domain/room-store.js';
 import type { SeekStore } from '../domain/seek-store.js';
+import type { UnitOfWork } from '../domain/unit-of-work.js';
 import type { UserStore } from '../domain/user-store.js';
 
 export type TestStores = {
@@ -16,6 +18,7 @@ export type TestStores = {
   readonly seeks: SeekStore;
   readonly archive: ArchivedGameStore;
   readonly users: UserStore;
+  readonly unitOfWork: UnitOfWork;
   readonly log: Logger;
   readonly close: () => void;
 };
@@ -51,6 +54,7 @@ export const createTestStores = (players: readonly TestPlayer[] = []): TestStore
     seeks: createDrizzleSeekStore(db.db),
     archive: createDrizzleArchivedGameStore(db.db),
     users: createDrizzleUserStore(db.db),
+    unitOfWork: createDrizzleUnitOfWork(db.db),
     log: silentLog,
     close: () => db.close(),
   };

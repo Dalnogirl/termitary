@@ -1,4 +1,3 @@
-export { archiveFinished } from './archive-finished.js';
 export { getArchivedGame } from './get-archived-game.js';
 export { getProfile, type ProfilePorts } from './get-profile.js';
 export {
@@ -7,11 +6,6 @@ export {
   listPlayerGames,
 } from './list-player-games.js';
 export { joinGame } from './join-game.js';
-export {
-  FINISHED_ROOM_TTL_MS,
-  type SweepPorts,
-  sweepFinishedRooms,
-} from './sweep-finished-rooms.js';
 export { makeMove } from './make-move.js';
 export {
   RenameProfileBodySchema,

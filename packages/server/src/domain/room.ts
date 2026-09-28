@@ -37,7 +37,7 @@ export const createPairedRoom = (
 });
 
 // Stores write `updatedAt` as given, so anything that should move a room in
-// the lobby ordering or out of the sweep's reach has to say so here.
+// the lobby ordering, or stamp when its game finished, has to say so here.
 export const touch = (room: Room, now: Date): Room => ({ ...room, updatedAt: now });
 
 export const seatOf = (players: Seats, playerId: string): Color | undefined =>

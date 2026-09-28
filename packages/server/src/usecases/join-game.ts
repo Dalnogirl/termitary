@@ -5,6 +5,7 @@ import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { colorOf, playerAcross } from '../domain/room.js';
 import type { UserStore } from '../domain/user-store.js';
+import { answerMissingRoom } from './answer-missing-room.js';
 import { seatedPresence } from './seated-presence.js';
 import { sendError } from './send-error.js';
 
@@ -28,11 +29,12 @@ const presenceOf = async (
 export const joinGame = async (
   identity: Identity,
   msg: ClientJoinGame,
-  { rooms, connections, users }: Ports,
+  ports: Ports,
 ): Promise<void> => {
+  const { rooms, connections, users } = ports;
   const room = await rooms.get(msg.roomId);
   if (room === undefined) {
-    await sendError(connections, identity, 'room not found', 'joinGame');
+    await answerMissingRoom(identity, msg.roomId, 'joinGame', ports);
     return;
   }
 
