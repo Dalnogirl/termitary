@@ -194,13 +194,6 @@ describe('message schemas', () => {
     const seated = { status: 'connected', userId: 'u2', name: 'Amber Beetle' };
     const samples = [
       { type: 'connected', playerId: 'p1' },
-      {
-        type: 'gameJoined',
-        roomId: 'r1',
-        playerColor: 'black',
-        state,
-        opponent: { status: 'empty' },
-      },
       { type: 'gameJoined', roomId: 'r1', playerColor: 'black', state, opponent: seated },
       {
         type: 'gameJoined',
@@ -220,16 +213,21 @@ describe('message schemas', () => {
     }
   });
 
-  it('rejects presenceUpdate with non-event opponent values', () => {
-    // 'empty' is a snapshot-only state (only present on gameJoined); a
-    // presenceUpdate carrying it would imply a vacate-but-room-still-alive
-    // transition, which nothing in the protocol produces.
+  it('rejects an empty seat, which no room has', () => {
+    const state = toWire(createGame());
+    const empty = { status: 'empty' };
     expect(
       ServerMessageSchema.safeParse({
-        type: 'presenceUpdate',
+        type: 'gameJoined',
         roomId: 'r1',
-        opponent: { status: 'empty' },
+        playerColor: 'black',
+        state,
+        opponent: empty,
       }).success,
+    ).toBe(false);
+    expect(
+      ServerMessageSchema.safeParse({ type: 'presenceUpdate', roomId: 'r1', opponent: empty })
+        .success,
     ).toBe(false);
   });
 

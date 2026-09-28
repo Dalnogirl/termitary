@@ -1,11 +1,12 @@
-import { expect, test } from '@playwright/test';
+import { type Page, expect, test } from '@playwright/test';
 import { signedInPlayer } from './support/auth.js';
 
 test('one player seeks from the lobby, another joins it, and both reach the board', async ({
   browser,
 }) => {
   const stamp = Date.now();
-  const seeker = await signedInPlayer(browser, `seeker-${stamp}@test.dev`);
+  const seekerEmail = `seeker-${stamp}@test.dev`;
+  const seeker = await signedInPlayer(browser, seekerEmail);
 
   // A required ladybug marks the row on the other side and proves the terms
   // travel into the paired ruleset.
@@ -19,7 +20,8 @@ test('one player seeks from the lobby, another joins it, and both reach the boar
   await expect(mySeek).toContainText('Ladybug');
   await expect(seeker.getByRole('button', { name: 'Looking for an opponent…' })).toBeDisabled();
 
-  const joiner = await signedInPlayer(browser, `joiner-${stamp}@test.dev`);
+  const joinerEmail = `joiner-${stamp}@test.dev`;
+  const joiner = await signedInPlayer(browser, joinerEmail);
   await joiner
     .getByRole('listitem')
     .filter({ hasText: 'Ladybug' })
@@ -32,8 +34,16 @@ test('one player seeks from the lobby, another joins it, and both reach the boar
   await seeker.waitForURL('**/play/**', { timeout: 15_000 });
   expect(seeker.url()).toBe(joiner.url());
 
-  for (const page of [seeker, joiner]) {
-    await expect(page.getByText('Waiting for opponent…')).toBeHidden();
+  // The nav links each player to their own profile by email, so the other
+  // side's presence badge must link to that same href.
+  const ownProfile = (page: Page, email: string) =>
+    page.getByRole('link', { name: email }).getAttribute('href');
+  const pairs = [
+    [seeker, await ownProfile(joiner, joinerEmail)],
+    [joiner, await ownProfile(seeker, seekerEmail)],
+  ] as const;
+  for (const [page, opponentHref] of pairs) {
+    await expect(page.locator(`a[href="${opponentHref}"]`)).toBeVisible();
     await expect(page.locator('button[aria-label^="ladybug,"]').first()).toBeVisible();
   }
 });

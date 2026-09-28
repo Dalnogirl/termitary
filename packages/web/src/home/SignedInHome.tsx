@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
 import { useSession } from '../network/auth-client.js';
 import { fetchMyRooms } from '../network/rooms-api.js';
-import { RoomRow, myRoomAction, myRoomDetail } from '../rooms/RoomRow.js';
+import { RoomRow, myRoomDetail } from '../rooms/RoomRow.js';
 import { expansionsIn } from '../rooms/expansions.js';
 import { paths } from '../routes/paths.js';
 import { HomeHero } from './HomeHero.js';
@@ -51,7 +51,7 @@ export const SignedInHome = () => {
               roomId={room.roomId}
               detail={myRoomDetail(room)}
               badges={expansionsIn(room.ruleset).map((e) => e.label)}
-              action={myRoomAction(room)}
+              action="Reconnect"
               onOpen={() => openRoom(room.roomId)}
             />
           ))}

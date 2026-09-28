@@ -13,14 +13,15 @@ export type RoomState = {
   readonly status: RoomStatus;
   readonly myColor: Color | null;
   readonly errorMsg: string | null;
-  readonly opponent: OpponentPresence;
+  // null until gameJoined answers.
+  readonly opponent: OpponentPresence | null;
 };
 
 export const INITIAL_ROOM_STATE: RoomState = {
   status: 'connecting',
   myColor: null,
   errorMsg: null,
-  opponent: { status: 'empty' },
+  opponent: null,
 };
 
 export type RoomController = Controller & {
