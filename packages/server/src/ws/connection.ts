@@ -4,8 +4,7 @@ import type { WebSocket } from 'ws';
 import type { ConnectionLifecycle, Sender } from '../domain/connection-registry.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
-import { otherPlayer } from '../domain/room.js';
-import { seatedPresence } from '../usecases/seated-presence.js';
+import { announceDisconnect } from '../usecases/announce-disconnect.js';
 import { dispatchClientMessage } from './dispatcher.js';
 import { parseInbound } from './inbound.js';
 
@@ -77,25 +76,11 @@ const detachOnClose = async (
     return;
   }
   try {
-    await notifyOpponentOfDisconnect(playerId, ports);
+    await announceDisconnect(playerId, ports);
   } catch (err) {
     req.log.error({ err, playerId }, 'disconnect notification failed');
   } finally {
     lifecycle.unbind(playerId, sender);
     req.log.info({ playerId }, 'ws client disconnected');
   }
-};
-
-const notifyOpponentOfDisconnect = async (playerId: string, ports: Ports): Promise<void> => {
-  const roomId = await ports.connections.findRoomByPlayerId(playerId);
-  if (roomId === undefined) return;
-  const room = await ports.rooms.get(roomId);
-  if (room === undefined) return;
-  const opp = otherPlayer(room, playerId);
-  if (opp === undefined) return;
-  await ports.connections.sendTo(opp.playerId, {
-    type: 'presenceUpdate',
-    roomId,
-    opponent: await seatedPresence(ports.users, playerId, 'disconnected'),
-  });
 };
