@@ -16,6 +16,7 @@ import {
 } from '../domain/room-store.js';
 import type { Room } from '../domain/room.js';
 import type { Db } from './db/client.js';
+import { violates } from './db/constraint.js';
 import { CURRENT_STATE_VERSION, type RoomRow, rooms as roomsTable } from './db/schema.js';
 import { toWriteOp } from './drizzle-unit-of-work.js';
 
@@ -95,20 +96,12 @@ const updateColumns = (room: Room) => ({
   updatedAt: room.updatedAt,
 });
 
-// better-sqlite3 sets a stable `code`; the message text names the table and
-// would drift with the schema.
-const isPrimaryKeyViolation = (err: unknown): boolean =>
-  typeof err === 'object' &&
-  err !== null &&
-  'code' in err &&
-  err.code === 'SQLITE_CONSTRAINT_PRIMARYKEY';
-
 export const createDrizzleRoomStore = (db: Db): RoomStore => ({
   create: async (room) => {
     try {
       db.insert(roomsTable).values(insertColumns(room)).run();
     } catch (err) {
-      if (isPrimaryKeyViolation(err)) throw new RoomAlreadyExistsError(room.id);
+      if (violates(err, 'SQLITE_CONSTRAINT_PRIMARYKEY')) throw new RoomAlreadyExistsError(room.id);
       throw err;
     }
   },

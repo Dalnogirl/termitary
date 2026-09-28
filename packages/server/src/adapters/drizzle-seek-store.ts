@@ -7,6 +7,7 @@ import {
 } from '../domain/seek-store.js';
 import type { Seek } from '../domain/seek.js';
 import type { Db } from './db/client.js';
+import { violates } from './db/constraint.js';
 import { type SeekRow, seeks as seeksTable } from './db/schema.js';
 
 const toSeek = (row: SeekRow): Seek => ({
@@ -33,9 +34,6 @@ const tryToSeek = (row: SeekRow): Seek | undefined => {
 
 const readable = (rows: readonly SeekRow[]): readonly Seek[] =>
   rows.flatMap((row) => tryToSeek(row) ?? []);
-
-const violates = (err: unknown, code: string): boolean =>
-  typeof err === 'object' && err !== null && 'code' in err && err.code === code;
 
 export const createDrizzleSeekStore = (db: Db): SeekStore => ({
   create: async (seek) => {
