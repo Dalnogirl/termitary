@@ -130,6 +130,10 @@ The renderer names what it draws: a tile is `piece` carrying `pieceColor` and `p
   - Never restate the code, describe another implementation, or narrate what a test asserts.
   - Keep them to a line or two. A paragraph above a function usually means the function wants splitting.
 
+## Review
+
+After finishing a coherent piece of work (a feature, a fix, a refactor that stands on its own), run the `code-reviewer` agent on the diff before reporting done or committing. Fix what it finds or say why not; don't hand back unreviewed work. Skip it for docs-only or one-line changes.
+
 ## State of the work
 
 Planned work is in GitHub issues; if it is not an issue, nobody is working on it. Commit messages carry story numbers (`S-4.2`) from the phases the project was built in — 1 engine, 2 hot-seat UI, 3 server, 4 persistence and auth — which is all those numbers are still for.
