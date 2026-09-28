@@ -1,41 +1,17 @@
 import type { Color } from '@termitary/engine';
-import type { ArchivedGameSummaryDto, ArchivedPlayerDto, Page } from '@termitary/protocol';
-import { z } from 'zod';
-import type { ArchivedGameStore } from '../domain/archived-game-store.js';
+import type { ArchivedGameSummaryDto, ArchivedPlayerDto } from '@termitary/protocol';
+import type { ArchivedGameCursor, ArchivedGameStore } from '../domain/archived-game-store.js';
 import {
   type ArchivedGameOverview,
   type ArchivedPlayer,
   archivedSeatOf,
 } from '../domain/archived-game.js';
-import { decodeCursor, encodeCursor } from '../http/keyset-cursor.js';
 
-const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 50;
-
-// The cursor is the one part of this the client hands back, so it is the part
-// zod parses: a string that does not decode is a 400, not a 500 further down.
-const CursorSchema = z.string().transform((raw, ctx) => {
-  const cursor = decodeCursor(raw);
-  if (cursor === undefined) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'malformed cursor' });
-    return z.NEVER;
-  }
-  return { finishedAt: cursor.at, id: cursor.id };
-});
-
-export const ArchivedGamesQuerySchema = z.object({
-  before: CursorSchema.optional(),
-  // Asking for more than the cap is answered with the cap rather than refused;
-  // the cursor is what the caller pages with either way.
-  limit: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .default(DEFAULT_LIMIT)
-    .transform((n) => Math.min(n, MAX_LIMIT)),
-});
-
-export type ArchivedGamesQuery = z.infer<typeof ArchivedGamesQuerySchema>;
+/** `next` is where the following page resumes, absent on the last page. */
+export type PlayerGamesPage = {
+  readonly items: readonly ArchivedGameSummaryDto[];
+  readonly next?: ArchivedGameCursor;
+};
 
 const seatPlayer = (player: ArchivedPlayer | undefined): ArchivedPlayerDto => ({
   userId: player?.playerId ?? null,
@@ -71,9 +47,9 @@ const summarizeFor = (
 
 export const listPlayerGames = async (
   playerId: string,
-  query: ArchivedGamesQuery,
+  query: { readonly limit: number; readonly before?: ArchivedGameCursor | undefined },
   archive: ArchivedGameStore,
-): Promise<Page<ArchivedGameSummaryDto>> => {
+): Promise<PlayerGamesPage> => {
   // One row past the page, so a full page is distinguishable from the last one
   // without a count query.
   const rows = await archive.listForPlayer(playerId, {
@@ -84,6 +60,6 @@ export const listPlayerGames = async (
   const last = page.at(-1);
   const items = page.flatMap((game) => summarizeFor(playerId, game) ?? []);
   return rows.length > page.length && last !== undefined
-    ? { items, nextCursor: encodeCursor({ at: last.finishedAt, id: last.id }) }
+    ? { items, next: { finishedAt: last.finishedAt, id: last.id } }
     : { items };
 };

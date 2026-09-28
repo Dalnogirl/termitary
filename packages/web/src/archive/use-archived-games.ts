@@ -16,7 +16,8 @@ export type ArchivedGamesList = {
 export const useArchivedGames = (userId: string): ArchivedGamesList => {
   const query = useInfiniteQuery({
     queryKey: ['player-games', userId],
-    queryFn: ({ pageParam }) => fetchPlayerGames(userId, pageParam),
+    queryFn: ({ pageParam }) =>
+      fetchPlayerGames(userId, pageParam === undefined ? {} : { before: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor,
   });

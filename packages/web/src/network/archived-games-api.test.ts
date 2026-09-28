@@ -33,7 +33,7 @@ describe('fetchPlayerGames', () => {
 
   it('hands the cursor back encoded', async () => {
     const fake = respond(200, { items: [] });
-    await fetchPlayerGames('u1', 'a+b/c=');
+    await fetchPlayerGames('u1', { before: 'a+b/c=' });
     expect(fake).toHaveBeenCalledWith(
       expect.stringContaining('?before=a%2Bb%2Fc%3D'),
       expect.anything(),

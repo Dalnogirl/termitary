@@ -1,7 +1,9 @@
 import type { ClientMessage } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
-import { joinGame, makeMove, resign } from '../usecases/index.js';
+import { joinGame } from '../usecases/join-game.js';
+import { makeMove } from '../usecases/make-move.js';
+import { resign } from '../usecases/resign.js';
 
 export const dispatchClientMessage = (
   identity: Identity,

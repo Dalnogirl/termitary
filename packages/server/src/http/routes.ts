@@ -1,4 +1,11 @@
-import type { AuthProvidersDto, PostSeekResponseDto } from '@termitary/protocol';
+import {
+  type ArchivedGameSummaryDto,
+  type AuthProvidersDto,
+  type Page,
+  PostSeekRequestSchema,
+  type PostSeekResponseDto,
+  UpdateProfileRequestSchema,
+} from '@termitary/protocol';
 import type { FastifyInstance } from 'fastify';
 import { type Auth, configuredSocialProviders } from '../adapters/auth/better-auth.js';
 import type { Ports } from '../domain/ports.js';
@@ -6,11 +13,13 @@ import { type CancelSeekResult, cancelSeek } from '../usecases/cancel-seek.js';
 import { getArchivedGame } from '../usecases/get-archived-game.js';
 import { getProfile } from '../usecases/get-profile.js';
 import { listMyRooms } from '../usecases/list-my-rooms.js';
-import { ArchivedGamesQuerySchema, listPlayerGames } from '../usecases/list-player-games.js';
+import { type PlayerGamesPage, listPlayerGames } from '../usecases/list-player-games.js';
 import { listSeeks, toSeekDto } from '../usecases/list-seeks.js';
-import { PostSeekBodySchema, postSeek } from '../usecases/post-seek.js';
-import { RenameProfileBodySchema, renameProfile } from '../usecases/rename-profile.js';
+import { postSeek } from '../usecases/post-seek.js';
+import { renameProfile } from '../usecases/rename-profile.js';
+import { ArchivedGamesQuerySchema } from './archived-games-query.js';
 import { type Gate, requireIdentity } from './gate.js';
+import { encodeCursor } from './keyset-cursor.js';
 
 const CANCEL_SEEK_STATUS: Record<CancelSeekResult, number> = {
   cancelled: 204,
@@ -25,6 +34,11 @@ const POST_SEEK_ERROR = {
   incompatible: 'seek-incompatible',
   'own-seek': 'seek-own',
 } as const;
+
+const toPageDto = ({ items, next }: PlayerGamesPage): Page<ArchivedGameSummaryDto> =>
+  next === undefined
+    ? { items }
+    : { items, nextCursor: encodeCursor({ at: next.finishedAt, id: next.id }) };
 
 export const registerRoutes = (
   app: FastifyInstance,
@@ -51,7 +65,7 @@ export const registerRoutes = (
     // button's whole payload. A body is still required: Fastify refuses an
     // empty one before any handler runs, so a route that claimed to treat it
     // as a default would never see it.
-    const body = PostSeekBodySchema.safeParse(req.body);
+    const body = PostSeekRequestSchema.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'invalid-body' });
 
     const result = await postSeek(requireIdentity(req), body.data, ports);
@@ -73,7 +87,7 @@ export const registerRoutes = (
     },
   );
   app.patch('/api/profile', { preHandler: gate }, async (req, reply) => {
-    const body = RenameProfileBodySchema.safeParse(req.body);
+    const body = UpdateProfileRequestSchema.safeParse(req.body);
     // The zod message is the copy the form shows, so it is sent as-is rather
     // than flattened to a code the client would have to translate back.
     if (!body.success) {
@@ -98,7 +112,7 @@ export const registerRoutes = (
     async (req, reply) => {
       const query = ArchivedGamesQuerySchema.safeParse(req.query);
       if (!query.success) return reply.code(400).send({ error: 'invalid query' });
-      return listPlayerGames(req.params.userId, query.data, ports.archive);
+      return toPageDto(await listPlayerGames(req.params.userId, query.data, ports.archive));
     },
   );
   app.get<{ Params: { id: string } }>(

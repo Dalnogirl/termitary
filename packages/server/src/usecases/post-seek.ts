@@ -1,21 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { Color } from '@termitary/engine';
-import { type SeekPreference, SeekPreferenceSchema } from '@termitary/protocol';
-import { z } from 'zod';
+import type { PostSeekRequestDto, SeekPreference } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { createPairedRoom } from '../domain/room.js';
 import { SeekerAlreadySeekingError } from '../domain/seek-store.js';
 import { type Seek, compatible, createSeek, isExpired, pairedRuleset } from '../domain/seek.js';
-
-export const PostSeekBodySchema = z.object({
-  // Absent is the default seek: no opinion on any expansion, pairs with
-  // anything. The web's disclosure is what fills this in.
-  preference: SeekPreferenceSchema.optional(),
-  /** Set when the player clicked one seek on the board instead of the Play button. */
-  seekId: z.string().min(1).optional(),
-});
-export type PostSeekBody = z.infer<typeof PostSeekBodySchema>;
 
 export type PostSeekResult =
   | { readonly outcome: 'paired'; readonly roomId: string }
@@ -132,7 +122,7 @@ const claimOne = async (
  */
 export const postSeek = async (
   identity: Identity,
-  body: PostSeekBody,
+  body: PostSeekRequestDto,
   ports: SeekPorts,
   deps: PairingDeps = {},
 ): Promise<PostSeekResult> => {

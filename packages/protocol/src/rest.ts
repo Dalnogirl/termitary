@@ -1,10 +1,13 @@
-import type { SeekPreference } from './seek-preference.js';
+import { z } from 'zod';
+import { ProfileNameSchema } from './profile.js';
+import { type SeekPreference, SeekPreferenceSchema } from './seek-preference.js';
 import type { WireGameState, WireRuleset } from './wire.js';
 
 // REST bodies. Responses are plain types: both sides import the same
-// declaration, so the compiler checks them. A request body is input nobody
-// controls, so the field schemas it is built from live in this package and the
-// object the route parses is assembled next to the use case that takes it.
+// declaration, so the compiler checks them. A request is input nobody controls,
+// so an inbound shape is a `RequestDto`, and a body is the input side of the
+// schema the route parses it with: what the browser builds, before defaults and
+// transforms.
 
 // A room the caller holds a seat in. Every row is in progress and seated by
 // construction, so there is no `status` and `seat` is never null.
@@ -33,13 +36,13 @@ export type SeekBoardDto = {
   readonly pool: readonly SeekDto[];
 };
 
-/** The server parses it with `PostSeekBodySchema`. */
-export type PostSeekRequestDto = {
+export const PostSeekRequestSchema = z.object({
   /** Absent is the default seek, which pairs with anything. */
-  readonly preference?: SeekPreference;
+  preference: SeekPreferenceSchema.optional(),
   /** Set to take one listed seek instead of matching against the pool. */
-  readonly seekId?: string;
-};
+  seekId: z.string().min(1).optional(),
+});
+export type PostSeekRequestDto = z.input<typeof PostSeekRequestSchema>;
 
 // Posting a seek either gets you a game or puts you on the board. The client
 // has one call and two answers, not a create followed by a poll.
@@ -52,6 +55,14 @@ export type PostSeekResponseDto =
 export type Page<T> = {
   readonly items: readonly T[];
   readonly nextCursor?: string;
+};
+
+// A query string, so the server parses it from strings rather than from this.
+export type ArchivedGamesRequestDto = {
+  /** A `nextCursor` from the previous page. */
+  readonly before?: string;
+  /** Capped by the server; asking for more gets the cap. */
+  readonly limit?: number;
 };
 
 // A seat as the game remembers it. `name` is snapshotted at archive time, so
@@ -128,10 +139,9 @@ export type ProfileDto = {
   readonly record: PlayerRecordDto;
 };
 
-/** The only editable field on a profile. The server parses it with `ProfileNameSchema`. */
-export type UpdateProfileRequestDto = {
-  readonly name: string;
-};
+/** The only editable field on a profile. */
+export const UpdateProfileRequestSchema = z.object({ name: ProfileNameSchema });
+export type UpdateProfileRequestDto = z.input<typeof UpdateProfileRequestSchema>;
 
 /**
  * The social providers this deployment has credentials for. `/signin` renders

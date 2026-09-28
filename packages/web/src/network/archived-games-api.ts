@@ -1,11 +1,24 @@
-import type { ArchivedGameDetailDto, ArchivedGameSummaryDto, Page } from '@termitary/protocol';
+import type {
+  ArchivedGameDetailDto,
+  ArchivedGameSummaryDto,
+  ArchivedGamesRequestDto,
+  Page,
+} from '@termitary/protocol';
 import { getApiUrl } from './url.js';
+
+const toQueryString = (request: ArchivedGamesRequestDto): string => {
+  const params = new URLSearchParams();
+  if (request.before !== undefined) params.set('before', request.before);
+  if (request.limit !== undefined) params.set('limit', String(request.limit));
+  const encoded = params.toString();
+  return encoded === '' ? '' : `?${encoded}`;
+};
 
 export const fetchPlayerGames = async (
   userId: string,
-  before?: string,
+  request: ArchivedGamesRequestDto = {},
 ): Promise<Page<ArchivedGameSummaryDto>> => {
-  const query = before === undefined ? '' : `?before=${encodeURIComponent(before)}`;
+  const query = toQueryString(request);
   const path = `/users/${encodeURIComponent(userId)}/games`;
   const res = await fetch(`${getApiUrl()}${path}${query}`, { credentials: 'include' });
   if (!res.ok) throw new Error(`GET ${path} returned ${res.status}`);
