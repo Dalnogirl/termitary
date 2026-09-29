@@ -403,6 +403,15 @@ describe('archiving a finished game', () => {
     return 'r1';
   };
 
+  const withBrokenArchive = (ports: Ports): Ports => ({
+    ...ports,
+    unitOfWork: {
+      commit: async () => {
+        throw new Error('archive is down');
+      },
+    },
+  });
+
   it('records the game the move that ends it', async () => {
     const { ports } = setup();
     const roomId = await seatedRoom(ports, oneMoveFromSurrounded());
@@ -470,20 +479,37 @@ describe('archiving a finished game', () => {
     const { ports, connect } = setup();
     const alice = connect('alice');
     const bob = connect('bob');
+    const roomId = await seatedRoom(ports, oneMoveFromSurrounded());
+    await joinGame(ident('alice'), { type: 'joinGame', roomId }, ports);
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    const before = await ports.rooms.getForUpdate(roomId);
+    alice.messages.length = 0;
+
+    await makeMove(
+      ident('bob'),
+      { type: 'makeMove', roomId, move: toWireMove(SURROUNDING_MOVE) },
+      withBrokenArchive(ports),
+    );
+
+    expect(lastOf(bob)).toEqual({
+      type: 'error',
+      message: 'could not finish the game',
+      requestKind: 'makeMove',
+    });
+    expect(alice.messages).toEqual([]);
+    expect(await ports.rooms.getForUpdate(roomId)).toEqual(before);
+  });
+
+  it('refuses the resignation when the archive cannot take it', async () => {
+    const { ports, connect } = setup();
+    const alice = connect('alice');
+    const bob = connect('bob');
     const roomId = await provisionRoom(ports, 'alice');
     await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
     const before = await ports.rooms.getForUpdate(roomId);
     bob.messages.length = 0;
-    const broken: Ports = {
-      ...ports,
-      unitOfWork: {
-        commit: async () => {
-          throw new Error('archive is down');
-        },
-      },
-    };
 
-    await resign(ident('alice'), { type: 'resign', roomId }, broken);
+    await resign(ident('alice'), { type: 'resign', roomId }, withBrokenArchive(ports));
 
     expect(lastOf(alice)).toEqual({
       type: 'error',
