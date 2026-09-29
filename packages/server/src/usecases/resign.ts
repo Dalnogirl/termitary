@@ -36,7 +36,10 @@ const attemptResign = async (
     return;
   }
   const updated = touch({ ...room, state: resignGame(room.state, color) }, new Date());
-  if (!(await commitPlayed(identity, updated, version, 'resign', ports))) return;
+  if ((await commitPlayed(updated, version, ports)) === 'archive-failed') {
+    await sendError(connections, identity, 'could not finish the game', 'resign');
+    return;
+  }
   await connections.broadcast(updated.id, {
     type: 'stateUpdated',
     roomId: updated.id,

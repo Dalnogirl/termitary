@@ -48,7 +48,10 @@ const attemptMove = async (
   }
 
   const updated = touch(played, new Date());
-  if (!(await commitPlayed(identity, updated, version, 'makeMove', ports))) return;
+  if ((await commitPlayed(updated, version, ports)) === 'archive-failed') {
+    await sendError(connections, identity, 'could not finish the game', 'makeMove');
+    return;
+  }
   await connections.broadcast(updated.id, {
     type: 'stateUpdated',
     roomId: updated.id,
