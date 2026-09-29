@@ -9,6 +9,7 @@ import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { createPairedRoom } from '../domain/room.js';
 import { createTestStores } from '../testing/stores.js';
+import { announceDisconnect } from './announce-disconnect.js';
 import { joinGame } from './join-game.js';
 import { makeMove } from './make-move.js';
 import { resign } from './resign.js';
@@ -248,6 +249,51 @@ describe('makeMove', () => {
     expect(eveMsg.type).toBe('error');
     if (eveMsg.type !== 'error') throw new Error('unreachable');
     expect(eveMsg.message).toBe('not in room');
+  });
+});
+
+describe('announceDisconnect', () => {
+  it('tells the opponent the player disconnected', async () => {
+    const { ports, connect } = setup();
+    connect('alice');
+    const bob = connect('bob');
+    const roomId = await provisionRoom(ports, 'alice');
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    bob.messages.length = 0;
+
+    await announceDisconnect('alice', ports);
+
+    expect(bob.messages).toEqual([
+      {
+        type: 'presenceUpdate',
+        roomId,
+        opponent: { status: 'disconnected', userId: 'alice', name: 'Alice' },
+      },
+    ]);
+  });
+
+  it('sends nothing for a player attached to no room', async () => {
+    const { ports, connect, inboxes } = setup();
+    connect('alice');
+    connect('bob');
+
+    await announceDisconnect('alice', ports);
+
+    expect([...inboxes.values()].flatMap((i) => i.messages)).toEqual([]);
+  });
+
+  it('sends nothing once the room is gone', async () => {
+    const { ports, connect } = setup();
+    connect('alice');
+    const bob = connect('bob');
+    const roomId = await provisionRoom(ports, 'alice');
+    await joinGame(ident('bob'), { type: 'joinGame', roomId }, ports);
+    await resign(ident('alice'), { type: 'resign', roomId }, ports);
+    bob.messages.length = 0;
+
+    await announceDisconnect('alice', ports);
+
+    expect(bob.messages).toEqual([]);
   });
 });
 
