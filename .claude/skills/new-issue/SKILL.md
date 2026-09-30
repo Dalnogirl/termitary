@@ -90,6 +90,6 @@ Show the user the title, the body and the labels. Opening an issue is outward-fa
 gh issue create --title "..." --body-file <path> --label <kind> --label <pkg> [--label <pkg>]
 ```
 
-Story numbers (`S-6.4`) go in the title only when the issue is one step of a numbered phase already in flight. Standalone issues do not get one.
+No story numbers (`S-6.4`) in the title. When the issue is one step of a sequence, the epic and its `blocked_by` edges say so.
 
 Then add the edges from step 4 and print the issue URL.

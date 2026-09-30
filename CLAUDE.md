@@ -132,13 +132,22 @@ The renderer names what it draws: a tile is `piece` carrying `pieceColor` and `p
   - Never restate the code, describe another implementation, or narrate what a test asserts.
   - Keep them to a line or two. A paragraph above a function usually means the function wants splitting.
 
+## Git
+
+Every PR has an issue. Work without one gets an issue first (`new-issue`), however small.
+
+- Branch: `issue-<N>-<slug>`, the slug 2–5 words picked for recognition, not the whole title. Create it with `gh issue develop <N> --name issue-<N>-<slug> --checkout` off a fresh `main`, so the issue links it.
+- PR title: an imperative sentence in sentence case, then ` (#<issue>)`. `Close a room when its game is archived (#133)`. No story number, no `feat:`-style prefix. `.github/workflows/pr-title.yml` fails anything else.
+- Main only takes squash merges, and GitHub builds the commit from the PR title plus ` (#<PR>)`, with an empty body. Type a body in the merge box only when history needs a why that neither the issue nor the PR holds.
+- Commits on a branch are scratch. Nothing reads them after the squash.
+
 ## Review
 
 After finishing a coherent piece of work (a feature, a fix, a refactor that stands on its own), run the `code-reviewer` agent on the diff before reporting done or committing. Fix what it finds or say why not; don't hand back unreviewed work. Skip it for docs-only or one-line changes.
 
 ## State of the work
 
-Planned work is in GitHub issues; if it is not an issue, nobody is working on it. Commit messages carry story numbers (`S-4.2`) from the phases the project was built in — 1 engine, 2 hot-seat UI, 3 server, 4 persistence and auth — which is all those numbers are still for.
+Planned work is in GitHub issues; if it is not an issue, nobody is working on it. Older commit messages carry story numbers (`S-4.2`) from the phases the project was built in: 1 engine, 2 hot-seat UI, 3 server, 4 persistence and auth, 5 profiles, 6 expansion pieces. New work doesn't use them; an epic and its sub-issues carry the sequence.
 
 The web client authenticates through better-auth's SDK (`network/auth-client.ts`, the client-side twin of `ws/identity.ts`). `/signin` runs the two-step email OTP form, `RequireAuth` guards `/lobby` and `/play`, and `/hotseat` stays open because it never touches the server, which makes it the fastest way to exercise an engine change. Both `network/` fetches send `credentials: 'include'`; the WS upgrade carries the cookie on its own.
 
