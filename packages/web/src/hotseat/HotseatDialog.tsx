@@ -7,9 +7,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import type { ExpansionPiece } from '@termitary/engine';
 import { type FormEvent, useState } from 'react';
 import { ExpansionPicker } from '../rooms/ExpansionPicker.js';
-import type { ExpansionPiece } from '../rooms/expansions.js';
 import { useExpansionDraft } from './use-expansion-draft.js';
 
 type Props = {

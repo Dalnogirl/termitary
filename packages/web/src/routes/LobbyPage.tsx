@@ -3,6 +3,7 @@ import { ANY_GAME, type PostSeekResponseDto, type SeekPreference } from '@termit
 import type * as React from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { messageOf } from '../lib/message-of.js';
 import { notifier } from '../lib/notify.js';
 import { RoomRow, myRoomDetail } from '../rooms/RoomRow.js';
 import { SeekOptions } from '../rooms/SeekOptions.js';
@@ -25,11 +26,7 @@ const Listing = ({
 }) => (
   <div className="flex flex-col gap-3">
     {isLoading && <p className="text-muted-foreground">Loading…</p>}
-    {error !== null && (
-      <p className="text-foreground">
-        Could not load: {error instanceof Error ? error.message : 'unknown error'}
-      </p>
-    )}
+    {error !== null && <p className="text-foreground">Could not load: {messageOf(error)}</p>}
     {!isLoading && error === null && children.length === 0 && (
       <p className="text-muted-foreground">{empty}</p>
     )}
@@ -37,8 +34,7 @@ const Listing = ({
   </div>
 );
 
-const showError = (fallback: string) => (err: unknown) =>
-  notifier.error(err instanceof Error ? err.message : fallback);
+const showError = (fallback: string) => (err: unknown) => notifier.error(messageOf(err, fallback));
 
 export const LobbyPage = () => {
   const navigate = useNavigate();

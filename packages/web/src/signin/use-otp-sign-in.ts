@@ -1,6 +1,7 @@
 import type { AuthProviderId } from '@termitary/protocol';
 import { type RefObject, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { messageOf } from '../lib/message-of.js';
 import { notifier } from '../lib/notify.js';
 import { authClient } from '../network/auth-client.js';
 
@@ -8,9 +9,6 @@ export const providerLabel: Record<AuthProviderId, string> = {
   google: 'Google',
   github: 'GitHub',
 };
-
-const messageOf = (err: unknown, fallback: string): string =>
-  err instanceof Error ? err.message : fallback;
 
 export type OtpStep = 'email' | 'otp';
 

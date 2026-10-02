@@ -1,6 +1,7 @@
+import type { ExpansionPiece } from '@termitary/engine';
 import { PieceTile } from '../board/PieceTile.js';
 import { OptionRow } from './OptionRow.js';
-import { EXPANSIONS, type ExpansionPiece } from './expansions.js';
+import { EXPANSIONS } from './expansions.js';
 
 type Props = {
   readonly picked: readonly ExpansionPiece[];

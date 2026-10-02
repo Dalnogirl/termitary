@@ -1,8 +1,8 @@
+import { type ExpansionPiece, isExpansionPiece } from '@termitary/engine';
 import { type StateCreator, createStore, useStore } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { type PieceSet, isPieceSet } from '../board/piece-sets.js';
 import { type PieceHue, isPieceHue } from '../board/pieces.js';
-import { type ExpansionPiece, isExpansionPiece } from '../rooms/expansions.js';
 
 // Kept on the old `hive.` prefix through the rename to Termitary: renaming the
 // key would reset every existing player's piece set and hue without an error.

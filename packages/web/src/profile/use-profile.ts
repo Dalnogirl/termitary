@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ProfileDto } from '@termitary/protocol';
+import { messageOf } from '../lib/message-of.js';
 import { fetchProfile, updateProfileName } from '../network/profile-api.js';
 
 export type ProfileView =
@@ -7,9 +8,6 @@ export type ProfileView =
   | { readonly status: 'missing' }
   | { readonly status: 'error'; readonly message: string }
   | { readonly status: 'ready'; readonly profile: ProfileDto };
-
-const describe = (error: unknown): string =>
-  error instanceof Error ? error.message : 'unknown error';
 
 const profileKey = (userId: string) => ['profile', userId];
 
@@ -26,7 +24,7 @@ export const useProfile = (userId: string): ProfileView => {
   if (query.data === null) return { status: 'missing' };
   if (query.data !== undefined) return { status: 'ready', profile: query.data };
   if (query.isLoading || query.error === null) return { status: 'loading' };
-  return { status: 'error', message: describe(query.error) };
+  return { status: 'error', message: messageOf(query.error) };
 };
 
 export type RenameProfile = {
@@ -54,7 +52,7 @@ export const useRenameProfile = (userId: string): RenameProfile => {
         .then(() => true)
         .catch(() => false),
     isSaving: mutation.isPending,
-    error: mutation.error === null ? null : describe(mutation.error),
+    error: mutation.error === null ? null : messageOf(mutation.error),
     reset: () => mutation.reset(),
   };
 };

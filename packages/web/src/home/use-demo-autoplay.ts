@@ -1,5 +1,6 @@
 import { applyMove } from '@termitary/engine';
 import { useEffect } from 'react';
+import { prefsStore, resolveAnimation } from '../store/prefs.js';
 import { gameStore } from '../store/store.js';
 import { createDemoPicker } from './demo-script.js';
 
@@ -9,7 +10,7 @@ const PRELOADED_PLIES = 8;
 const ANIMATED_PLIES = 10;
 const PLY_MS = 1400;
 
-const reducedMotion = (): boolean => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const motionOff = (): boolean => resolveAnimation(prefsStore.getState().animation) === 'off';
 
 export const useDemoAutoplay = (): void => {
   useEffect(() => {
@@ -27,7 +28,7 @@ export const useDemoAutoplay = (): void => {
       return true;
     };
 
-    const upfront = reducedMotion() ? PRELOADED_PLIES + ANIMATED_PLIES : PRELOADED_PLIES;
+    const upfront = motionOff() ? PRELOADED_PLIES + ANIMATED_PLIES : PRELOADED_PLIES;
     for (let i = 0; i < upfront; i++) {
       if (!step()) break;
     }
