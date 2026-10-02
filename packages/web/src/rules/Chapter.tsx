@@ -25,7 +25,7 @@ export const Chapter = ({ demo, active, onSelect }: Props) => (
       !active && 'cursor-pointer opacity-50 hover:opacity-75',
     )}
   >
-    <h2 className="text-lg font-semibold">
+    <h3 className="text-lg font-semibold">
       {/* Stays a button once active, or activating it from the keyboard drops focus. */}
       <button
         type="button"
@@ -34,7 +34,7 @@ export const Chapter = ({ demo, active, onSelect }: Props) => (
       >
         {demo.title}
       </button>
-    </h2>
+    </h3>
     <p className="text-sm leading-relaxed text-muted-foreground">{demo.caption}</p>
     <div className="min-h-8">{active && <DemoControls demo={demo} />}</div>
   </section>
