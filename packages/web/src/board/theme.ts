@@ -16,7 +16,7 @@ export type CanvasTheme = {
   readonly lastMoveStroke: string;
   readonly throwStroke: string;
   readonly refuseStroke: string;
-  readonly pinnedWash: string;
+  readonly dimWash: string;
 };
 
 export const readTheme = (): CanvasTheme => ({
@@ -34,5 +34,5 @@ export const readTheme = (): CanvasTheme => ({
   lastMoveStroke: cssVar('board-last-move-stroke', 'oklch(0.78 0.15 65)'),
   throwStroke: cssVar('board-throw-stroke', 'oklch(0.78 0.13 200)'),
   refuseStroke: cssVar('board-refuse-stroke', 'oklch(0.7 0.19 25)'),
-  pinnedWash: cssVar('board-pinned-wash', 'oklch(0.145 0 0 / 60%)'),
+  dimWash: cssVar('board-dim-wash', 'oklch(0.145 0 0 / 60%)'),
 });

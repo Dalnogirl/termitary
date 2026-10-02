@@ -19,10 +19,12 @@ import {
   type Outline,
   type Skin,
   chipTile,
+  chipWash,
   ghostNode,
   pieceTile,
   styleTarget,
   targetShape,
+  tileWash,
 } from './nodes.js';
 import { readTheme } from './theme.js';
 import { createView } from './view.js';
@@ -82,6 +84,14 @@ const outlineFor = (skin: Skin, marks: Marks, key: string): Outline | null => {
   return null;
 };
 
+// A piece in hand selects no cell, so placing leaves the board undimmed. A
+// pillbug's throwable neighbours are the next click, so they stay lit.
+const isDimmed = (marks: Marks, key: string): boolean =>
+  marks.selected !== null &&
+  key !== marks.selected &&
+  key !== marks.lifted &&
+  !marks.throwable.has(key);
+
 // Where the move that produced this position put its piece. Stepping through
 // the history is otherwise a slideshow of near-identical boards.
 const landedAt = (move: Move | null): HexCoord | null =>
@@ -124,12 +134,16 @@ export const createRenderer = (
       tile.on('mouseleave', () => setHoverCursor(''));
     }
     board.add(tile);
+    const dimmed = isDimmed(marks, key);
+    if (dimmed) board.add(tileWash(skin.theme).position(p));
 
     const below = stack[stack.length - 2];
     if (below === undefined) return;
+    const chipAt = { x: p.x + CHIP_OFFSET.x, y: p.y + CHIP_OFFSET.y };
     const chip = chipTile(skin, below);
-    chip.position({ x: p.x + CHIP_OFFSET.x, y: p.y + CHIP_OFFSET.y });
+    chip.position(chipAt);
     board.add(chip);
+    if (dimmed) board.add(chipWash(skin.theme).position(chipAt));
   };
 
   const drawTarget = (skin: Skin, coord: HexCoord, ghost: Group | null): void => {
