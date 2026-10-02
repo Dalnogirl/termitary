@@ -9,6 +9,8 @@ export const TARGET_SIZE = 36;
 export const TARGET_RADIUS = 6;
 export const CHIP_SIZE = 14;
 export const CHIP_RADIUS = 3;
+/** Where a beetle's chip, the piece it covers, sits from the tile's centre. */
+export const CHIP_OFFSET = { x: HEX_SIZE * 0.55, y: -HEX_SIZE * 0.65 } as const;
 
 // Konva's Text default. Canvas 2D has no such default, so the static clusters
 // have to name it to match.

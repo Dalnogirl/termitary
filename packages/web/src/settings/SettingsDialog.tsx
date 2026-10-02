@@ -8,24 +8,13 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import type { Color, PieceType } from '@termitary/engine';
+import type { Color } from '@termitary/engine';
 import { SettingsIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { PieceMark } from '../board/PieceMark.js';
 import { PIECE_SETS, PIECE_SET_IDS, type PieceSet } from '../board/piece-sets.js';
-import type { PieceHue } from '../board/pieces.js';
+import { PIECE_ORDER, type PieceHue } from '../board/pieces.js';
 import { type Animation, resolveAnimation, usePrefsStore } from '../store/prefs.js';
-
-const PREVIEW: readonly PieceType[] = [
-  'queen',
-  'ant',
-  'beetle',
-  'spider',
-  'grasshopper',
-  'ladybug',
-  'mosquito',
-  'pillbug',
-];
 
 const tileClass: Record<Color, string> = {
   white: 'bg-(--piece-white-fill)',
@@ -40,7 +29,7 @@ type PreviewProps = {
 
 const PreviewRow = ({ color, set, hue }: PreviewProps) => (
   <span className="flex gap-1.5">
-    {PREVIEW.map((type) => (
+    {PIECE_ORDER.map((type) => (
       <span
         key={type}
         className={cn(

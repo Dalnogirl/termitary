@@ -1,10 +1,11 @@
+import { type ExpansionPiece, rulesetFor } from '@termitary/engine';
 import { useEffect, useMemo } from 'react';
 import { InputProvider } from '../controller/InputProvider.js';
 import { RoomProvider } from '../controller/RoomContext.js';
 import { createLocalController } from '../controller/local.js';
 import { HotseatDialog } from '../hotseat/HotseatDialog.js';
 import { notifier } from '../lib/notify.js';
-import { type ExpansionPiece, expansionsIn, rulesetFor } from '../rooms/expansions.js';
+import { expansionsIn } from '../rooms/expansions.js';
 import { prefsStore } from '../store/prefs.js';
 import { gameStore, useGameStore } from '../store/store.js';
 import { GameLayout } from './GameLayout.js';

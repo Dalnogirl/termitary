@@ -1,5 +1,5 @@
+import type { ExpansionPiece } from '@termitary/engine';
 import { useState } from 'react';
-import type { ExpansionPiece } from '../rooms/expansions.js';
 import { usePrefsStore } from '../store/prefs.js';
 
 export type ExpansionDraft = {

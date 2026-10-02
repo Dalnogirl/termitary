@@ -9,6 +9,23 @@ export const PIECE_HUES: readonly PieceHue[] = ['shared', 'per-tile', 'mono'];
 export const isPieceHue = (value: unknown): value is PieceHue =>
   PIECE_HUES.includes(value as PieceHue);
 
+// A record rather than a list so a new piece type fails to compile until it has a place.
+const PIECE_RANK: Record<PieceType, number> = {
+  queen: 0,
+  ant: 1,
+  beetle: 2,
+  spider: 3,
+  grasshopper: 4,
+  ladybug: 5,
+  mosquito: 6,
+  pillbug: 7,
+};
+
+/** The order pieces are shown in wherever they sit side by side, queen first. */
+export const PIECE_ORDER: readonly PieceType[] = (Object.keys(PIECE_RANK) as PieceType[]).sort(
+  (a, b) => PIECE_RANK[a] - PIECE_RANK[b],
+);
+
 const LETTERS: Record<PieceType, string> = {
   queen: 'Q',
   ant: 'A',

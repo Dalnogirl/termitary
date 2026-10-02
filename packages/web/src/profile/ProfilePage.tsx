@@ -3,6 +3,7 @@ import type { ProfileDto } from '@termitary/protocol';
 import { Link, useNavigate } from 'react-router';
 import { ArchivedGameRow } from '../archive/ArchivedGameRow.js';
 import { useArchivedGames } from '../archive/use-archived-games.js';
+import { messageOf } from '../lib/message-of.js';
 import { relativeTime } from '../lib/relative-time.js';
 import { paths } from '../routes/paths.js';
 import { NameEditor } from './NameEditor.js';
@@ -21,10 +22,7 @@ const Games = ({ userId }: { readonly userId: string }) => {
       {games.isLoading && <p className="text-muted-foreground">Loading…</p>}
 
       {games.error !== null && (
-        <p className="text-foreground">
-          Could not load past games:{' '}
-          {games.error instanceof Error ? games.error.message : 'unknown error'}
-        </p>
+        <p className="text-foreground">Could not load past games: {messageOf(games.error)}</p>
       )}
 
       {games.isEmpty && (

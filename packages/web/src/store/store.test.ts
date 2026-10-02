@@ -8,7 +8,6 @@ import {
   listValidMoves,
 } from '@termitary/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { notifier } from '../lib/notify.js';
 import { gameStore, isLive } from './store.js';
 
 const advance = (game: GameState, plies: number): GameState => {
@@ -26,7 +25,6 @@ const FOUR_PLIES = advance(createGame(), 4);
 describe('store view', () => {
   beforeEach(() => {
     gameStore.getState().reset();
-    vi.spyOn(notifier, 'error').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -142,7 +140,6 @@ describe('store view', () => {
     expect(s.viewIndex).toBe(2);
     expect(s.replayFailed).toBe(true);
     expect(s.validMoves.length).toBeGreaterThan(0);
-    expect(notifier.error).toHaveBeenCalledOnce();
     expect(console.error).toHaveBeenCalledOnce();
   });
 
@@ -152,11 +149,11 @@ describe('store view', () => {
     gameStore.getState().applyGameState({ ...FOUR_PLIES, history: [firstMove, firstMove] });
 
     gameStore.getState().setViewIndex(1);
-    vi.mocked(notifier.error).mockClear();
+    vi.mocked(console.error).mockClear();
     gameStore.getState().setViewIndex(0);
 
     expect(gameStore.getState().viewIndex).toBe(2);
-    expect(notifier.error).not.toHaveBeenCalled();
+    expect(console.error).not.toHaveBeenCalled();
   });
 
   it('clears the failure when a fresh game state arrives', () => {

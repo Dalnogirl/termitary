@@ -1,6 +1,7 @@
 import { type Color, type GameState, type Move, applyMove } from '@termitary/engine';
 import { type OpponentPresence, fromWire, toWireMove } from '@termitary/protocol';
 import { type StoreApi, createStore } from 'zustand';
+import { messageOf } from '../lib/message-of.js';
 import type { Notifier } from '../lib/notify.js';
 import { createWsClient } from '../network/client.js';
 import { getWsUrl } from '../network/url.js';
@@ -145,8 +146,7 @@ export const createRoomController = ({ roomId, notifier }: Options): RoomControl
       // is unreachable in normal play. Abort the round-trip rather than
       // send a known-bad move.
       pendingSnapshot = null;
-      const msg = e instanceof Error ? e.message : 'Move rejected';
-      notifier.error(msg);
+      notifier.error(messageOf(e, 'Move rejected'));
       before.setSelection(null);
       return;
     }

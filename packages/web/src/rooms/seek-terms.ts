@@ -1,5 +1,6 @@
+import type { ExpansionPiece } from '@termitary/engine';
 import type { ExpansionChoice, SeekPreference } from '@termitary/protocol';
-import { EXPANSIONS, type ExpansionPiece } from './expansions.js';
+import { EXPANSIONS } from './expansions.js';
 
 /** The wire's two choices plus the absent key, which is "either". */
 export type TriState = ExpansionChoice | 'either';

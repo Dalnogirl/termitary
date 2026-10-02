@@ -10,7 +10,6 @@ import {
 } from '@termitary/engine';
 import { type StateCreator, createStore, useStore } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { notifier } from '../lib/notify.js';
 
 // Selecting a pillbug is the 'board' case like any other piece: its own
 // destinations and its throwable neighbours are offered together. Picking one
@@ -65,7 +64,6 @@ const buildFrames = (state: StoreState): readonly GameState[] | null => {
     return replayFrames(state.liveGame.history, state.liveGame.ruleset);
   } catch (error) {
     console.error(error);
-    notifier.error('This game\u2019s history could not be rebuilt', { id: 'replay-failed' });
     return null;
   }
 };

@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { type Color, type PieceType, type Ruleset, rulesetPieceTypes } from '@termitary/engine';
 import { PieceMark } from '../board/PieceMark.js';
+import { PIECE_ORDER } from '../board/pieces.js';
 import { useInputHandlers } from '../controller/InputProvider.js';
 import { useRoomContext } from '../controller/RoomContext.js';
 import { interaction, turnHolder } from '../controller/interaction.js';
@@ -10,20 +11,11 @@ import { useGameStore } from '../store/store.js';
 const COLOR_LABEL: Record<Color, string> = { white: 'White', black: 'Black' };
 
 // A ruleset is a plain object, so its key order is whatever literal built it.
-// The hand reads left to right in a fixed order instead, queen first.
-const SLOT_ORDER: Record<PieceType, number> = {
-  queen: 0,
-  ant: 1,
-  beetle: 2,
-  spider: 3,
-  grasshopper: 4,
-  ladybug: 5,
-  mosquito: 6,
-  pillbug: 7,
+// The hand reads left to right in the fixed display order instead.
+const handSlots = (ruleset: Ruleset): readonly PieceType[] => {
+  const dealt = new Set(rulesetPieceTypes(ruleset));
+  return PIECE_ORDER.filter((type) => dealt.has(type));
 };
-
-const handSlots = (ruleset: Ruleset): readonly PieceType[] =>
-  [...rulesetPieceTypes(ruleset)].sort((a, b) => SLOT_ORDER[a] - SLOT_ORDER[b]);
 
 type Props = {
   readonly color: Color;

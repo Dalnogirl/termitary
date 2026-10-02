@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { type ArchivedGameDetailDto, fromWire } from '@termitary/protocol';
 import { useLayoutEffect } from 'react';
+import { messageOf } from '../lib/message-of.js';
 import { fetchArchivedGame } from '../network/archived-games-api.js';
 import { gameStore } from '../store/store.js';
 
@@ -9,9 +10,6 @@ export type ArchivedGameView =
   | { readonly status: 'missing' }
   | { readonly status: 'error'; readonly message: string }
   | { readonly status: 'ready'; readonly game: ArchivedGameDetailDto };
-
-const describe = (error: unknown): string =>
-  error instanceof Error ? error.message : 'unknown error';
 
 /**
  * Loads one archived game and puts it on the board. The store write is the
@@ -45,5 +43,5 @@ export const useArchivedGame = (gameId: string | undefined): ArchivedGameView =>
   if (query.isLoading) return { status: 'loading' };
   return query.error === null
     ? { status: 'loading' }
-    : { status: 'error', message: describe(query.error) };
+    : { status: 'error', message: messageOf(query.error) };
 };

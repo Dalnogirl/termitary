@@ -1,10 +1,5 @@
-import { type ExpansionPiece, isExpansionPiece, rulesetFor } from '@termitary/engine';
+import type { ExpansionPiece } from '@termitary/engine';
 import type { WireRuleset } from '@termitary/protocol';
-
-// The piece list and the ruleset it deals are the engine's: composing base
-// plus an expansion is a rules question, and hot-seat asks it without a
-// server. What stays here is the copy the picker renders.
-export { type ExpansionPiece, isExpansionPiece, rulesetFor };
 
 export const EXPANSIONS = [
   {

@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { usePrefsStore } from '../store/prefs.js';
 import { axialToPixel, traceHex } from './hex.js';
 import {
+  CHIP_OFFSET,
   CHIP_RADIUS,
   CHIP_SIZE,
   HEX_DRAW_SIZE,
@@ -84,7 +85,7 @@ const drawPiece = (
   mark(ctx, set, hue, theme, cell.piece, p.x, p.y, HEX_DRAW_SIZE);
 
   if (cell.covers === undefined) return;
-  const chip = { x: p.x + HEX_SIZE * 0.55, y: p.y - HEX_SIZE * 0.65 };
+  const chip = { x: p.x + CHIP_OFFSET.x, y: p.y + CHIP_OFFSET.y };
   traceHex(ctx, chip, CHIP_SIZE, CHIP_RADIUS);
   ctx.fillStyle = pieceFill(cell.covers, theme);
   ctx.fill();

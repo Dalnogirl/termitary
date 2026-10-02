@@ -12,7 +12,7 @@ import { anchorOf, coordKey, interaction, sameCoord } from '../controller/intera
 import { prefsStore } from '../store/prefs.js';
 import type { StoreState } from '../store/store.js';
 import { axialToPixel } from './hex.js';
-import { HEX_SIZE } from './metrics.js';
+import { CHIP_OFFSET, HEX_SIZE } from './metrics.js';
 import { createMotionRunner, planMotion } from './motion.js';
 import {
   type Outline,
@@ -125,7 +125,7 @@ export const createRenderer = (
     const below = stack[stack.length - 2];
     if (below === undefined) return;
     const chip = chipTile(skin, below);
-    chip.position({ x: p.x + HEX_SIZE * 0.55, y: p.y - HEX_SIZE * 0.65 });
+    chip.position({ x: p.x + CHIP_OFFSET.x, y: p.y + CHIP_OFFSET.y });
     board.add(chip);
   };
 
