@@ -126,9 +126,11 @@ describe('useOtpSignIn', () => {
     const codeField = document.body.appendChild(document.createElement('input'));
     hook.result.current.signIn.otpRef.current = codeField;
 
-    await act(() => hook.result.current.signIn.requestOtp());
-
-    expect(document.activeElement).toBe(codeField);
-    codeField.remove();
+    try {
+      await act(() => hook.result.current.signIn.requestOtp());
+      expect(document.activeElement).toBe(codeField);
+    } finally {
+      codeField.remove();
+    }
   });
 });

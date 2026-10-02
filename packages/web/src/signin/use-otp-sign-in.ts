@@ -27,12 +27,10 @@ export type OtpSignIn = {
   readonly signInWith: (provider: AuthProviderId) => Promise<void>;
   readonly requestOtp: () => Promise<void>;
   readonly submitOtp: () => Promise<void>;
-  /** Back to the email step, dropping the code typed for the old address. */
   readonly changeEmail: () => void;
 };
 
-/** `target` is where a successful sign-in lands. */
-export const useOtpSignIn = (target: string): OtpSignIn => {
+export const useOtpSignIn = (landingPath: string): OtpSignIn => {
   const navigate = useNavigate();
   const [step, setStep] = useState<OtpStep>('email');
   const [email, setEmail] = useState('');
@@ -68,13 +66,13 @@ export const useOtpSignIn = (target: string): OtpSignIn => {
 
   const signInWith = (provider: AuthProviderId): Promise<void> =>
     attempt(async () => {
-      // `target` rides on the callback URL rather than router state: the
+      // `landingPath` rides on the callback URL rather than router state: the
       // provider round trip is a full-page navigation and state does not
       // survive it, so a bounce from /play/<id> would otherwise land on the
       // lobby.
       const { error: apiError } = await authClient.signIn.social({
         provider,
-        callbackURL: `${window.location.origin}${target}`,
+        callbackURL: `${window.location.origin}${landingPath}`,
       });
       // Only reached when the redirect never happens; on success the browser
       // has already left the page.
@@ -101,7 +99,7 @@ export const useOtpSignIn = (target: string): OtpSignIn => {
         fail(apiError.message ?? 'That code was not accepted');
         return;
       }
-      await navigate(target, { replace: true, viewTransition: true });
+      await navigate(landingPath, { replace: true, viewTransition: true });
     });
 
   const changeEmail = (): void => {
