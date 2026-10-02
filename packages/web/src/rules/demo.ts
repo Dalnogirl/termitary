@@ -1,10 +1,15 @@
 import type { GameState, Move, Ruleset } from '@termitary/engine';
 import { replayFrames } from '@termitary/engine';
+import type { Annotation } from '../store/annotations.js';
 import type { Selection } from '../store/store.js';
 
-/** One beat of a demo. A pause holds the board still for a beat. */
+/**
+ * One beat of a demo. A pause holds the board still for a beat. Marks from
+ * `annotate` explain the position they were set on, so the next move clears them.
+ */
 export type DemoStep =
   | { readonly kind: 'select'; readonly selection: NonNullable<Selection> }
+  | { readonly kind: 'annotate'; readonly annotations: readonly Annotation[] }
   | { readonly kind: 'move'; readonly move: Move }
   | { readonly kind: 'pause' };
 

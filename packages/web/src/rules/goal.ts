@@ -1,17 +1,6 @@
-import { BASE_RULESET, type Color, type Move, type PieceType } from '@termitary/engine';
+import { BASE_RULESET } from '@termitary/engine';
 import type { RulesDemo } from './demo.js';
-
-const place = (type: PieceType, color: Color, q: number, r: number): Move => ({
-  kind: 'place',
-  piece: { type, color },
-  to: { q, r },
-});
-
-const relocate = (from: [number, number], to: [number, number]): Move => ({
-  kind: 'relocate',
-  from: { q: from[0], r: from[1] },
-  to: { q: to[0], r: to[1] },
-});
+import { place, relocate } from './moves.js';
 
 export const goal: RulesDemo = {
   id: 'goal',

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { gameStore } from '../store/store.js';
 import { startOf } from './demo.js';
 import { goal } from './goal.js';
+import { BEAT_MS } from './player.js';
 import { useDemoPlayer } from './use-demo-player.js';
 
 const render = () => renderHook(() => useDemoPlayer(goal), { wrapper: StrictMode });
@@ -19,19 +20,19 @@ describe('useDemoPlayer', () => {
     const { result, unmount } = render();
     expect(result.current.mode).toBe('watching');
 
-    act(() => vi.advanceTimersByTime(1200 * goal.script.length));
+    act(() => vi.advanceTimersByTime(BEAT_MS * goal.script.length));
     expect(historyLength()).toBe(goal.setup.length + 1);
     unmount();
   });
 
   it('hands the start position over on try it, and takes it back on watch', () => {
     const { result, unmount } = render();
-    act(() => vi.advanceTimersByTime(1200 * goal.script.length));
+    act(() => vi.advanceTimersByTime(BEAT_MS * goal.script.length));
 
     act(() => result.current.tryIt());
     expect(result.current.mode).toBe('trying');
     expect(gameStore.getState().liveGame).toEqual(startOf(goal));
-    act(() => vi.advanceTimersByTime(1200 * goal.script.length));
+    act(() => vi.advanceTimersByTime(BEAT_MS * goal.script.length));
     expect(historyLength()).toBe(goal.setup.length);
 
     act(() => result.current.watch());
