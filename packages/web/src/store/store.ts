@@ -65,7 +65,7 @@ const buildFrames = (state: StoreState): readonly GameState[] | null => {
     return replayFrames(state.liveGame.history, state.liveGame.ruleset);
   } catch (error) {
     console.error(error);
-    notifier.error('This game\u2019s history could not be rebuilt');
+    notifier.error('This game\u2019s history could not be rebuilt', { id: 'replay-failed' });
     return null;
   }
 };
