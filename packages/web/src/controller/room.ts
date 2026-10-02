@@ -14,7 +14,6 @@ export type RoomStatus = 'connecting' | 'in-room' | 'reconnecting' | 'archived' 
 export type RoomState = {
   readonly status: RoomStatus;
   readonly myColor: Color | null;
-  readonly errorMsg: string | null;
   // null until gameJoined answers.
   readonly opponent: OpponentPresence | null;
 };
@@ -22,7 +21,6 @@ export type RoomState = {
 export const INITIAL_ROOM_STATE: RoomState = {
   status: 'connecting',
   myColor: null,
-  errorMsg: null,
   opponent: null,
 };
 
@@ -54,6 +52,14 @@ export const createRoomController = ({ roomId, notifier }: Options): RoomControl
   // this. Cleared on stateUpdated (any stateUpdated wins — server is the
   // source of truth).
   let pendingSnapshot: GameState | null = null;
+
+  // A room fails once: the page leaves on the first failure, and a socket
+  // closing behind a server error would otherwise toast a second reason.
+  const fail = (message: string): void => {
+    if (store.getState().status === 'error') return;
+    notifier.error(message);
+    store.setState({ status: 'error' });
+  };
 
   const offGameJoined = client.on('gameJoined', (msg) => {
     gameStore.getState().applyGameState(fromWire(msg.state));
@@ -89,7 +95,7 @@ export const createRoomController = ({ roomId, notifier }: Options): RoomControl
       client.send({ type: 'joinGame', roomId });
       return;
     }
-    store.setState({ status: 'error', errorMsg: msg.message });
+    fail(msg.message);
   });
 
   const offStatus = client.onStatusChange((status) => {
@@ -107,7 +113,7 @@ export const createRoomController = ({ roomId, notifier }: Options): RoomControl
       store.setState({ status: 'reconnecting' });
       return;
     }
-    store.setState({ status: 'error', errorMsg: 'Connection lost' });
+    fail('Connection lost');
   });
 
   const commitMove = (move: Move): void => {

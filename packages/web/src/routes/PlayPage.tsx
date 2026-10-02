@@ -10,16 +10,16 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import type { OpponentPresence } from '@termitary/protocol';
-import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useState } from 'react';
+import { Link, Navigate, useParams } from 'react-router';
 import { InputProvider } from '../controller/InputProvider.js';
 import { RoomProvider } from '../controller/RoomContext.js';
 import type { RoomStatus } from '../controller/room.js';
 import { useRoomConnection } from '../controller/use-room-connection.js';
-import { notifier } from '../lib/notify.js';
 import { useGameStore } from '../store/store.js';
 import { GameLayout } from './GameLayout.js';
 import { paths } from './paths.js';
+import { useArchiveRedirect } from './use-archive-redirect.js';
 
 const PRESENCE_DOT: Record<OpponentPresence['status'], string> = {
   connected: 'bg-emerald-500',
@@ -63,10 +63,10 @@ const ConnectionBadge = ({
 
 export const PlayPage = () => {
   const { roomId } = useParams<{ roomId: string }>();
-  const navigate = useNavigate();
   const room = useRoomConnection(roomId);
   const [showQuitDialog, setShowQuitDialog] = useState(false);
   const gameStatus = useGameStore((s) => s.liveGame.status);
+  useArchiveRedirect(room.status, roomId);
 
   // The finished board stays up behind the game-over modal; only a return
   // to the room is sent on to the archive.
@@ -75,19 +75,8 @@ export const PlayPage = () => {
     room.resign();
   };
 
-  useEffect(() => {
-    if (room.status !== 'error') return;
-    notifier.error(room.errorMsg ?? 'Unknown error');
-    void navigate(paths.home, { viewTransition: true });
-  }, [room.status, room.errorMsg, navigate]);
-
-  // Replace, so Back from the archive does not land on a room that is gone.
-  useEffect(() => {
-    if (room.status !== 'archived' || roomId === undefined) return;
-    void navigate(paths.archivedGame(roomId), { replace: true, viewTransition: true });
-  }, [room.status, roomId, navigate]);
-
-  if (room.status === 'error' || room.status === 'archived') return null;
+  if (room.status === 'error') return <Navigate to={paths.home} />;
+  if (room.status === 'archived') return null;
   if (room.controller === null) {
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground">

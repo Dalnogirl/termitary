@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import type { Color, EndReason } from '@termitary/engine';
 import type { OpponentPresence } from '@termitary/protocol';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useRoomContext } from '../controller/RoomContext.js';
 import { paths } from '../routes/paths.js';
@@ -81,12 +81,11 @@ export const Modal = () => {
   // reconnect re-delivers the same finished game as a fresh object, so this
   // cannot key on identity; only a game going back in progress reopens it.
   const [dismissed, setDismissed] = useState(false);
-  const finished = game.status === 'finished';
-  useEffect(() => {
-    if (!finished) setDismissed(false);
-  }, [finished]);
 
-  if (game.status !== 'finished') return null;
+  if (game.status !== 'finished') {
+    if (dismissed) setDismissed(false);
+    return null;
+  }
 
   const hotseat = myColor === null;
 
