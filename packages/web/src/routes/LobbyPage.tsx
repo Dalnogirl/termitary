@@ -4,7 +4,7 @@ import { ANY_GAME, type PostSeekResponseDto, type SeekPreference } from '@termit
 import type * as React from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { toast } from 'sonner';
+import { notifier } from '../lib/notify.js';
 import { fetchMyRooms } from '../network/rooms-api.js';
 import { useSeeks } from '../network/use-seeks.js';
 import { RoomRow, myRoomDetail } from '../rooms/RoomRow.js';
@@ -39,7 +39,7 @@ const Listing = ({
 );
 
 const showError = (fallback: string) => (err: unknown) =>
-  void toast.error(err instanceof Error ? err.message : fallback);
+  notifier.error(err instanceof Error ? err.message : fallback);
 
 export const LobbyPage = () => {
   const navigate = useNavigate();

@@ -1,7 +1,7 @@
 import { type Color, type GameState, type Move, applyMove } from '@termitary/engine';
 import { type OpponentPresence, fromWire, toWireMove } from '@termitary/protocol';
-import { toast } from 'sonner';
 import { type StoreApi, createStore } from 'zustand';
+import type { Notifier } from '../lib/notify.js';
 import { createWsClient } from '../network/client.js';
 import { getWsUrl } from '../network/url.js';
 import { gameStore } from '../store/store.js';
@@ -34,13 +34,14 @@ export type RoomController = Controller & {
 
 type Options = {
   readonly roomId: string;
+  readonly notifier: Notifier;
 };
 
 // Owns the WS connection and ALL server-message bindings for a single
 // /play/:roomId session. Translates protocol messages into either
 // gameStore mutations (engine state) or local RoomState mutations
 // (connection status / seat color / surfaced errors). No React.
-export const createRoomController = ({ roomId }: Options): RoomController => {
+export const createRoomController = ({ roomId, notifier }: Options): RoomController => {
   // The board is a module-level singleton, so without this the room renders
   // whatever the last view left in it (the home page demo, a hot-seat game)
   // for the whole handshake, until gameJoined arrives.
@@ -75,7 +76,7 @@ export const createRoomController = ({ roomId }: Options): RoomController => {
 
   const offError = client.on('error', (msg) => {
     if (msg.requestKind === 'makeMove') {
-      toast.error(msg.message);
+      notifier.error(msg.message);
       gameStore.getState().setSelection(null);
       if (pendingSnapshot !== null) {
         gameStore.getState().applyGameState(pendingSnapshot);
@@ -115,7 +116,7 @@ export const createRoomController = ({ roomId }: Options): RoomController => {
       // The board still highlights valid moves here, so a silent no-op would
       // read as the same dead board this status exists to expose.
       if (status === 'reconnecting') {
-        toast('Reconnecting, moves are paused', { id: 'move-while-offline' });
+        notifier.info('Reconnecting, moves are paused', { id: 'move-while-offline' });
       }
       return;
     }
@@ -139,7 +140,7 @@ export const createRoomController = ({ roomId }: Options): RoomController => {
       // send a known-bad move.
       pendingSnapshot = null;
       const msg = e instanceof Error ? e.message : 'Move rejected';
-      toast.error(msg);
+      notifier.error(msg);
       before.setSelection(null);
       return;
     }
@@ -152,7 +153,7 @@ export const createRoomController = ({ roomId }: Options): RoomController => {
       // Same reason commitMove refuses: the send would be dropped on the
       // floor and a closed dialog would read as a resignation that happened.
       if (status === 'reconnecting') {
-        toast('Reconnecting, resign is paused', { id: 'resign-while-offline' });
+        notifier.info('Reconnecting, resign is paused', { id: 'resign-while-offline' });
       }
       return;
     }

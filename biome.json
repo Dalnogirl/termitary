@@ -22,9 +22,31 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      "nursery": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "sonner": "Toasts go through packages/web/src/lib/notify.tsx."
+            }
+          }
+        }
+      }
     }
   },
+  "overrides": [
+    {
+      "include": ["packages/web/src/lib/notify.tsx"],
+      "linter": {
+        "rules": {
+          "nursery": {
+            "noRestrictedImports": "off"
+          }
+        }
+      }
+    }
+  ],
   "javascript": {
     "formatter": {
       "quoteStyle": "single",

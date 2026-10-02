@@ -34,10 +34,7 @@ const fakeClient: WsClient = {
 
 vi.mock('../network/client.js', () => ({ createWsClient: () => fakeClient }));
 
-const toastError = vi.fn();
-vi.mock('sonner', () => ({
-  toast: Object.assign(vi.fn(), { error: (m: string) => toastError(m) }),
-}));
+const notifier = { error: vi.fn(), info: vi.fn() };
 
 const { createRoomController } = await import('./room.js');
 
@@ -56,7 +53,7 @@ const firstMove = (): Move => {
 // Brings a controller to the state a player is in mid-game: socket open,
 // joined as white, one optimistic move sent and unanswered.
 const setup = () => {
-  const controller = createRoomController({ roomId: 'r1' });
+  const controller = createRoomController({ roomId: 'r1', notifier });
   emitStatus('open');
   deliver({
     type: 'gameJoined',
@@ -72,7 +69,8 @@ describe('createRoomController', () => {
   beforeEach(() => {
     sent.length = 0;
     messageHandlers.clear();
-    toastError.mockClear();
+    notifier.error.mockClear();
+    notifier.info.mockClear();
     closed = false;
     gameStore.getState().reset();
   });
@@ -141,7 +139,7 @@ describe('createRoomController', () => {
 
     deliver({ type: 'error', message: 'not your turn', requestKind: 'makeMove' });
 
-    expect(toastError).toHaveBeenCalledWith('not your turn');
+    expect(notifier.error).toHaveBeenCalledWith('not your turn');
     expect(gameStore.getState().liveGame).toBe(before);
     expect(gameStore.getState().selection).toBeNull();
   });
@@ -156,7 +154,7 @@ describe('createRoomController', () => {
 
     deliver({ type: 'error', message: 'not your turn', requestKind: 'makeMove' });
 
-    expect(toastError).toHaveBeenCalledWith('not your turn');
+    expect(notifier.error).toHaveBeenCalledWith('not your turn');
     expect(sent).toEqual([{ type: 'joinGame', roomId: 'r1' }]);
   });
 
@@ -197,13 +195,30 @@ describe('createRoomController', () => {
     expect(controller.store.getState().status).toBe('in-room');
   });
 
+  it('holds moves and resign while reconnecting, and says why', () => {
+    const controller = setup();
+    emitStatus('reconnecting');
+    sent.length = 0;
+
+    controller.commitMove(firstMove());
+    controller.resign();
+
+    expect(sent).toEqual([]);
+    expect(notifier.info).toHaveBeenCalledWith('Reconnecting, moves are paused', {
+      id: 'move-while-offline',
+    });
+    expect(notifier.info).toHaveBeenCalledWith('Reconnecting, resign is paused', {
+      id: 'resign-while-offline',
+    });
+  });
+
   it('marks the room archived when the server says its game has moved there', () => {
     const controller = setup();
 
     deliver({ type: 'gameArchived', roomId: 'r1' });
 
     expect(controller.store.getState().status).toBe('archived');
-    expect(toastError).not.toHaveBeenCalled();
+    expect(notifier.error).not.toHaveBeenCalled();
   });
 
   it('keeps taking the fatal path for errors that are not move rejections', () => {
@@ -215,6 +230,6 @@ describe('createRoomController', () => {
       status: 'error',
       errorMsg: 'room not found',
     });
-    expect(toastError).not.toHaveBeenCalled();
+    expect(notifier.error).not.toHaveBeenCalled();
   });
 });

@@ -8,12 +8,8 @@ import {
   listValidMoves,
 } from '@termitary/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { notifier } from '../lib/notify.js';
 import { gameStore, isLive } from './store.js';
-
-const toastError = vi.fn();
-vi.mock('sonner', () => ({
-  toast: Object.assign(vi.fn(), { error: (m: string) => toastError(m) }),
-}));
 
 const advance = (game: GameState, plies: number): GameState => {
   let cur = game;
@@ -30,7 +26,7 @@ const FOUR_PLIES = advance(createGame(), 4);
 describe('store view', () => {
   beforeEach(() => {
     gameStore.getState().reset();
-    toastError.mockClear();
+    vi.spyOn(notifier, 'error').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -146,7 +142,7 @@ describe('store view', () => {
     expect(s.viewIndex).toBe(2);
     expect(s.replayFailed).toBe(true);
     expect(s.validMoves.length).toBeGreaterThan(0);
-    expect(toastError).toHaveBeenCalledOnce();
+    expect(notifier.error).toHaveBeenCalledOnce();
     expect(console.error).toHaveBeenCalledOnce();
   });
 
@@ -156,11 +152,11 @@ describe('store view', () => {
     gameStore.getState().applyGameState({ ...FOUR_PLIES, history: [firstMove, firstMove] });
 
     gameStore.getState().setViewIndex(1);
-    toastError.mockClear();
+    vi.mocked(notifier.error).mockClear();
     gameStore.getState().setViewIndex(0);
 
     expect(gameStore.getState().viewIndex).toBe(2);
-    expect(toastError).not.toHaveBeenCalled();
+    expect(notifier.error).not.toHaveBeenCalled();
   });
 
   it('clears the failure when a fresh game state arrives', () => {

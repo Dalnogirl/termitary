@@ -12,11 +12,11 @@ import { Button } from '@/components/ui/button';
 import type { OpponentPresence } from '@termitary/protocol';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { toast } from 'sonner';
 import { InputProvider } from '../controller/InputProvider.js';
 import { RoomProvider } from '../controller/RoomContext.js';
 import type { RoomStatus } from '../controller/room.js';
 import { useRoomConnection } from '../controller/use-room-connection.js';
+import { notifier } from '../lib/notify.js';
 import { useGameStore } from '../store/store.js';
 import { GameLayout } from './GameLayout.js';
 import { paths } from './paths.js';
@@ -77,7 +77,7 @@ export const PlayPage = () => {
 
   useEffect(() => {
     if (room.status !== 'error') return;
-    toast.error(room.errorMsg ?? 'Unknown error');
+    notifier.error(room.errorMsg ?? 'Unknown error');
     void navigate(paths.home, { viewTransition: true });
   }, [room.status, room.errorMsg, navigate]);
 

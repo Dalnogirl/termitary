@@ -1,8 +1,8 @@
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { NavLink, type NavLinkProps, Outlet, useLocation, useNavigate } from 'react-router';
-import { Toaster } from 'sonner';
 import { Logo } from '../brand/Logo.js';
+import { Notifications } from '../lib/notify.js';
 import { signOut, useSession } from '../network/auth-client.js';
 import { SettingsDialog } from '../settings/SettingsDialog.js';
 import { paths } from './paths.js';
@@ -73,6 +73,6 @@ export const RootLayout = () => (
     <main className="page-transition-root flex-1 flex flex-col min-h-0">
       <Outlet />
     </main>
-    <Toaster theme="dark" richColors closeButton />
+    <Notifications />
   </div>
 );
