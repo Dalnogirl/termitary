@@ -19,6 +19,7 @@ import { useRoomConnection } from '../controller/use-room-connection.js';
 import { useGameStore } from '../store/store.js';
 import { GameLayout } from './GameLayout.js';
 import { paths } from './paths.js';
+import { useArchiveRedirect } from './use-archive-redirect.js';
 
 const PRESENCE_DOT: Record<OpponentPresence['status'], string> = {
   connected: 'bg-emerald-500',
@@ -65,6 +66,7 @@ export const PlayPage = () => {
   const room = useRoomConnection(roomId);
   const [showQuitDialog, setShowQuitDialog] = useState(false);
   const gameStatus = useGameStore((s) => s.liveGame.status);
+  useArchiveRedirect(room.status, roomId);
 
   // The finished board stays up behind the game-over modal; only a return
   // to the room is sent on to the archive.
@@ -74,10 +76,7 @@ export const PlayPage = () => {
   };
 
   if (room.status === 'error') return <Navigate to={paths.home} />;
-  // Replace, so Back from the archive does not land on a room that is gone.
-  if (room.status === 'archived' && roomId !== undefined) {
-    return <Navigate replace to={paths.archivedGame(roomId)} />;
-  }
+  if (room.status === 'archived') return null;
   if (room.controller === null) {
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground">
