@@ -31,11 +31,16 @@ const padlock = (theme: CanvasTheme): Group => {
   return lock;
 };
 
-// A wash in the board's own colour reads as a dimmed tile without the
-// annotation layer reaching into the tile the renderer owns.
+// A ring rather than a wash, because a wash is how the board dims everything
+// a selection leaves out, and the two stacked over a pinned bystander.
 const pinnedNode = (theme: CanvasTheme, coord: HexCoord): Group => {
   const group = new Group({ name: 'pinned', ...at(coord) });
-  group.add(createHexShape({ x: 0, y: 0 }, HEX_DRAW_SIZE, HEX_RADIUS, { fill: theme.pinnedWash }));
+  group.add(
+    createHexShape({ x: 0, y: 0 }, HEX_DRAW_SIZE, HEX_RADIUS, {
+      stroke: theme.refuseStroke,
+      strokeWidth: 3,
+    }),
+  );
   const badge = new Group(BADGE_OFFSET);
   badge.add(new Circle({ radius: BADGE_RADIUS, fill: theme.refuseStroke }), padlock(theme));
   group.add(badge);
