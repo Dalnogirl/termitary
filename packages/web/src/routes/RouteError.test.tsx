@@ -48,7 +48,7 @@ describe('RouteError', () => {
 
     expect(screen.getByText('render exploded')).toBeDefined();
     expect(screen.getByRole('button', { name: 'Reload' })).toBeDefined();
-    expect(screen.getByRole('link', { name: 'Back to lobby' }).getAttribute('href')).toBe('/lobby');
+    expect(screen.getByRole('link', { name: 'Back to lobby' }).getAttribute('href')).toBe('/');
   });
 
   it('leaves the stack in the console', () => {

@@ -48,7 +48,7 @@ const RULES: readonly {
 
 export const SignedOutHome = () => (
   <>
-    <HomeHero height="partial">
+    <HomeHero>
       <Logo size="hero" layout="stacked" as="h1" />
       <p className="text-lg text-foreground">
         A board game with no board. Bring out your queen, then bury the other one under six pieces.
@@ -62,11 +62,11 @@ export const SignedOutHome = () => (
           Play on this device
         </Link>
         <Link
-          to={paths.lobby}
+          to={paths.signin}
           viewTransition
           className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'no-underline')}
         >
-          Play online
+          Sign in to play online
         </Link>
       </div>
       <p className="text-xs text-muted-foreground">

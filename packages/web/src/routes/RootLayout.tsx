@@ -12,9 +12,17 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 const SessionBadge = () => {
   const navigate = useNavigate();
-  const { data } = useSession();
+  const { data, isPending } = useSession();
 
-  if (!data) return null;
+  if (isPending) return null;
+
+  if (!data) {
+    return (
+      <NavLink to={paths.signin} viewTransition className={navLinkClass}>
+        Sign in
+      </NavLink>
+    );
+  }
 
   const handleSignOut = async (): Promise<void> => {
     await signOut();
@@ -47,11 +55,6 @@ export const RootLayout = () => (
         <li>
           <NavLink to={paths.hotseat} viewTransition className={navLinkClass}>
             Hotseat
-          </NavLink>
-        </li>
-        <li>
-          <NavLink to={paths.lobby} viewTransition className={navLinkClass}>
-            Play online
           </NavLink>
         </li>
       </ul>

@@ -24,7 +24,7 @@ export const signIn = async (page: Page, email: string): Promise<void> => {
   await page.getByRole('button', { name: 'Send code' }).click();
   await page.getByPlaceholder('000000').fill(await otpFor(page, email));
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.waitForURL('**/lobby');
+  await page.waitForURL((url) => url.pathname === '/');
 };
 
 /**

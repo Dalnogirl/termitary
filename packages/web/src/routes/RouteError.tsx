@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { useEffect } from 'react';
 import { isRouteErrorResponse, useRouteError } from 'react-router';
+import { paths } from './paths.js';
 
 const describe = (error: unknown): string => {
   if (isRouteErrorResponse(error)) return `${error.status} ${error.statusText}`;
@@ -29,7 +30,7 @@ export const RouteError = () => {
       <div className="flex items-center gap-3">
         <Button onClick={() => window.location.reload()}>Reload</Button>
         <Button variant="secondary" asChild>
-          <a href="/lobby">Back to lobby</a>
+          <a href={paths.home}>Back to lobby</a>
         </Button>
       </div>
     </div>

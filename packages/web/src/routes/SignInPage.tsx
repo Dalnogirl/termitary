@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { authClient, useSession } from '../network/auth-client.js';
 import { fetchAuthProviders } from '../network/auth-providers-api.js';
 import { ProviderIcon } from './ProviderIcon.js';
+import { paths } from './paths.js';
 
 const inputClass =
   'w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground ' +
@@ -45,7 +46,7 @@ export const SignInPage = () => {
   const socialProviders = providers.data?.providers ?? [];
 
   // Where RequireAuth bounced us from, or the lobby on a direct visit.
-  const target = (location.state as { from?: string } | null)?.from ?? '/lobby';
+  const target = (location.state as { from?: string } | null)?.from ?? paths.home;
 
   // Focus by ref rather than autoFocus: biome's a11y rule bans the attribute,
   // and this also moves focus to the code field when the step advances.

@@ -9,7 +9,6 @@ export const paths = {
   home: '/',
   hotseat: '/hotseat',
   signin: '/signin',
-  lobby: '/lobby',
   play: (roomId: string) => `/${PLAY}/${encodeURIComponent(roomId)}`,
   profile: (userId: string) => `/${PROFILE}/${encodeURIComponent(userId)}`,
   archivedGame: (gameId: string) => `/${ARCHIVED_GAMES}/${encodeURIComponent(gameId)}`,
@@ -18,7 +17,6 @@ export const paths = {
 export const patterns = {
   hotseat: paths.hotseat,
   signin: paths.signin,
-  lobby: paths.lobby,
   play: `/${PLAY}/:roomId`,
   profile: `/${PROFILE}/:userId`,
   archivedGame: `/${ARCHIVED_GAMES}/:gameId`,

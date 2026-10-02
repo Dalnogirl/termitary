@@ -8,7 +8,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       // Lobby refreshes on focus; no need for aggressive polling. Cache for
-      // 10s so navigating in and out of /lobby doesn't refetch every time.
+      // 10s so navigating in and out of the lobby doesn't refetch every time.
       staleTime: 10_000,
       refetchOnWindowFocus: true,
       retry: 1,
