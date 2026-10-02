@@ -50,4 +50,13 @@ describe('useReplayFailedToast', () => {
 
     expect(notifier.error).toHaveBeenCalledTimes(2);
   });
+
+  it('stays quiet for a failure left over from before it mounted', () => {
+    gameStore.getState().applyGameState(unreplayable());
+    gameStore.getState().setViewIndex(1);
+
+    renderHook(() => useReplayFailedToast());
+
+    expect(notifier.error).not.toHaveBeenCalled();
+  });
 });
