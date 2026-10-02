@@ -13,6 +13,8 @@ export type View = {
   readonly board: Layer;
   /** One node at a time: the piece in transit. */
   readonly overlay: Layer;
+  /** Marks explaining a refusal, drawn above the hive and below a flight. */
+  readonly annotations: Layer;
   readonly setHoverCursor: (value: string) => void;
   readonly destroy: () => void;
 };
@@ -31,7 +33,7 @@ const touchDistance = (a: Touch, b: Touch): number =>
 const clampScale = (scale: number): number => Math.max(SCALE_MIN, Math.min(SCALE_MAX, scale));
 
 /**
- * Owns the stage, its two layers, and every gesture that moves them. Built once
+ * Owns the stage, its three layers, and every gesture that moves them. Built once
  * and outlives every draw, so nothing here reads game state.
  */
 export const createView = (container: HTMLDivElement, onClearSelection: () => void): View => {
@@ -48,17 +50,22 @@ export const createView = (container: HTMLDivElement, onClearSelection: () => vo
   // Its own canvas, so a flight costs one small repaint a frame instead of
   // redrawing the whole hive.
   const overlay = new Layer({ x: board.x(), y: board.y(), listening: false });
-  stage.add(board, overlay);
+  // Never hit-tested, so a mark cannot swallow the click meant for the piece
+  // or target under it.
+  const annotations = new Layer({ x: board.x(), y: board.y(), listening: false });
+  stage.add(board, annotations, overlay);
 
-  // The overlay tracks the board's transform, or a flight detaches from the
-  // hive the moment you pan or zoom.
+  // The upper layers track the board's transform, or a flight or a mark
+  // detaches from the hive the moment you pan or zoom.
   const positionView = (pos: Pixel): void => {
     board.position(pos);
     overlay.position(pos);
+    annotations.position(pos);
   };
   const scaleView = (scale: number): void => {
     board.scale({ x: scale, y: scale });
     overlay.scale({ x: scale, y: scale });
+    annotations.scale({ x: scale, y: scale });
   };
 
   let dragging = false;
@@ -218,5 +225,5 @@ export const createView = (container: HTMLDivElement, onClearSelection: () => vo
     stage.destroy();
   };
 
-  return { board, overlay, setHoverCursor, destroy };
+  return { board, overlay, annotations, setHoverCursor, destroy };
 };

@@ -8,6 +8,7 @@ import {
   topPieceAt,
 } from '@termitary/engine';
 import type { Group } from 'konva/lib/Group.js';
+import type { Layer } from 'konva/lib/Layer.js';
 import { anchorOf, coordKey, interaction, sameCoord } from '../controller/interaction.js';
 import { prefsStore } from '../store/prefs.js';
 import type { StoreState } from '../store/store.js';
@@ -34,6 +35,8 @@ export type RendererCallbacks = {
 
 export type Renderer = {
   draw: (state: StoreState) => void;
+  /** Painted by `paintAnnotations`, never by `draw`. */
+  readonly annotationLayer: Layer;
   destroy: () => void;
 };
 
@@ -221,5 +224,5 @@ export const createRenderer = (
     view.destroy();
   };
 
-  return { draw, destroy };
+  return { draw, annotationLayer: view.annotations, destroy };
 };

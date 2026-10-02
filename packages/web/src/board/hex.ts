@@ -10,6 +10,32 @@ export const axialToPixel = (c: HexCoord, size: number): Pixel => ({
   y: size * 1.5 * c.r,
 });
 
+const areNeighbors = (a: HexCoord, b: HexCoord): boolean => {
+  const dq = b.q - a.q;
+  const dr = b.r - a.r;
+  return Math.max(Math.abs(dq), Math.abs(dr), Math.abs(dq + dr)) === 1;
+};
+
+/** The side two touching cells share, as its two corners; `null` when they do not touch. */
+export const sharedEdge = (
+  a: HexCoord,
+  b: HexCoord,
+  size: number,
+): readonly [Pixel, Pixel] | null => {
+  if (!areNeighbors(a, b)) return null;
+  const pa = axialToPixel(a, size);
+  const pb = axialToPixel(b, size);
+  const mid = { x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2 };
+  // Centres of touching cells sit size·√3 apart, and a side is size long, so
+  // half a side is the centre line rotated a quarter turn and scaled by 1/(2√3).
+  const hx = -(pb.y - pa.y) / (2 * SQRT3);
+  const hy = (pb.x - pa.x) / (2 * SQRT3);
+  return [
+    { x: mid.x - hx, y: mid.y - hy },
+    { x: mid.x + hx, y: mid.y + hy },
+  ];
+};
+
 // Konva's Context and CanvasRenderingContext2D both satisfy this, which is how
 // the board and the static clusters trace the identical outline.
 export type HexPathSink = {
