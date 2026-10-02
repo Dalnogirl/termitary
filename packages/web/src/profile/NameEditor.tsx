@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { PROFILE_NAME_MAX } from '@termitary/protocol';
-import { useState } from 'react';
+import { useNameDraft } from './use-name-draft.js';
 import type { RenameProfile } from './use-profile.js';
 
 const inputClass =
@@ -14,25 +14,7 @@ export const NameEditor = ({
   readonly name: string;
   readonly rename: RenameProfile;
 }) => {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(name);
-
-  const start = () => {
-    rename.reset();
-    setDraft(name);
-    setEditing(true);
-  };
-
-  // A rejected name leaves the field open with what was typed still in it, so
-  // the message has something to be about.
-  const submit = async (event: React.FormEvent): Promise<void> => {
-    event.preventDefault();
-    if (draft === name) {
-      setEditing(false);
-      return;
-    }
-    if (await rename.rename(draft)) setEditing(false);
-  };
+  const { editing, draft, setDraft, start, submit, cancel } = useNameDraft(name, rename);
 
   if (!editing) {
     return (
@@ -46,7 +28,13 @@ export const NameEditor = ({
   }
 
   return (
-    <form className="flex flex-col gap-2" onSubmit={(e) => void submit(e)}>
+    <form
+      className="flex flex-col gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+    >
       <div className="flex items-center gap-2">
         <input
           // biome-ignore lint/a11y/noAutofocus: the field replaces the heading the click was on
@@ -60,15 +48,7 @@ export const NameEditor = ({
         <Button type="submit" size="sm" disabled={rename.isSaving}>
           {rename.isSaving ? 'Saving…' : 'Save'}
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onClick={() => {
-            rename.reset();
-            setEditing(false);
-          }}
-        >
+        <Button type="button" size="sm" variant="ghost" onClick={cancel}>
           Cancel
         </Button>
       </div>
