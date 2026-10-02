@@ -7,6 +7,7 @@ import { PlayerProfilePage } from './routes/PlayerProfilePage.js';
 import { RequireAuth } from './routes/RequireAuth.js';
 import { RootLayout } from './routes/RootLayout.js';
 import { RouteError } from './routes/RouteError.js';
+import { RulesPage } from './routes/RulesPage.js';
 import { SignInPage } from './routes/SignInPage.js';
 import { lobbyRedirect } from './routes/lobby-redirect.js';
 import { patterns } from './routes/paths.js';
@@ -19,6 +20,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, Component: HomePage },
       { path: patterns.hotseat, Component: HotseatPage },
+      { path: patterns.rules, Component: RulesPage },
       { path: patterns.signin, Component: SignInPage },
       lobbyRedirect,
       {

@@ -54,7 +54,7 @@ const SessionBadge = () => {
 
 export const RootLayout = () => (
   <div className="flex h-dvh w-dvw flex-col bg-background text-foreground overflow-hidden">
-    <nav className="flex items-center gap-6 border-b border-border bg-background px-5 py-3">
+    <nav className="flex items-center gap-3 border-b border-border bg-background px-3 py-3 md:gap-6 md:px-5">
       <PageLink to={paths.home} className="no-underline text-foreground">
         <Logo size="nav" />
       </PageLink>
@@ -62,6 +62,11 @@ export const RootLayout = () => (
         <li>
           <PageLink to={paths.hotseat} className={navLinkClass}>
             Hotseat
+          </PageLink>
+        </li>
+        <li>
+          <PageLink to={paths.rules} className={navLinkClass}>
+            Rules
           </PageLink>
         </li>
       </ul>

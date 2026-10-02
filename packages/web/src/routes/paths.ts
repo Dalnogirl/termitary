@@ -8,6 +8,7 @@ const PLAY = 'play';
 export const paths = {
   home: '/',
   hotseat: '/hotseat',
+  rules: '/rules',
   signin: '/signin',
   play: (roomId: string) => `/${PLAY}/${encodeURIComponent(roomId)}`,
   profile: (userId: string) => `/${PROFILE}/${encodeURIComponent(userId)}`,
@@ -16,6 +17,7 @@ export const paths = {
 
 export const patterns = {
   hotseat: paths.hotseat,
+  rules: paths.rules,
   signin: paths.signin,
   play: `/${PLAY}/:roomId`,
   profile: `/${PROFILE}/:userId`,

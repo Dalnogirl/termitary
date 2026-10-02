@@ -8,7 +8,11 @@ const MARK_VIEW_BOX = moundViewBox(LATTICE, MARK_GAP);
 export type LogoSize = 'nav' | 'hero';
 
 const MARK_HEIGHT: Record<LogoSize, string> = { nav: 'h-6', hero: 'h-14' };
-const WORDMARK_TEXT: Record<LogoSize, string> = { nav: 'text-base', hero: 'text-4xl' };
+// A phone's nav has no room for the word, so it shows the mark alone there.
+const WORDMARK_TEXT: Record<LogoSize, string> = {
+  nav: 'text-base sr-only md:not-sr-only',
+  hero: 'text-4xl',
+};
 
 export const Mark = ({ className }: { readonly className?: string }) => (
   <svg
