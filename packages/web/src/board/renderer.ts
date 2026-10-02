@@ -8,6 +8,7 @@ import {
   topPieceAt,
 } from '@termitary/engine';
 import type { Group } from 'konva/lib/Group.js';
+import { anchorOf, coordKey, interaction, sameCoord } from '../controller/interaction.js';
 import { prefsStore } from '../store/prefs.js';
 import type { StoreState } from '../store/store.js';
 import { axialToPixel } from './hex.js';
@@ -40,59 +41,6 @@ export type RendererOptions = {
   readonly myColor: Color | null;
 };
 
-const coordKey = (c: HexCoord): string => `${c.q},${c.r}`;
-
-const sameCoord = (a: HexCoord, b: HexCoord): boolean => a.q === b.q && a.r === b.r;
-
-const dedupeCoords = (coords: readonly HexCoord[]): HexCoord[] => {
-  const seen = new Set<string>();
-  const out: HexCoord[] = [];
-  for (const c of coords) {
-    const k = coordKey(c);
-    if (!seen.has(k)) {
-      seen.add(k);
-      out.push(c);
-    }
-  }
-  return out;
-};
-
-const NO_CELLS: Set<string> = new Set();
-
-// In network play, while the opponent is to move validMoves describes THEIR
-// options, so nothing on the board is worth pointing at. The input handlers
-// apply the same gate, and the marks below are its presentation mirror.
-const opponentsTurn = (state: StoreState, myColor: Color | null): boolean =>
-  myColor !== null && state.view.status === 'in_progress' && state.view.currentPlayer !== myColor;
-
-const movableOrigins = (state: StoreState): Set<string> => {
-  const out = new Set<string>();
-  for (const m of state.validMoves) {
-    if (m.kind === 'relocate') out.add(coordKey(m.from));
-    if (m.kind === 'throw') out.add(coordKey(m.by));
-  }
-  return out;
-};
-
-// The piece the player is acting from. Midway through a throw that is still
-// the pillbug, not the neighbour it has picked up.
-const selectedCell = (state: StoreState): HexCoord | null => {
-  const sel = state.selection;
-  if (sel?.kind === 'board') return sel.coord;
-  if (sel?.kind === 'throw') return sel.by;
-  return null;
-};
-
-const throwableNeighbours = (state: StoreState): Set<string> => {
-  const out = new Set<string>();
-  const by = selectedCell(state);
-  if (by === null) return out;
-  for (const m of state.validMoves) {
-    if (m.kind === 'throw' && sameCoord(m.by, by)) out.add(coordKey(m.from));
-  }
-  return out;
-};
-
 // The piece that would appear on a target cell if the pending move committed.
 // Drives the hover ghost, so the player sees what lands, not just where.
 const landingPiece = (state: StoreState): PieceType | null => {
@@ -101,32 +49,6 @@ const landingPiece = (state: StoreState): PieceType | null => {
   if (sel.kind === 'hand') return sel.piece;
   const top = topPieceAt(state.view.board, sel.kind === 'board' ? sel.coord : sel.from);
   return top === undefined ? null : top.type;
-};
-
-const targetsFor = (state: StoreState): HexCoord[] => {
-  const sel = state.selection;
-  if (sel?.kind === 'hand') {
-    return dedupeCoords(
-      state.validMoves.flatMap((m) =>
-        m.kind === 'place' && m.piece.type === sel.piece ? [m.to] : [],
-      ),
-    );
-  }
-  if (sel?.kind === 'board') {
-    return dedupeCoords(
-      state.validMoves.flatMap((m) =>
-        m.kind === 'relocate' && sameCoord(m.from, sel.coord) ? [m.to] : [],
-      ),
-    );
-  }
-  if (sel?.kind === 'throw') {
-    return dedupeCoords(
-      state.validMoves.flatMap((m) =>
-        m.kind === 'throw' && sameCoord(m.by, sel.by) && sameCoord(m.from, sel.from) ? [m.to] : [],
-      ),
-    );
-  }
-  return [];
 };
 
 // Length alone, to match the trigger in planMotion: a flight is keyed to a
@@ -141,8 +63,8 @@ const readSkin = (): Skin => {
 
 // Every role a cell can play in the current selection, as cell keys.
 type Marks = {
-  readonly movable: Set<string>;
-  readonly throwable: Set<string>;
+  readonly movable: ReadonlySet<string>;
+  readonly throwable: ReadonlySet<string>;
   readonly selected: string | null;
   readonly lifted: string | null;
   readonly lastMove: string | null;
@@ -234,12 +156,12 @@ export const createRenderer = (
     // the pointer cursor would stick after a move commits.
     setHoverCursor('');
     board.destroyChildren();
-    const selected = selectedCell(state);
+    const can = interaction(state, options.myColor);
+    const selected = anchorOf(state.selection);
     const lastMove = landedAt(state.lastMove);
-    const theirs = opponentsTurn(state, options.myColor);
     const marks: Marks = {
-      movable: theirs ? NO_CELLS : movableOrigins(state),
-      throwable: theirs ? NO_CELLS : throwableNeighbours(state),
+      movable: can.movable,
+      throwable: can.throwable,
       selected: selected === null ? null : coordKey(selected),
       lifted: state.selection?.kind === 'throw' ? coordKey(state.selection.from) : null,
       lastMove: lastMove === null ? null : coordKey(lastMove),
@@ -266,8 +188,8 @@ export const createRenderer = (
         board.add(ghost);
         ghost.cache();
       }
-      for (const coord of targetsFor(state)) {
-        drawTarget(skin, coord, ghost);
+      for (const move of can.targets.values()) {
+        drawTarget(skin, move.to, ghost);
       }
       ghost?.moveToTop();
     }

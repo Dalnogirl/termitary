@@ -140,6 +140,54 @@ describe('createInputHandlers', () => {
     });
   });
 
+  describe('picking from the hand', () => {
+    it('holds a hand piece that has somewhere to go', () => {
+      createInputHandlers(controller, 'white').handleHandSlotClick('white', 'queen');
+
+      expect(gameStore.getState().selection).toEqual({ kind: 'hand', piece: 'queen' });
+    });
+
+    it('lets go of the hand piece when its slot is clicked again', () => {
+      const handlers = createInputHandlers(controller, 'white');
+      handlers.handleHandSlotClick('white', 'queen');
+
+      handlers.handleHandSlotClick('white', 'queen');
+
+      expect(gameStore.getState().selection).toBeNull();
+    });
+
+    it('ignores the hand of the side that is not to move, even in hot-seat', () => {
+      createInputHandlers(controller, null).handleHandSlotClick('black', 'queen');
+
+      expect(gameStore.getState().selection).toBeNull();
+    });
+
+    it('ignores a hand piece with nowhere to go', () => {
+      gameStore.setState({ validMoves: [placing('queen', 'white', WHITE_QUEEN)] });
+
+      createInputHandlers(controller, 'white').handleHandSlotClick('white', 'beetle');
+
+      expect(gameStore.getState().selection).toBeNull();
+    });
+
+    it("ignores the opponent's hand on their turn", () => {
+      load(applyMove(createGame(), placing('queen', 'white', WHITE_QUEEN)));
+
+      createInputHandlers(controller, 'white').handleHandSlotClick('black', 'queen');
+
+      expect(gameStore.getState().selection).toBeNull();
+    });
+
+    it('ignores the hand while viewing an earlier position', () => {
+      load(bothQueensDown());
+      gameStore.getState().setViewIndex(0);
+
+      createInputHandlers(controller, null).handleHandSlotClick('white', 'queen');
+
+      expect(gameStore.getState().selection).toBeNull();
+    });
+  });
+
   describe('passing', () => {
     // A real pass-only position takes a long, fragile setup to reach. The
     // handler's contract is over validMoves, so the store is loaded with the
