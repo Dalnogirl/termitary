@@ -1,11 +1,10 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { PostSeekResponseDto, SeekBoardDto } from '@termitary/protocol';
 import { useEffect, useRef } from 'react';
-import { fetchMyRooms } from './rooms-api.js';
-import { cancelSeek, claimSeek, fetchSeekBoard, seekGame } from './seeks-api.js';
+import { cancelSeek, claimSeek, fetchSeekBoard, seekGame } from '../network/seeks-api.js';
+import { myRoomsQuery } from './use-my-rooms.js';
 
 const SEEKS_KEY = ['seeks'];
-const MY_ROOMS_KEY = ['rooms', 'mine'];
 
 // Nothing pushes a pairing to the player who was waiting, so while they hold a
 // seek the board is polled for it disappearing.
@@ -17,7 +16,7 @@ const ROOM_CHECKS = 3;
 const ROOM_CHECK_GAP_MS = 1_000;
 
 const fetchRoomsNow = (queryClient: QueryClient) =>
-  queryClient.fetchQuery({ queryKey: MY_ROOMS_KEY, queryFn: fetchMyRooms, staleTime: 0 });
+  queryClient.fetchQuery({ ...myRoomsQuery, staleTime: 0 });
 
 /** Null when the rooms could not be read, which leaves nothing to diff against. */
 const roomIds = (queryClient: QueryClient): Promise<ReadonlySet<string> | null> =>
@@ -36,7 +35,7 @@ const findPairedRoom = async (
   if (before === null) {
     // Without a snapshot any room could be the new one. Refresh the list so
     // the game at least shows up there.
-    await queryClient.invalidateQueries({ queryKey: MY_ROOMS_KEY });
+    await queryClient.invalidateQueries({ queryKey: myRoomsQuery.queryKey });
     return undefined;
   }
   for (let check = 0; check < ROOM_CHECKS && !isAbandoned(); check++) {
@@ -109,7 +108,7 @@ export const useSeeks = (onPaired: (roomId: string) => void) => {
     }
     // Paired: the page navigates away, and the lobby it comes back to should
     // already list the game.
-    void queryClient.invalidateQueries({ queryKey: MY_ROOMS_KEY });
+    void queryClient.invalidateQueries({ queryKey: myRoomsQuery.queryKey });
   };
   const refreshBoard = () => queryClient.invalidateQueries({ queryKey: SEEKS_KEY });
 

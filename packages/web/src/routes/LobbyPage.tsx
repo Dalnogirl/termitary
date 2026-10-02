@@ -1,16 +1,15 @@
 import { Button } from '@/components/ui/button';
-import { useQuery } from '@tanstack/react-query';
 import { ANY_GAME, type PostSeekResponseDto, type SeekPreference } from '@termitary/protocol';
 import type * as React from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { notifier } from '../lib/notify.js';
-import { fetchMyRooms } from '../network/rooms-api.js';
-import { useSeeks } from '../network/use-seeks.js';
 import { RoomRow, myRoomDetail } from '../rooms/RoomRow.js';
 import { SeekOptions } from '../rooms/SeekOptions.js';
 import { SeekRow } from '../rooms/SeekRow.js';
 import { expansionsIn } from '../rooms/expansions.js';
+import { useMyRooms } from '../rooms/use-my-rooms.js';
+import { useSeeks } from '../rooms/use-seeks.js';
 import { paths } from './paths.js';
 
 const Listing = ({
@@ -45,7 +44,7 @@ export const LobbyPage = () => {
   const navigate = useNavigate();
   const [preference, setPreference] = useState<SeekPreference>(ANY_GAME);
 
-  const mine = useQuery({ queryKey: ['rooms', 'mine'], queryFn: fetchMyRooms });
+  const mine = useMyRooms();
   const openRoom = (roomId: string) => void navigate(paths.play(roomId), { viewTransition: true });
   const { board, play, claim, cancel } = useSeeks(openRoom);
 
