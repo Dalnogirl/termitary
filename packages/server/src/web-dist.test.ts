@@ -49,7 +49,7 @@ describe('the built SPA', () => {
   });
 
   it('answers HEAD on a deep link the way it answers GET', async () => {
-    const res = await app.inject({ method: 'HEAD', url: '/lobby' });
+    const res = await app.inject({ method: 'HEAD', url: '/hotseat' });
     expect(res.statusCode).toBe(200);
   });
 

@@ -90,7 +90,7 @@ const Header = ({
 const Notice = ({ children }: { readonly children: React.ReactNode }) => (
   <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
     <p className="text-muted-foreground">{children}</p>
-    <Link to={paths.lobby} viewTransition className="text-sm">
+    <Link to={paths.home} viewTransition className="text-sm">
       Play online
     </Link>
   </div>

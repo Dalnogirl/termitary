@@ -50,7 +50,7 @@ describe('social sign-in', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/sign-in/social',
-        payload: { provider, callbackURL: '/lobby' },
+        payload: { provider, callbackURL: '/' },
         headers: { 'content-type': 'application/json' },
       });
 

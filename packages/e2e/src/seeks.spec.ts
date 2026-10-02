@@ -60,5 +60,5 @@ test('cancelling a seek leaves the player in the lobby', async ({ browser }) => 
 
   // Longer than the lobby spends looking for a room after a seek goes.
   await player.waitForTimeout(3_000);
-  expect(new URL(player.url()).pathname).toBe('/lobby');
+  expect(new URL(player.url()).pathname).toBe('/');
 });

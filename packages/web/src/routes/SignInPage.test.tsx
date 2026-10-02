@@ -78,7 +78,7 @@ describe('SignInPage social sign-in', () => {
     await waitFor(() =>
       expect(social).toHaveBeenCalledWith({
         provider: 'github',
-        callbackURL: `${window.location.origin}/lobby`,
+        callbackURL: `${window.location.origin}/`,
       }),
     );
   });

@@ -43,7 +43,7 @@ pnpm --filter @termitary/engine test:watch
 
 There are no vitest config files. Vitest picks up colocated `*.test.ts` next to the source it covers.
 
-The browser suite is `*.spec.ts` in `packages/e2e`, so vitest never sees it and `pnpm test` stays under a minute. `*.prod.spec.ts` is excluded from it and belongs to `playwright.prod.config.ts`, which wants `pnpm build` run first and boots the server on :3002. `pnpm test:e2e` starts vite on :5173 and `packages/server/src/testing/e2e-server.ts` on :3001 itself, and fails loudly if either port is taken — a `pnpm dev` server has a real database and no OTP route, so reusing one is never right.
+The browser suite is `*.spec.ts` in `packages/e2e`, so vitest never sees it and `pnpm test` stays under a minute. `*.prod.spec.ts` is excluded from it and belongs to `playwright.prod.config.ts`, which wants `pnpm build` run first and boots the server on :3002. `pnpm test:e2e` starts vite on :5173 and `packages/server/src/testing/e2e-server.ts` on :3001 itself, and fails loudly if either port is taken — a `pnpm dev` server has a real database and no OTP route, so reusing one is never right. Locally that collision is the normal case, since `pnpm dev` is usually up, so the browser suite runs on CI only: push and read the `e2e` job rather than stopping the dev server.
 
 Server DB (SQLite + Drizzle), run inside `packages/server`:
 
@@ -149,7 +149,7 @@ After finishing a coherent piece of work (a feature, a fix, a refactor that stan
 
 Planned work is in GitHub issues; if it is not an issue, nobody is working on it. Older commit messages carry story numbers (`S-4.2`) from the phases the project was built in: 1 engine, 2 hot-seat UI, 3 server, 4 persistence and auth, 5 profiles, 6 expansion pieces. New work doesn't use them; an epic and its sub-issues carry the sequence.
 
-The web client authenticates through better-auth's SDK (`network/auth-client.ts`, the client-side twin of `ws/identity.ts`). `/signin` runs the two-step email OTP form, `RequireAuth` guards `/lobby` and `/play`, and `/hotseat` stays open because it never touches the server, which makes it the fastest way to exercise an engine change. Both `network/` fetches send `credentials: 'include'`; the WS upgrade carries the cookie on its own.
+The web client authenticates through better-auth's SDK (`network/auth-client.ts`, the client-side twin of `ws/identity.ts`). `/signin` runs the two-step email OTP form, `/` is the lobby with a session and the pitch without one, `RequireAuth` guards `/play`, and `/hotseat` stays open because it never touches the server, which makes it the fastest way to exercise an engine change. Both `network/` fetches send `credentials: 'include'`; the WS upgrade carries the cookie on its own.
 
 There is one origin. The server serves `packages/web/dist` and answers the API under `/api`, anything else is an SPA deep link and gets `index.html`, and in development vite proxies `/api` and `/ws` to `:3001` so the shape matches. That is why nothing configures CORS and why `/api` is a prefix rather than a habit: `/archived-games/:id` is both an API route and a react-router route, and only the prefix tells them apart.
 

@@ -78,7 +78,7 @@ export const PlayPage = () => {
   useEffect(() => {
     if (room.status !== 'error') return;
     toast.error(room.errorMsg ?? 'Unknown error');
-    void navigate(paths.lobby, { viewTransition: true });
+    void navigate(paths.home, { viewTransition: true });
   }, [room.status, room.errorMsg, navigate]);
 
   // Replace, so Back from the archive does not land on a room that is gone.
