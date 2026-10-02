@@ -4,6 +4,7 @@ import { type Color, type PieceType, type Ruleset, rulesetPieceTypes } from '@te
 import { PieceMark } from '../board/PieceMark.js';
 import { useInputHandlers } from '../controller/InputProvider.js';
 import { useRoomContext } from '../controller/RoomContext.js';
+import { interaction, turnHolder } from '../controller/interaction.js';
 import { useGameStore } from '../store/store.js';
 
 const COLOR_LABEL: Record<Color, string> = { white: 'White', black: 'Black' };
@@ -46,31 +47,14 @@ const slotPalette: Record<Color, string> = {
 
 export const Hand = ({ color, edge }: Props) => {
   const game = useGameStore((s) => s.view);
-  const validMoves = useGameStore((s) => s.validMoves);
   const selection = useGameStore((s) => s.selection);
-  const setSelection = useGameStore((s) => s.setSelection);
-  const { handlePassClick } = useInputHandlers();
+  const { handleHandSlotClick, handlePassClick } = useInputHandlers();
   const { myColor } = useRoomContext();
-  // myColor null = hot-seat (this client controls both sides). When set,
-  // only the matching hand can act regardless of whose turn it is.
-  const controllable = myColor === null || myColor === color;
-  const isActive = game.status === 'in_progress' && game.currentPlayer === color && controllable;
+  const hasTurn = useGameStore((s) => turnHolder(s, myColor)) === color;
+  const can = useGameStore((s) => interaction(s, myColor));
+  const acting = can.actor === color;
   const hand = game.hands[color];
   const slots = handSlots(game.ruleset);
-
-  const hasPlacement = (type: PieceType): boolean =>
-    validMoves.some((m) => m.kind === 'place' && m.piece.type === type && m.piece.color === color);
-
-  const passOnly = isActive && validMoves.length === 1 && validMoves[0]?.kind === 'pass';
-
-  const onSlotClick = (type: PieceType): void => {
-    if (!isActive) return;
-    if (selection?.kind === 'hand' && selection.piece === type) {
-      setSelection(null);
-    } else {
-      setSelection({ kind: 'hand', piece: type });
-    }
-  };
 
   return (
     <div
@@ -79,7 +63,7 @@ export const Hand = ({ color, edge }: Props) => {
         'flex items-center gap-2 md:gap-4 px-3 md:px-5 py-2 md:py-3 rounded-3xl',
         'transition-[opacity,transform,box-shadow] duration-300',
         edgeAnchor[edge],
-        isActive
+        hasTurn
           ? 'opacity-100 ring-2 ring-foreground/70'
           : 'opacity-70 scale-[0.97] hover:opacity-100',
       )}
@@ -87,7 +71,7 @@ export const Hand = ({ color, edge }: Props) => {
       <span
         className={cn(
           'hidden md:inline min-w-15 text-xs uppercase tracking-[0.15em]',
-          isActive ? 'text-foreground font-semibold' : 'text-muted-foreground',
+          hasTurn ? 'text-foreground font-semibold' : 'text-muted-foreground',
         )}
       >
         {COLOR_LABEL[color]}
@@ -95,8 +79,8 @@ export const Hand = ({ color, edge }: Props) => {
       <div className="flex flex-wrap justify-center gap-1.5 md:gap-2">
         {slots.map((type) => {
           const count = hand[type] ?? 0;
-          const enabled = count > 0 && isActive && hasPlacement(type);
-          const isSelected = isActive && selection?.kind === 'hand' && selection.piece === type;
+          const enabled = acting && can.placeable.has(type);
+          const isSelected = acting && selection?.kind === 'hand' && selection.piece === type;
           return (
             <button
               key={type}
@@ -110,7 +94,7 @@ export const Hand = ({ color, edge }: Props) => {
               // The glyph is decorative, so without this the slot announces as
               // a bare count.
               aria-label={`${type}, ${count} in hand`}
-              onClick={() => onSlotClick(type)}
+              onClick={() => handleHandSlotClick(color, type)}
             >
               <PieceMark type={type} color={color} size={26} />
               <span className="text-[10px] opacity-75 mt-0.5">{count}</span>
@@ -118,7 +102,7 @@ export const Hand = ({ color, edge }: Props) => {
           );
         })}
       </div>
-      {passOnly && (
+      {acting && can.canPass && (
         <Button onClick={handlePassClick} size="sm" className="shrink-0">
           <span className="md:hidden">Pass</span>
           <span className="hidden md:inline">Pass turn (no moves available)</span>
