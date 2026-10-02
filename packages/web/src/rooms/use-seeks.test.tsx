@@ -10,17 +10,17 @@ import {
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchMyRooms } from './rooms-api.js';
-import { cancelSeek, fetchSeekBoard } from './seeks-api.js';
+import { fetchMyRooms } from '../network/rooms-api.js';
+import { cancelSeek, fetchSeekBoard } from '../network/seeks-api.js';
 import { useSeeks } from './use-seeks.js';
 
-vi.mock('./seeks-api.js', () => ({
+vi.mock('../network/seeks-api.js', () => ({
   fetchSeekBoard: vi.fn(),
   seekGame: vi.fn(),
   claimSeek: vi.fn(),
   cancelSeek: vi.fn(),
 }));
-vi.mock('./rooms-api.js', () => ({ fetchMyRooms: vi.fn() }));
+vi.mock('../network/rooms-api.js', () => ({ fetchMyRooms: vi.fn() }));
 
 const SEEK: SeekDto = { seekId: 's1', preference: {}, createdAt: 0 };
 

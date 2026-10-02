@@ -1,11 +1,10 @@
 import { Button } from '@/components/ui/button';
-import { useQuery } from '@tanstack/react-query';
 import type { AuthProviderId } from '@termitary/protocol';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { authClient, useSession } from '../network/auth-client.js';
-import { fetchAuthProviders } from '../network/auth-providers-api.js';
+import { useAuthProviders } from '../network/use-auth-providers.js';
 import { ProviderIcon } from './ProviderIcon.js';
 import { paths } from './paths.js';
 
@@ -35,15 +34,7 @@ export const SignInPage = () => {
   const emailRef = useRef<HTMLInputElement>(null);
   const otpRef = useRef<HTMLInputElement>(null);
 
-  // A deployment without credentials returns an empty list and the page is the
-  // email form it was before. A failed fetch is the same thing: no buttons.
-  const providers = useQuery({
-    queryKey: ['auth', 'providers'],
-    queryFn: fetchAuthProviders,
-    staleTime: Number.POSITIVE_INFINITY,
-    refetchOnWindowFocus: false,
-  });
-  const socialProviders = providers.data?.providers ?? [];
+  const socialProviders = useAuthProviders();
 
   // Where RequireAuth bounced us from, or the lobby on a direct visit.
   const target = (location.state as { from?: string } | null)?.from ?? paths.home;
