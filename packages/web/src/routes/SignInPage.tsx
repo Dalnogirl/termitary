@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import type { AuthProviderId } from '@termitary/protocol';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
-import { toast } from 'sonner';
+import { notifier } from '../lib/notify.js';
 import { authClient, useSession } from '../network/auth-client.js';
 import { useAuthProviders } from '../network/use-auth-providers.js';
 import { ProviderIcon } from './ProviderIcon.js';
@@ -48,7 +48,7 @@ export const SignInPage = () => {
 
   const fail = (message: string): void => {
     setError(message);
-    toast.error(message);
+    notifier.error(message);
   };
 
   const signInWith = async (provider: AuthProviderId): Promise<void> => {

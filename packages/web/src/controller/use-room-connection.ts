@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createStore, useStore } from 'zustand';
+import { notifier } from '../lib/notify.js';
 import {
   INITIAL_ROOM_STATE,
   type RoomController,
@@ -26,7 +27,7 @@ export const useRoomConnection = (roomId: string | undefined): RoomConnection =>
 
   useEffect(() => {
     if (roomId === undefined || roomId.length === 0) return;
-    const c = createRoomController({ roomId });
+    const c = createRoomController({ roomId, notifier });
     setController(c);
     return () => {
       c.dispose();

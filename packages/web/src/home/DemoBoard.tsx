@@ -3,10 +3,11 @@ import { BoardCanvas } from '../board/BoardCanvas.js';
 import { InputProvider } from '../controller/InputProvider.js';
 import { RoomProvider } from '../controller/RoomContext.js';
 import { createLocalController } from '../controller/local.js';
+import { silentNotifier } from '../lib/notify.js';
 import { useDemoAutoplay } from './use-demo-autoplay.js';
 
 export const DemoBoard = () => {
-  const controller = useMemo(() => createLocalController(), []);
+  const controller = useMemo(() => createLocalController({ notifier: silentNotifier }), []);
   useDemoAutoplay();
 
   return (

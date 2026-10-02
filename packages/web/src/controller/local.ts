@@ -1,16 +1,20 @@
 import { IllegalMoveError, type Move, applyMove } from '@termitary/engine';
-import { toast } from 'sonner';
+import type { Notifier } from '../lib/notify.js';
 import { gameStore } from '../store/store.js';
 import type { Controller } from './port.js';
 
-export const createLocalController = (): Controller => ({
+type Options = {
+  readonly notifier: Notifier;
+};
+
+export const createLocalController = ({ notifier }: Options): Controller => ({
   commitMove: (move: Move): void => {
     const { liveGame, applyGameState, setSelection } = gameStore.getState();
     try {
       applyGameState(applyMove(liveGame, move));
     } catch (e) {
       if (e instanceof IllegalMoveError) {
-        toast.error(e.message);
+        notifier.error(e.message);
         setSelection(null);
         return;
       }
