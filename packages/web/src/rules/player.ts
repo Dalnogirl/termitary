@@ -1,8 +1,9 @@
 import { type GameState, applyMove } from '@termitary/engine';
+import { annotationStore } from '../store/annotations.js';
 import { gameStore } from '../store/store.js';
 import type { DemoStep, RulesDemo } from './demo.js';
 
-const BEAT_MS = 1200;
+export const BEAT_MS = 600;
 
 export const perform = (step: DemoStep): void => {
   const { liveGame, applyGameState, setSelection } = gameStore.getState();
@@ -10,7 +11,11 @@ export const perform = (step: DemoStep): void => {
     case 'select':
       setSelection(step.selection);
       return;
+    case 'annotate':
+      annotationStore.getState().setAnnotations(step.annotations);
+      return;
     case 'move':
+      annotationStore.getState().clearAnnotations();
       applyGameState(applyMove(liveGame, step.move));
       return;
     case 'pause':
@@ -38,13 +43,18 @@ export const playScript = (
     }
   };
 
+  const deal = (): void => {
+    annotationStore.getState().clearAnnotations();
+    own(() => gameStore.getState().applyGameState(start));
+  };
+
   let next = 0;
   let timer: number | undefined;
 
   const tick = (): void => {
     const step = demo.script[next];
     if (step === undefined) {
-      own(() => gameStore.getState().applyGameState(start));
+      deal();
       next = 0;
     } else {
       own(() => perform(step));
@@ -53,12 +63,14 @@ export const playScript = (
     timer = window.setTimeout(tick, BEAT_MS);
   };
 
-  own(() => gameStore.getState().applyGameState(start));
+  deal();
   timer = window.setTimeout(tick, BEAT_MS);
 
+  // The marks explain the scripted position, which the reader is about to change.
   const stop = (): void => {
     window.clearTimeout(timer);
     unsubscribe();
+    annotationStore.getState().clearAnnotations();
   };
 
   // A tap on empty board writes the null selection it already had, which is not

@@ -12,7 +12,7 @@ import { useActiveChapter } from '../rules/use-active-chapter.js';
 export const RulesPage = () => {
   const controller = useMemo(() => createLocalController({ notifier }), []);
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const active = useActiveChapter(scrollerRef, CHAPTERS);
+  const { active, select } = useActiveChapter(scrollerRef, CHAPTERS);
 
   return (
     <RoomProvider myColor={null}>
@@ -29,7 +29,12 @@ export const RulesPage = () => {
           >
             <h1 className="pt-6 text-2xl font-semibold">How to play</h1>
             {CHAPTERS.map((demo) => (
-              <Chapter key={demo.id} demo={demo} active={demo.id === active} />
+              <Chapter
+                key={demo.id}
+                demo={demo}
+                active={demo.id === active}
+                onSelect={() => select(demo.id)}
+              />
             ))}
           </div>
         </div>
