@@ -1,8 +1,8 @@
 import { cn } from '@/lib/utils';
 import type { HexCoord, Move, PieceType } from '@termitary/engine';
 import { ChevronLeft, ChevronRight, ListOrdered } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/store.js';
+import { useHistoryPanel } from './use-history-panel.js';
 
 const PIECE_NAME: Record<PieceType, string> = {
   queen: 'Queen',
@@ -32,36 +32,18 @@ export const formatMove = (move: Move): string => {
   }
 };
 
-// Initial state mirrors viewport: open on desktop, closed on mobile. matchMedia
-// is safe — no SSR (Vite client app). Resize after mount does not auto-toggle;
-// the responsive layout classes still adapt the open drawer.
-const initialOpen = (): boolean =>
-  typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
-
 export const History = () => {
   const history = useGameStore((s) => s.liveGame.history);
   const viewIndex = useGameStore((s) => s.viewIndex);
   const setViewIndex = useGameStore((s) => s.setViewIndex);
-  const [isOpen, setIsOpen] = useState(initialOpen);
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const activeRef = useRef<HTMLLIElement>(null);
-
-  useEffect(() => {
-    if (!isOpen || viewIndex === 0) return;
-    activeRef.current?.scrollIntoView({ block: 'nearest' });
-  }, [isOpen, viewIndex]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    closeRef.current?.focus();
-  }, [isOpen]);
+  const { isOpen, open, close, closeRef, activeRef } = useHistoryPanel(viewIndex);
 
   if (!isOpen) {
     return (
       <>
         <button
           type="button"
-          onClick={() => setIsOpen(true)}
+          onClick={open}
           aria-label="Open history"
           className="hidden md:flex w-8 border-l border-border bg-card items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
@@ -69,7 +51,7 @@ export const History = () => {
         </button>
         <button
           type="button"
-          onClick={() => setIsOpen(true)}
+          onClick={open}
           aria-label="Open history"
           className="md:hidden fixed bottom-24 right-4 z-30 w-12 h-12 rounded-full glass-island flex items-center justify-center text-foreground"
         >
@@ -85,7 +67,7 @@ export const History = () => {
         type="button"
         aria-label="Close history"
         tabIndex={-1}
-        onClick={() => setIsOpen(false)}
+        onClick={close}
         className="md:hidden fixed inset-0 bg-black/40 z-30 cursor-default"
       />
       <aside
@@ -101,7 +83,7 @@ export const History = () => {
           <button
             ref={closeRef}
             type="button"
-            onClick={() => setIsOpen(false)}
+            onClick={close}
             aria-label="Close history"
             className="text-muted-foreground hover:text-foreground"
           >

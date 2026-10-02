@@ -10,7 +10,7 @@ import {
 import { type FormEvent, useState } from 'react';
 import { ExpansionPicker } from '../rooms/ExpansionPicker.js';
 import type { ExpansionPiece } from '../rooms/expansions.js';
-import { usePrefsStore } from '../store/prefs.js';
+import { useExpansionDraft } from './use-expansion-draft.js';
 
 type Props = {
   /** Open on arrival: the settings are the first thing the route asks about. */
@@ -22,20 +22,13 @@ type Props = {
 // what is in the two hands.
 export const HotseatDialog = ({ defaultOpen = false, onStart }: Props) => {
   const [open, setOpen] = useState(defaultOpen);
-  const rememberedExpansions = usePrefsStore((s) => s.expansions);
-  const setRememberedExpansions = usePrefsStore((s) => s.setExpansions);
-  const [expansions, setExpansions] = useState<readonly ExpansionPiece[]>(rememberedExpansions);
-
-  const toggle = (piece: ExpansionPiece): void =>
-    setExpansions((picked) =>
-      picked.includes(piece) ? picked.filter((p) => p !== piece) : [...picked, piece],
-    );
+  const { expansions, toggle, commit } = useExpansionDraft();
 
   const submit = (event: FormEvent): void => {
     event.preventDefault();
-    setRememberedExpansions(expansions);
+    const picked = commit();
     setOpen(false);
-    onStart(expansions);
+    onStart(picked);
   };
 
   return (
