@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useInputHandlers } from '../controller/InputProvider.js';
 import { useRoomContext } from '../controller/RoomContext.js';
+import { annotationStore } from '../store/annotations.js';
 import { prefsStore } from '../store/prefs.js';
 import { gameStore } from '../store/store.js';
+import { paintAnnotations } from './annotations.js';
 import { createRenderer } from './renderer.js';
 
 export const BoardCanvas = () => {
@@ -28,9 +30,15 @@ export const BoardCanvas = () => {
     const unsubscribePrefs = prefsStore.subscribe(() => renderer.draw(gameStore.getState()));
     renderer.draw(gameStore.getState());
 
+    const unsubscribeAnnotations = annotationStore.subscribe(({ annotations }) =>
+      paintAnnotations(renderer.annotationLayer, annotations),
+    );
+    paintAnnotations(renderer.annotationLayer, annotationStore.getState().annotations);
+
     return () => {
       unsubscribe();
       unsubscribePrefs();
+      unsubscribeAnnotations();
       renderer.destroy();
     };
   }, [handlers, myColor]);
