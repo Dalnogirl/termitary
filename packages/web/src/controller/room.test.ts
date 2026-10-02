@@ -81,7 +81,6 @@ describe('createRoomController', () => {
     expect(controller.store.getState()).toEqual({
       status: 'in-room',
       myColor: 'white',
-      errorMsg: null,
       opponent: { status: 'connected', userId: 'u2', name: 'Amber Beetle' },
     });
     expect(gameStore.getState().liveGame).toEqual(createGame());
@@ -139,7 +138,9 @@ describe('createRoomController', () => {
 
     deliver({ type: 'error', message: 'not your turn', requestKind: 'makeMove' });
 
+    expect(notifier.error).toHaveBeenCalledTimes(1);
     expect(notifier.error).toHaveBeenCalledWith('not your turn');
+    expect(controller.store.getState().status).toBe('in-room');
     expect(gameStore.getState().liveGame).toBe(before);
     expect(gameStore.getState().selection).toBeNull();
   });
@@ -221,15 +222,30 @@ describe('createRoomController', () => {
     expect(notifier.error).not.toHaveBeenCalled();
   });
 
-  it('keeps taking the fatal path for errors that are not move rejections', () => {
+  it('fails the room on an error that is not a move rejection, and says why', () => {
     const controller = setup();
 
     deliver({ type: 'error', message: 'room not found', requestKind: 'joinGame' });
 
-    expect(controller.store.getState()).toMatchObject({
-      status: 'error',
-      errorMsg: 'room not found',
-    });
-    expect(notifier.error).not.toHaveBeenCalled();
+    expect(controller.store.getState().status).toBe('error');
+    expect(notifier.error).toHaveBeenCalledWith('room not found');
+  });
+
+  it('fails the room when the socket gives up reconnecting', () => {
+    const controller = setup();
+
+    emitStatus('closed');
+
+    expect(controller.store.getState().status).toBe('error');
+    expect(notifier.error).toHaveBeenCalledWith('Connection lost');
+  });
+
+  it('reports only the first reason a room failed', () => {
+    setup();
+
+    deliver({ type: 'error', message: 'room not found', requestKind: 'joinGame' });
+    emitStatus('closed');
+
+    expect(notifier.error).toHaveBeenCalledTimes(1);
   });
 });

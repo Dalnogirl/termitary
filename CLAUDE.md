@@ -106,7 +106,7 @@ Tests use `createTestApp()` from `src/testing/auth-helper.ts`: in-memory SQLite,
 State is split in two on purpose:
 
 - `store/store.ts` — a module-level zustand store holding engine state (`game`, `validMoves`, `selection`). Not React context. The Konva renderer subscribes to it directly and redraws outside React.
-- `controller/room.ts` — a per-room store for connection concerns (`status`, `myColor`, `opponent`, `errorMsg`).
+- `controller/room.ts` — a per-room store for connection concerns (`status`, `myColor`, `opponent`).
 
 The `Controller` port (`controller/port.ts`) is a single `commitMove(move)`. `createLocalController` applies moves straight to the engine for hot-seat; `createRoomController` applies optimistically, sends over WS, and rolls back to a snapshot if the server rejects the move. Server `stateUpdated` always wins. All `client.on(...)` bindings live in `createRoomController`; `use-room-connection.ts` is mount/unmount lifecycle only.
 
@@ -118,7 +118,7 @@ The renderer names what it draws: a tile is `piece` carrying `pieceColor` and `p
 
 `brand/mound.ts` is the only place the logo geometry exists. It reads the board's own lattice and corner ratio, so the mark and a board tile round identically. `public/icon.svg` is a checked-in copy of what `brand/icon.svg.ts` emits, because a favicon cannot be a component; `brand/icon.test.ts` fails when the two drift, and the fix is to rewrite the file from `ICON_SVG`.
 
-Components render; hooks own the work. A component never calls `useQuery`, `useMutation` or `useQueryClient` itself. Each query lives in a `use-*.ts` hook beside its feature (`rooms/`, `profile/`, `archive/`), or in `network/` when it belongs to no feature, as auth does. A query read in one place and fetched or invalidated in another is exported as a `queryOptions` object (`myRoomsQuery`), so the key and its fetcher travel together. State beyond a single presentational toggle goes the same way: when a component collects `useState`s and effects around one job (a form flow, a polling loop), that job is a custom hook. `PlayPage` predates this and still runs two redirect effects until #164 removes them.
+Components render; hooks own the work. A component never calls `useQuery`, `useMutation` or `useQueryClient` itself. Each query lives in a `use-*.ts` hook beside its feature (`rooms/`, `profile/`, `archive/`), or in `network/` when it belongs to no feature, as auth does. A query read in one place and fetched or invalidated in another is exported as a `queryOptions` object (`myRoomsQuery`), so the key and its fetcher travel together. State beyond a single presentational toggle goes the same way: when a component collects `useState`s and effects around one job (a form flow, a polling loop), that job is a custom hook.
 
 ## Conventions
 
