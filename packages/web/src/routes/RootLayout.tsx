@@ -1,6 +1,6 @@
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { NavLink, Outlet, useNavigate } from 'react-router';
+import { NavLink, type NavLinkProps, Outlet, useLocation, useNavigate } from 'react-router';
 import { Toaster } from 'sonner';
 import { Logo } from '../brand/Logo.js';
 import { signOut, useSession } from '../network/auth-client.js';
@@ -10,6 +10,14 @@ import { paths } from './paths.js';
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(buttonVariants({ variant: isActive ? 'secondary' : 'ghost', size: 'sm' }), 'no-underline');
 
+type PageLinkProps = Omit<NavLinkProps, 'to' | 'viewTransition'> & { to: string };
+
+// A transition into the page already showing cross-fades it into itself.
+const PageLink = ({ to, ...props }: PageLinkProps) => {
+  const { pathname } = useLocation();
+  return <NavLink to={to} viewTransition={pathname !== to} {...props} />;
+};
+
 const SessionBadge = () => {
   const navigate = useNavigate();
   const { data, isPending } = useSession();
@@ -18,9 +26,9 @@ const SessionBadge = () => {
 
   if (!data) {
     return (
-      <NavLink to={paths.signin} viewTransition className={navLinkClass}>
+      <PageLink to={paths.signin} className={navLinkClass}>
         Sign in
-      </NavLink>
+      </PageLink>
     );
   }
 
@@ -31,13 +39,12 @@ const SessionBadge = () => {
 
   return (
     <div className="flex items-center gap-3">
-      <NavLink
+      <PageLink
         to={paths.profile(data.user.id)}
-        viewTransition
         className="text-xs text-muted-foreground no-underline hover:text-foreground"
       >
         {data.user.email}
-      </NavLink>
+      </PageLink>
       <Button variant="ghost" size="sm" onClick={() => void handleSignOut()}>
         Sign out
       </Button>
@@ -48,14 +55,14 @@ const SessionBadge = () => {
 export const RootLayout = () => (
   <div className="flex h-dvh w-dvw flex-col bg-background text-foreground overflow-hidden">
     <nav className="flex items-center gap-6 border-b border-border bg-background px-5 py-3">
-      <NavLink to={paths.home} viewTransition className="no-underline text-foreground">
+      <PageLink to={paths.home} className="no-underline text-foreground">
         <Logo size="nav" />
-      </NavLink>
+      </PageLink>
       <ul className="flex items-center gap-2 list-none p-0 m-0">
         <li>
-          <NavLink to={paths.hotseat} viewTransition className={navLinkClass}>
+          <PageLink to={paths.hotseat} className={navLinkClass}>
             Hotseat
-          </NavLink>
+          </PageLink>
         </li>
       </ul>
       <div className="ml-auto flex items-center gap-2">
