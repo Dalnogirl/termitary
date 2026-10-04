@@ -2,7 +2,7 @@ import { type HexCoord, listValidMoves, topPieceAt } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import { sharedEdge } from '../board/hex.js';
 import { coordKey, interaction, sameCoord } from '../controller/interaction.js';
-import type { Annotation } from '../store/annotations.js';
+import { type Annotation, annotationStore } from '../store/annotations.js';
 import { gameStore } from '../store/store.js';
 import { CHAPTERS } from './chapters.js';
 import { type RulesDemo, startOf } from './demo.js';
@@ -85,6 +85,51 @@ const SHOWN_TARGETS: Record<string, readonly (readonly string[])[]> = {
     ['0,-1', '0,0', '1,0', '2,-1'],
     ['0,0', '0,1', '1,-1', '1,1', '2,-1', '2,0'],
   ],
+  queen: [
+    ['-1,1', '0,-1'],
+    ['-1,0', '1,-1'],
+  ],
+  beetle: [
+    ['-1,1', '0,-1', '0,0'],
+    ['-1,0', '-1,1', '0,-1', '0,1', '1,-1', '1,0'],
+  ],
+  grasshopper: [
+    [
+      '-1,0',
+      '-1,3',
+      '-2,2',
+      '-2,3',
+      '0,-1',
+      '0,2',
+      '1,-2',
+      '1,1',
+      '2,-2',
+      '2,1',
+      '3,-2',
+      '3,0',
+      '4,-1',
+      '4,-2',
+    ],
+    ['-1,0', '1,0'],
+  ],
+  spider: [['-1,2', '2,-1']],
+  ant: [
+    [
+      '-1,-1',
+      '-2,0',
+      '-2,1',
+      '0,-1',
+      '0,1',
+      '1,-1',
+      '1,1',
+      '2,-1',
+      '2,1',
+      '3,-2',
+      '3,0',
+      '4,-1',
+      '4,-2',
+    ],
+  ],
 };
 
 const shownTargets = (demoId: string): (readonly string[])[] => {
@@ -125,7 +170,9 @@ const refuses = (annotation: Annotation): boolean => {
   switch (annotation.kind) {
     case 'pinned':
       return (
-        topPieceAt(board, annotation.at)?.color === state.liveGame.currentPlayer &&
+        (board.cells.get(coordKey(annotation.at)) ?? []).some(
+          (piece) => piece.color === state.liveGame.currentPlayer,
+        ) &&
         !listValidMoves(state.liveGame).some(
           (m) => m.kind === 'relocate' && sameCoord(m.from, annotation.at),
         )
@@ -167,11 +214,14 @@ describe('rules chapters', () => {
 
   it.each(CHAPTERS.map(({ id }) => id))('%s marks only what the board refuses', (id) => {
     const demo = demoById(id);
+    annotationStore.getState().clearAnnotations();
     gameStore.getState().applyGameState(startOf(demo));
     const wrong: Annotation[] = [];
     for (const step of demo.script) {
       perform(step);
-      if (step.kind === 'annotate') wrong.push(...step.annotations.filter((a) => !refuses(a)));
+      if (step.kind === 'annotate' || step.kind === 'select') {
+        wrong.push(...annotationStore.getState().annotations.filter((a) => !refuses(a)));
+      }
     }
     expect(wrong).toEqual([]);
   });

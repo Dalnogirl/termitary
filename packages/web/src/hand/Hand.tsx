@@ -51,7 +51,7 @@ export const Hand = ({ color, edge }: Props) => {
   return (
     <div
       className={cn(
-        'glass-island absolute left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-1.5rem)]',
+        'glass-island absolute left-1/2 -translate-x-1/2 z-20 w-max max-w-[calc(100%-1.5rem)]',
         'flex items-center gap-2 md:gap-4 px-3 md:px-5 py-2 md:py-3 rounded-3xl',
         'transition-[opacity,transform,box-shadow] duration-300',
         edgeAnchor[edge],
