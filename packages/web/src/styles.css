@@ -172,6 +172,19 @@
   }
 }
 
+/* Room beside the board for a side panel: any wide screen, or a landscape one
+   too short to give a bottom sheet its height. */
+@custom-variant side {
+  @media (width >= 64rem), (orientation: landscape) and (width >= 40rem) {
+    @slot;
+  }
+}
+
+@utility scrollbar-quiet {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--foreground) 22%, transparent) transparent;
+}
+
 /* Page transitions. Only <main> is named, so the nav is excluded from the
    snapshot and stays put while the page underneath it swaps. */
 @layer components {

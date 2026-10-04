@@ -42,11 +42,23 @@ const bringUnderFocus = (scroller: HTMLElement, id: string): boolean => {
   return scroller.scrollTop !== before;
 };
 
+// Puts an anchor at the column's top. True when the column moved.
+const alignToTop = (scroller: HTMLElement, anchorId: string): boolean => {
+  const anchor = document.getElementById(anchorId);
+  if (anchor === null) return false;
+  const offset = anchor.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+  const before = scroller.scrollTop;
+  scroller.scrollTop += offset;
+  return scroller.scrollTop !== before;
+};
+
 export type ActiveChapter = {
   /** The chapter that owns the board. */
   readonly active: string;
   /** Hands a chapter the board and scrolls to where scrolling would have. */
   readonly select: (id: string) => void;
+  /** Hands a chapter the board with its section's heading at the top of the column. */
+  readonly jump: (anchorId: string, chapterId: string) => void;
 };
 
 /** The chapter that owns the board, kept in the URL hash so it can be linked to. */
@@ -110,5 +122,14 @@ export const useActiveChapter = (
     [scrollerRef, steer],
   );
 
-  return { active, select };
+  const jump = useCallback(
+    (anchorId: string, chapterId: string) => {
+      const scroller = scrollerRef.current;
+      if (scroller !== null && alignToTop(scroller, anchorId)) steering.current = true;
+      setActive(chapterId);
+    },
+    [scrollerRef],
+  );
+
+  return { active, select, jump };
 };
