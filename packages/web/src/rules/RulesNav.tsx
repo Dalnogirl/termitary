@@ -18,7 +18,7 @@ export const RulesNav = ({ sections, active, onJump }: Props) => (
           aria-current={current ? 'location' : undefined}
           onClick={() => onJump(id, chapters[0].id)}
           className={cn(
-            'flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+            'flex-1 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm font-medium transition-colors max-[359px]:text-xs sm:px-3',
             current
               ? 'bg-background text-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground',

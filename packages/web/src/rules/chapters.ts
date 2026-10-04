@@ -24,7 +24,7 @@ export type RulesSection = {
 /** In the order a new player needs them. */
 export const SECTIONS: readonly [RulesSection, ...RulesSection[]] = [
   { id: 'core-rules', title: 'Core rules', chapters: [goal, placing, oneHive, freedom, climbing] },
-  { id: 'pieces', title: 'Pieces', chapters: [queen, beetle, grasshopper, spider, ant] },
+  { id: 'pieces', title: 'Base pieces', chapters: [queen, beetle, grasshopper, spider, ant] },
   { id: 'expansions', title: 'Expansions', chapters: [ladybug, mosquito, pillbug, passing] },
 ];
 
