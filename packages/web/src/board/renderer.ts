@@ -13,6 +13,7 @@ import { anchorOf, coordKey, interaction, sameCoord } from '../controller/intera
 import { prefsStore } from '../store/prefs.js';
 import type { StoreState } from '../store/store.js';
 import { axialToPixel } from './hex.js';
+import { type Marks, isDimmed } from './marks.js';
 import { CHIP_OFFSET, HEX_SIZE } from './metrics.js';
 import { createMotionRunner, planMotion } from './motion.js';
 import {
@@ -66,15 +67,6 @@ const readSkin = (): Skin => {
   return { theme: readTheme(), set: pieceSet, hue: pieceHue };
 };
 
-// Every role a cell can play in the current selection, as cell keys.
-type Marks = {
-  readonly movable: ReadonlySet<string>;
-  readonly throwable: ReadonlySet<string>;
-  readonly selected: string | null;
-  readonly lifted: string | null;
-  readonly lastMove: string | null;
-};
-
 const outlineFor = (skin: Skin, marks: Marks, key: string): Outline | null => {
   if (key === marks.selected) return { stroke: skin.theme.selectStroke, strokeWidth: 3 };
   if (key === marks.lifted) return { stroke: skin.theme.throwStroke, strokeWidth: 3 };
@@ -83,14 +75,6 @@ const outlineFor = (skin: Skin, marks: Marks, key: string): Outline | null => {
   if (key === marks.lastMove) return { stroke: skin.theme.lastMoveStroke, strokeWidth: 2 };
   return null;
 };
-
-// A piece in hand selects no cell, so placing leaves the board undimmed. A
-// pillbug's throwable neighbours are the next click, so they stay lit.
-const isDimmed = (marks: Marks, key: string): boolean =>
-  marks.selected !== null &&
-  key !== marks.selected &&
-  key !== marks.lifted &&
-  !marks.throwable.has(key);
 
 // Where the move that produced this position put its piece. Stepping through
 // the history is otherwise a slideshow of near-identical boards.

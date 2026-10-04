@@ -13,6 +13,8 @@ import { type CanvasTheme, readTheme } from './theme.js';
 
 const CROSS_ARM = HEX_SIZE * 0.32;
 const BADGE_RADIUS = 9;
+// Inside the tile's edge, so a selected pinned piece keeps its select stroke.
+const PIN_RING_INSET = 5;
 // Opposite the beetle's chip, so a pinned beetle shows both.
 const BADGE_OFFSET = { x: HEX_SIZE * 0.55, y: HEX_SIZE * 0.65 } as const;
 
@@ -36,7 +38,7 @@ const padlock = (theme: CanvasTheme): Group => {
 const pinnedNode = (theme: CanvasTheme, coord: HexCoord): Group => {
   const group = new Group({ name: 'pinned', ...at(coord) });
   group.add(
-    createHexShape({ x: 0, y: 0 }, HEX_DRAW_SIZE, HEX_RADIUS, {
+    createHexShape({ x: 0, y: 0 }, HEX_DRAW_SIZE - PIN_RING_INSET, HEX_RADIUS, {
       stroke: theme.refuseStroke,
       strokeWidth: 3,
     }),
