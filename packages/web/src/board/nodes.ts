@@ -113,6 +113,20 @@ const tileNode = (
 export const pieceTile = (skin: Skin, piece: Piece, outline: Outline | null): Group =>
   tileNode(skin, piece, HEX_DRAW_SIZE, HEX_RADIUS, outline);
 
+// Washed over rather than faded: opacity on a tile applies per shape, so a
+// glyph's overlapping strokes would show through each other.
+const washNode = (theme: CanvasTheme, size: number, radius: number): Shape => {
+  const wash = createHexShape(ORIGIN, size, radius, { fill: theme.dimWash });
+  wash.listening(false);
+  return wash;
+};
+
+/** Covers a tile the selected piece pushes into the background. */
+export const tileWash = (theme: CanvasTheme): Shape => washNode(theme, HEX_DRAW_SIZE, HEX_RADIUS);
+
+/** Covers a chip, which pokes out past its tile's corner. */
+export const chipWash = (theme: CanvasTheme): Shape => washNode(theme, CHIP_SIZE, CHIP_RADIUS);
+
 /** The corner chip that shows what a beetle is standing on. */
 export const chipTile = (skin: Skin, piece: Piece): Group => {
   const chip = tileNode(skin, piece, CHIP_SIZE, CHIP_RADIUS, {

@@ -13,6 +13,8 @@ import { type CanvasTheme, readTheme } from './theme.js';
 
 const CROSS_ARM = HEX_SIZE * 0.32;
 const BADGE_RADIUS = 9;
+// Inside the tile's edge, so a selected pinned piece keeps its select stroke.
+const PIN_RING_INSET = 5;
 // Opposite the beetle's chip, so a pinned beetle shows both.
 const BADGE_OFFSET = { x: HEX_SIZE * 0.55, y: HEX_SIZE * 0.65 } as const;
 
@@ -31,11 +33,16 @@ const padlock = (theme: CanvasTheme): Group => {
   return lock;
 };
 
-// A wash in the board's own colour reads as a dimmed tile without the
-// annotation layer reaching into the tile the renderer owns.
+// A ring rather than a wash, because a wash is how the board dims everything
+// a selection leaves out, and the two stacked over a pinned bystander.
 const pinnedNode = (theme: CanvasTheme, coord: HexCoord): Group => {
   const group = new Group({ name: 'pinned', ...at(coord) });
-  group.add(createHexShape({ x: 0, y: 0 }, HEX_DRAW_SIZE, HEX_RADIUS, { fill: theme.pinnedWash }));
+  group.add(
+    createHexShape({ x: 0, y: 0 }, HEX_DRAW_SIZE - PIN_RING_INSET, HEX_RADIUS, {
+      stroke: theme.refuseStroke,
+      strokeWidth: 3,
+    }),
+  );
   const badge = new Group(BADGE_OFFSET);
   badge.add(new Circle({ radius: BADGE_RADIUS, fill: theme.refuseStroke }), padlock(theme));
   group.add(badge);

@@ -13,16 +13,19 @@ import { anchorOf, coordKey, interaction, sameCoord } from '../controller/intera
 import { prefsStore } from '../store/prefs.js';
 import type { StoreState } from '../store/store.js';
 import { axialToPixel } from './hex.js';
+import { type Marks, isDimmed } from './marks.js';
 import { CHIP_OFFSET, HEX_SIZE } from './metrics.js';
 import { createMotionRunner, planMotion } from './motion.js';
 import {
   type Outline,
   type Skin,
   chipTile,
+  chipWash,
   ghostNode,
   pieceTile,
   styleTarget,
   targetShape,
+  tileWash,
 } from './nodes.js';
 import { readTheme } from './theme.js';
 import { createView } from './view.js';
@@ -62,15 +65,6 @@ const historyMoved = (before: StoreState | null, after: StoreState): boolean =>
 const readSkin = (): Skin => {
   const { pieceSet, pieceHue } = prefsStore.getState();
   return { theme: readTheme(), set: pieceSet, hue: pieceHue };
-};
-
-// Every role a cell can play in the current selection, as cell keys.
-type Marks = {
-  readonly movable: ReadonlySet<string>;
-  readonly throwable: ReadonlySet<string>;
-  readonly selected: string | null;
-  readonly lifted: string | null;
-  readonly lastMove: string | null;
 };
 
 const outlineFor = (skin: Skin, marks: Marks, key: string): Outline | null => {
@@ -124,12 +118,16 @@ export const createRenderer = (
       tile.on('mouseleave', () => setHoverCursor(''));
     }
     board.add(tile);
+    const dimmed = isDimmed(marks, key);
+    if (dimmed) board.add(tileWash(skin.theme).position(p));
 
     const below = stack[stack.length - 2];
     if (below === undefined) return;
+    const chipAt = { x: p.x + CHIP_OFFSET.x, y: p.y + CHIP_OFFSET.y };
     const chip = chipTile(skin, below);
-    chip.position({ x: p.x + CHIP_OFFSET.x, y: p.y + CHIP_OFFSET.y });
+    chip.position(chipAt);
     board.add(chip);
+    if (dimmed) board.add(chipWash(skin.theme).position(chipAt));
   };
 
   const drawTarget = (skin: Skin, coord: HexCoord, ghost: Group | null): void => {
