@@ -47,6 +47,22 @@ export const describeSeekStoreContract = (
         expect(await store.get('s1')).toEqual(seek);
       }));
 
+    it('round-trips the time control', async () =>
+      withStore(async ({ store }) => {
+        for (const [id, daysPerMove] of [
+          ['s1', 1],
+          ['s3', 3],
+        ] as const) {
+          const seek = createSeek(id, { playerId: 'p1' }, {}, 'pool', at(1000), {
+            kind: 'correspondence',
+            daysPerMove,
+          });
+          await store.deleteFor('p1');
+          await store.create(seek);
+          expect(await store.get(id)).toEqual(seek);
+        }
+      }));
+
     it('get is undefined for an id nothing wrote', async () =>
       withStore(async ({ store }) => {
         expect(await store.get('nope')).toBeUndefined();

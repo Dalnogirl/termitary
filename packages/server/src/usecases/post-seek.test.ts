@@ -1,9 +1,10 @@
+import { timeControlOf } from '@termitary/clock';
 import { BASE_RULESET, rulesetFor } from '@termitary/engine';
 import type { SeekPreference } from '@termitary/protocol';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Identity } from '../domain/identity.js';
 import type { RoomStore } from '../domain/room-store.js';
-import { createSeek } from '../domain/seek.js';
+import { type SeekTimeControl, createSeek } from '../domain/seek.js';
 import { type TestStores, createTestStores } from '../testing/stores.js';
 import { type PairingDeps, type SeekPorts, postSeek } from './post-seek.js';
 
@@ -122,6 +123,71 @@ describe('postSeek', () => {
     expect(results.filter((r) => r.outcome === 'waiting')).toHaveLength(1);
     expect(await stores.rooms.listSeatedBy('alice')).toHaveLength(1);
     expect(await stores.seeks.listPool('alice', NOW)).toHaveLength(1);
+  });
+
+  describe('time control', () => {
+    const ONE_DAY: SeekTimeControl = { kind: 'correspondence', daysPerMove: 1 };
+    const THREE_DAYS: SeekTimeControl = { kind: 'correspondence', daysPerMove: 3 };
+
+    const postTimed = (player: string, timeControl: SeekTimeControl, overrides?: PairingDeps) =>
+      postSeek(ident(player), { timeControl }, ports, deps(overrides));
+
+    const roomControl = async (id: string) => {
+      const room = await stores.rooms.get(id);
+      return room === undefined ? undefined : timeControlOf(room.clock);
+    };
+
+    it('stands the seek with the time control it was posted with', async () => {
+      const result = await postTimed('alice', THREE_DAYS);
+
+      expect(result.outcome === 'waiting' && result.seek.timeControl).toEqual(THREE_DAYS);
+    });
+
+    it('does not auto-pair different time controls', async () => {
+      await postTimed('alice', ONE_DAY);
+      const result = await postTimed('bob', THREE_DAYS);
+
+      expect(result.outcome).toBe('waiting');
+      expect(await stores.seeks.listPool('carol', NOW)).toHaveLength(2);
+    });
+
+    it('does not auto-pair untimed with timed', async () => {
+      await post('alice');
+      expect((await postTimed('bob', ONE_DAY)).outcome).toBe('waiting');
+    });
+
+    it('pairs the same time control into a room on that clock', async () => {
+      await postTimed('alice', THREE_DAYS);
+      await postTimed('bob', THREE_DAYS);
+
+      expect(await roomControl('id-2')).toEqual(THREE_DAYS);
+    });
+
+    it('skips an older seek on another clock for a newer one on the same', async () => {
+      await postTimed('bob', ONE_DAY, { clock: () => new Date(NOW.getTime() - 2000) });
+      await postTimed('alice', THREE_DAYS, { clock: () => new Date(NOW.getTime() - 1000) });
+
+      await postTimed('carol', THREE_DAYS);
+
+      expect((await stores.rooms.get('id-3'))?.players).toEqual({
+        white: ident('carol'),
+        black: ident('alice'),
+      });
+    });
+
+    it("takes the claimed seek's time control whatever the taker posted", async () => {
+      await postTimed('alice', THREE_DAYS);
+
+      const result = await postSeek(
+        ident('bob'),
+        { seekId: 'id-1', timeControl: ONE_DAY },
+        ports,
+        deps(),
+      );
+
+      expect(result).toEqual({ outcome: 'paired', roomId: 'id-2' });
+      expect(await roomControl('id-2')).toEqual(THREE_DAYS);
+    });
   });
 
   describe('taking one listed seek', () => {

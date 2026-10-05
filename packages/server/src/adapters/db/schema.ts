@@ -78,7 +78,9 @@ export const rooms = sqliteTable(
 
 export type RoomRow = typeof rooms.$inferSelect;
 
-// Five columns and no game. Cascade rather than set null: a seek whose seeker
+export const SEEK_TIME_CONTROLS = ['untimed', 'correspondence-1d', 'correspondence-3d'] as const;
+
+// Seven columns and no game. Cascade rather than set null: a seek whose seeker
 // is gone can never pair, where a room with an empty seat is still a game the
 // opponent can return to.
 export const seeks = sqliteTable(
@@ -93,6 +95,8 @@ export const seeks = sqliteTable(
     // accepting it, and no migration rewrites stored preferences.
     preference: text('preference', { mode: 'json' }).$type<SeekPreference>().notNull(),
     visibility: text('visibility', { enum: ['pool', 'private'] }).notNull(),
+    // A preset name rather than JSON, since auto-match compares it by equality.
+    timeControl: text('time_control', { enum: SEEK_TIME_CONTROLS }).notNull().default('untimed'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
   },

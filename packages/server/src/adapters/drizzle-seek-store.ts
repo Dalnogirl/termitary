@@ -5,16 +5,33 @@ import {
   type SeekStore,
   SeekerAlreadySeekingError,
 } from '../domain/seek-store.js';
-import type { Seek } from '../domain/seek.js';
+import type { Seek, SeekTimeControl } from '../domain/seek.js';
 import type { Db } from './db/client.js';
 import { violates } from './db/constraint.js';
-import { type SeekRow, seeks as seeksTable } from './db/schema.js';
+import { type SEEK_TIME_CONTROLS, type SeekRow, seeks as seeksTable } from './db/schema.js';
+
+type SeekTimeControlColumn = (typeof SEEK_TIME_CONTROLS)[number];
+
+const toColumn = (control: SeekTimeControl): SeekTimeControlColumn =>
+  control.kind === 'untimed' ? 'untimed' : `correspondence-${control.daysPerMove}d`;
+
+const fromColumn = (column: SeekTimeControlColumn): SeekTimeControl => {
+  switch (column) {
+    case 'untimed':
+      return { kind: 'untimed' };
+    case 'correspondence-1d':
+      return { kind: 'correspondence', daysPerMove: 1 };
+    case 'correspondence-3d':
+      return { kind: 'correspondence', daysPerMove: 3 };
+  }
+};
 
 const toSeek = (row: SeekRow): Seek => ({
   id: row.id,
   seeker: { playerId: row.seekerUserId },
   preference: SeekPreferenceSchema.parse(row.preference),
   visibility: row.visibility,
+  timeControl: fromColumn(row.timeControl),
   createdAt: row.createdAt,
   expiresAt: row.expiresAt,
 });
@@ -44,6 +61,7 @@ export const createDrizzleSeekStore = (db: Db): SeekStore => ({
           seekerUserId: seek.seeker.playerId,
           preference: seek.preference,
           visibility: seek.visibility,
+          timeControl: toColumn(seek.timeControl),
           createdAt: seek.createdAt,
           expiresAt: seek.expiresAt,
         })
