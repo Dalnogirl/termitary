@@ -10,15 +10,15 @@ test('one player seeks from the lobby, another joins it, and both reach the boar
 
   // A required ladybug marks the row on the other side and proves the terms
   // travel into the paired ruleset.
+  await seeker.getByRole('button', { name: 'Choose pieces' }).click();
   await seeker
     .getByRole('group', { name: 'Ladybug' })
     .locator('label', { has: seeker.getByRole('radio', { name: 'Yes' }) })
     .click();
   await seeker.getByRole('button', { name: 'Play', exact: true }).click();
 
-  const mySeek = seeker.getByRole('listitem').filter({ hasText: 'Your seek' });
-  await expect(mySeek).toContainText('Ladybug');
-  await expect(seeker.getByRole('button', { name: 'Looking for an opponent…' })).toBeDisabled();
+  const waiting = seeker.getByRole('status').filter({ hasText: 'Looking for an opponent' });
+  await expect(waiting).toContainText('Ladybug');
 
   const joinerEmail = `joiner-${stamp}@test.dev`;
   const joiner = await signedInPlayer(browser, joinerEmail);
@@ -52,10 +52,10 @@ test('cancelling a seek leaves the player in the lobby', async ({ browser }) => 
   const player = await signedInPlayer(browser, `canceller-${Date.now()}@test.dev`);
   await player.getByRole('button', { name: 'Play', exact: true }).click();
 
-  const mySeek = player.getByRole('listitem').filter({ hasText: 'Your seek' });
-  await expect(mySeek).toBeVisible();
+  const waiting = player.getByRole('status').filter({ hasText: 'Looking for an opponent' });
+  await expect(waiting).toBeVisible();
   await player.getByRole('button', { name: 'Cancel' }).click();
-  await expect(mySeek).toBeHidden();
+  await expect(waiting).toBeHidden();
   await expect(player.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
 
   // Longer than the lobby spends looking for a room after a seek goes.
