@@ -22,7 +22,12 @@ vi.mock('../network/seeks-api.js', () => ({
 }));
 vi.mock('../network/rooms-api.js', () => ({ fetchMyRooms: vi.fn() }));
 
-const SEEK: SeekDto = { seekId: 's1', preference: {}, createdAt: 0 };
+const SEEK: SeekDto = {
+  seekId: 's1',
+  preference: {},
+  timeControl: { kind: 'untimed' },
+  createdAt: 0,
+};
 
 const room = (roomId: string): MyRoomSummaryDto => ({
   roomId,

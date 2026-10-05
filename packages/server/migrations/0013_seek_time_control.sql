@@ -1,0 +1,1 @@
+ALTER TABLE `seeks` ADD `time_control` text DEFAULT 'untimed' NOT NULL;

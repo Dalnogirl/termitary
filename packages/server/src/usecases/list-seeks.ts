@@ -6,6 +6,7 @@ import type { Seek } from '../domain/seek.js';
 export const toSeekDto = (seek: Seek): SeekDto => ({
   seekId: seek.id,
   preference: seek.preference,
+  timeControl: seek.timeControl,
   createdAt: seek.createdAt.getTime(),
 });
 

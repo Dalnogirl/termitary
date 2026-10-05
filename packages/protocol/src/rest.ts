@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import type { WireTimeControl } from './clock.js';
+import {
+  type WireSeekTimeControl,
+  WireSeekTimeControlSchema,
+  type WireTimeControl,
+} from './clock.js';
 import { ProfileNameSchema } from './profile.js';
 import { type SeekPreference, SeekPreferenceSchema } from './seek-preference.js';
 import type { WireGameState, WireRuleset } from './wire.js';
@@ -26,6 +30,7 @@ export type MyRoomSummaryDto = {
 export type SeekDto = {
   readonly seekId: string;
   readonly preference: SeekPreference;
+  readonly timeControl: WireSeekTimeControl;
   /** Epoch milliseconds, rendered as an age. */
   readonly createdAt: number;
 };
@@ -41,6 +46,8 @@ export type SeekBoardDto = {
 export const PostSeekRequestSchema = z.object({
   /** Absent is the default seek, which pairs with anything. */
   preference: SeekPreferenceSchema.optional(),
+  /** Ignored when `seekId` is set: claiming a seek takes its time control as-is. */
+  timeControl: WireSeekTimeControlSchema.default({ kind: 'untimed' }),
   /** Set to take one listed seek instead of matching against the pool. */
   seekId: z.string().min(1).optional(),
 });

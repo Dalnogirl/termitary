@@ -5,7 +5,16 @@ import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { createPairedRoom } from '../domain/room.js';
 import { SeekerAlreadySeekingError } from '../domain/seek-store.js';
-import { type Seek, compatible, createSeek, isExpired, pairedRuleset } from '../domain/seek.js';
+import {
+  type Seek,
+  type SeekTimeControl,
+  UNTIMED_SEEK,
+  compatible,
+  createSeek,
+  isExpired,
+  pairedRuleset,
+  sameTimeControl,
+} from '../domain/seek.js';
 
 export type PostSeekResult =
   | { readonly outcome: 'paired'; readonly roomId: string }
@@ -40,7 +49,7 @@ const pairInto = async (
   const ruleset = pairedRuleset(mine, claimed.preference);
   const [white, black] =
     (deps.pickSeat ?? coinFlip)() === 'white' ? [me, claimed.seeker] : [claimed.seeker, me];
-  const room = createPairedRoom(newId(), white, black, now, ruleset);
+  const room = createPairedRoom(newId(), white, black, now, ruleset, claimed.timeControl);
 
   try {
     await rooms.create(room);
@@ -75,11 +84,13 @@ const pairInto = async (
 const pairFromPool = async (
   me: Identity,
   mine: SeekPreference,
+  timeControl: SeekTimeControl,
   ports: SeekPorts,
   deps: PairingDeps,
   now: Date,
 ): Promise<string | undefined> => {
   for (const candidate of await ports.seeks.listPool(me.playerId, now)) {
+    if (!sameTimeControl(timeControl, candidate.timeControl)) continue;
     if (!compatible(mine, candidate.preference)) continue;
     const claimed = await ports.seeks.claim(candidate.id);
     if (claimed === undefined) continue;
@@ -128,12 +139,13 @@ export const postSeek = async (
 ): Promise<PostSeekResult> => {
   const now = (deps.clock ?? (() => new Date()))();
   const preference = body.preference ?? {};
+  const timeControl = body.timeControl ?? UNTIMED_SEEK;
 
   if (body.seekId !== undefined) {
     return claimOne(identity, preference, body.seekId, ports, deps, now);
   }
 
-  const roomId = await pairFromPool(identity, preference, ports, deps, now);
+  const roomId = await pairFromPool(identity, preference, timeControl, ports, deps, now);
   if (roomId !== undefined) return { outcome: 'paired', roomId };
 
   // A player holds one seek, so a second post replaces the first rather than
@@ -141,7 +153,14 @@ export const postSeek = async (
   // pool walk above has already tried them against everything waiting.
   await ports.seeks.deleteFor(identity.playerId);
 
-  const seek = createSeek((deps.newId ?? randomUUID)(), identity, preference, 'pool', now);
+  const seek = createSeek(
+    (deps.newId ?? randomUUID)(),
+    identity,
+    preference,
+    'pool',
+    now,
+    timeControl,
+  );
   try {
     await ports.seeks.create(seek);
   } catch (err) {

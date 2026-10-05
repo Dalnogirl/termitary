@@ -440,6 +440,34 @@ describe('REST routes', () => {
         expect((await board(cookie)).mine?.preference).toEqual({});
       });
 
+      it('lists a seek with no time control as untimed', async () => {
+        const { cookie } = await ctx.signIn('alice@test.dev');
+        await postSeek(cookie, {});
+
+        expect((await board(cookie)).mine?.timeControl).toEqual({ kind: 'untimed' });
+      });
+
+      it('lists a seek with the time control it was posted with', async () => {
+        const { cookie } = await ctx.signIn('alice@test.dev');
+        const timeControl = { kind: 'correspondence', daysPerMove: 3 } as const;
+        await postSeek(cookie, { timeControl });
+
+        expect((await board(cookie)).mine?.timeControl).toEqual(timeControl);
+      });
+
+      it('refuses a real-time preset, which belongs to the lobby socket', async () => {
+        const { cookie } = await ctx.signIn('alice@test.dev');
+        const res = await ctx.app.inject({
+          method: 'POST',
+          url: '/api/seeks',
+          headers: { cookie },
+          payload: { timeControl: { kind: 'realtime', initialMs: 300_000, incrementMs: 3_000 } },
+        });
+
+        expect(res.statusCode).toBe(400);
+        expect((await board(cookie)).mine).toBeNull();
+      });
+
       // Fastify refuses an empty body before the handler runs, so a route that
       // read it as a default would never get the chance.
       it('refuses a post with no body at all', async () => {

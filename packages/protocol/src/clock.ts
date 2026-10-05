@@ -28,6 +28,14 @@ export const WireTimeControlSchema = z.discriminatedUnion('kind', [
 ]);
 export type WireTimeControl = z.infer<typeof WireTimeControlSchema>;
 
+// What a stored seek can carry. Real-time seeks live in the lobby's memory
+// pool (#190), never in the seeks table, so their presets are refused here.
+export const WireSeekTimeControlSchema = z.discriminatedUnion('kind', [
+  UntimedSchema,
+  CorrespondenceSchema,
+]);
+export type WireSeekTimeControl = z.infer<typeof WireSeekTimeControlSchema>;
+
 const clockCommon = {
   phase: z.enum(['pre_start', 'running']),
   toMove: WireSideSchema,
