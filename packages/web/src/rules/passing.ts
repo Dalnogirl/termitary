@@ -7,8 +7,9 @@ export const passing: RulesDemo = {
   title: 'Passing',
   caption:
     'You pass only when you have no legal move at all: nothing on the board can move and ' +
-    'nowhere is free to place. Here black closes in, the white queen is holding the hive ' +
-    'together, and every empty cell next to her touches black.',
+    'nowhere is free to place. The game passes for you and your opponent moves again. ' +
+    'Here black closes in: the white queen is holding the hive together and every empty ' +
+    'cell next to her touches black, so white passes and black is to move.',
   ruleset: BASE_RULESET,
   setup: [
     place('queen', 'white', 0, 0),
@@ -24,18 +25,7 @@ export const passing: RulesDemo = {
   script: [
     { kind: 'pause' },
     { kind: 'move', move: relocate([2, -1], [-1, 1]) },
-    { kind: 'select', selection: { kind: 'hand', piece: 'ant' } },
-    {
-      kind: 'annotate',
-      annotations: [
-        { kind: 'pinned', at: { q: 0, r: 0 } },
-        { kind: 'blocked', at: { q: -1, r: 0 } },
-        { kind: 'blocked', at: { q: 0, r: 1 } },
-      ],
-    },
     { kind: 'pause' },
-    { kind: 'pause' },
-    { kind: 'move', move: { kind: 'pass' } },
     { kind: 'pause' },
   ],
 };

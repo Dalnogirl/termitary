@@ -158,7 +158,7 @@ const SHOWN_TARGETS: Record<string, readonly (readonly string[])[]> = {
     ['-2,0', '0,-1'],
     ['-1,-1', '-2,0', '0,-1'],
   ],
-  passing: [[]],
+  passing: [],
 };
 
 const shownTargets = (demoId: string): (readonly string[])[] => {
@@ -259,5 +259,11 @@ describe('rules chapters', () => {
     shownTargets('goal');
     const { liveGame } = gameStore.getState();
     expect(liveGame.status === 'finished' && liveGame.result).toBe('white-wins');
+  });
+
+  it('passes for white in the passing demo', () => {
+    shownTargets('passing');
+    const { history } = gameStore.getState().liveGame;
+    expect(history.filter((m) => m.kind === 'pass')).toHaveLength(1);
   });
 });

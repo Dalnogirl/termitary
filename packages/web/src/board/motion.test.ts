@@ -1,4 +1,5 @@
 import { type GameState, applyMove, createGame, listValidMoves } from '@termitary/engine';
+import { BEFORE_SQUEEZE, SQUEEZE } from '@termitary/engine/testing';
 import { describe, expect, it } from 'vitest';
 import type { StoreState } from '../store/store.js';
 import { appendedMove } from './motion.js';
@@ -39,6 +40,11 @@ describe('appendedMove', () => {
 
   it('snaps on a rollback, where history got shorter', () => {
     expect(appendedMove(asStore(afterOne), asStore(start))).toBeNull();
+  });
+
+  it('names the move behind the pass it forced', () => {
+    const squeezed = BEFORE_SQUEEZE.reduce(applyMove, createGame());
+    expect(appendedMove(asStore(squeezed), asStore(applyMove(squeezed, SQUEEZE)))).toEqual(SQUEEZE);
   });
 
   it('snaps on a reconnect, where history jumped by many', () => {

@@ -169,13 +169,13 @@ export type GameState =
 // shared: board, hands: Record<Color, Hand>, currentPlayer, turnNumbers, history
 
 export const createGame = (): GameState => ...;
-export const listValidMoves = (state: GameState): Move[] => ...;   // placements + relocations, or pass
+export const listValidMoves = (state: GameState): Move[] => ...;   // placements + relocations
 export const applyMove = (state: GameState, move: Move): GameState; // throws IllegalMoveError
 ```
 
 **`listValidMoves` is the single source of truth for legality.** `applyMove` does not re-derive anything; it generates the list and checks the incoming move for membership. Slower than a targeted check, and worth it: a new rule lands in move generation and both paths get it. Nothing can be legal to apply but invisible to the UI.
 
-`listValidMoves` returns `[{ kind: 'pass' }]` when a player has no placement and no relocation, so the list is never empty while the game is in progress.
+A player with no placement and no relocation never sees a pass to choose. `applyMove` plays it for them in the call that left them stuck: the pass lands in `history` and the turn comes straight back, so an in-progress game always offers the player to move something to do. `replayFrames` steps through `applyRecordedMove` instead, which accepts a recorded pass only from a stuck player and never adds one of its own.
 
 A `Move` is a discriminated union, not a from/to pair, because placement and relocation carry different data:
 

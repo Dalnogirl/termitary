@@ -71,7 +71,7 @@ const play = (): ScriptedGame => {
       if (best === null || candidate.score > best.score) best = candidate;
     }
     if (best === null) throw new Error('scripted game reached a position with no legal move');
-    moves.push(best.move);
+    moves.push(...best.next.history.slice(state.history.length));
     state = best.next;
   }
 

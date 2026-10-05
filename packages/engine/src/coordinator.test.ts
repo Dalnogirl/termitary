@@ -7,12 +7,14 @@ import {
   applyMove,
   createGame,
   listValidMoves,
+  passIfStuck,
   resign,
   timeOut,
 } from './coordinator.js';
 import { type HexCoord, key } from './hex.js';
 import type { Piece } from './piece.js';
 import { BASE_RULESET, PILLBUG_RULESET } from './ruleset.js';
+import { BEFORE_SQUEEZE, SQUEEZE } from './testing/forced-pass.js';
 
 const WQ: Piece = { type: 'queen', color: 'white' };
 const WA: Piece = { type: 'ant', color: 'white' };
@@ -299,6 +301,64 @@ describe('timeOut', () => {
     const finished = resign(s, 'white');
 
     expect(() => timeOut(finished, 'black')).toThrow(IllegalMoveError);
+  });
+});
+
+describe('a player with no legal move', () => {
+  const beforeTheSqueeze = (): GameState => BEFORE_SQUEEZE.reduce(applyMove, createGame());
+  const squeeze = SQUEEZE;
+
+  it('passes for them in the move that left them stuck', () => {
+    const before = beforeTheSqueeze();
+    const after = expectInProgress(applyMove(before, squeeze));
+    expect(after.history.slice(before.history.length)).toEqual([squeeze, { kind: 'pass' }]);
+    expect(after.currentPlayer).toBe('black');
+    expect(after.turnNumbers).toEqual({
+      white: before.turnNumbers.white + 1,
+      black: before.turnNumbers.black + 1,
+    });
+  });
+
+  it('never offers a pass to choose', () => {
+    const after = applyMove(beforeTheSqueeze(), squeeze);
+    expect(listValidMoves(after).some((m) => m.kind === 'pass')).toBe(false);
+  });
+
+  it('refuses a pass sent by hand', () => {
+    expect(() => applyMove(beforeTheSqueeze(), { kind: 'pass' })).toThrow(IllegalMoveError);
+  });
+
+  it('settles a stuck position stored before passing was automatic', () => {
+    const before = beforeTheSqueeze();
+    const stored = expectInProgress({
+      ...applyMove(before, squeeze),
+      currentPlayer: 'white',
+      turnNumbers: { white: before.turnNumbers.white, black: before.turnNumbers.black + 1 },
+      history: [...before.history, squeeze],
+    });
+    expect(listValidMoves(stored)).toEqual([]);
+    expect(passIfStuck(stored)).toEqual(applyMove(before, squeeze));
+  });
+
+  it('leaves a position with a legal move alone', () => {
+    const state = beforeTheSqueeze();
+    expect(passIfStuck(state)).toBe(state);
+  });
+
+  it('throws rather than passing back to a player who is stuck too', () => {
+    const deadlock: GameState = {
+      status: 'in_progress',
+      ruleset: BASE_RULESET,
+      board: fromCells([
+        [ORIGIN, [WQ]],
+        [{ q: 5, r: 0 }, [BQ]],
+      ]),
+      hands: { white: {}, black: {} },
+      currentPlayer: 'white',
+      turnNumbers: { white: 11, black: 11 },
+      history: [],
+    };
+    expect(() => passIfStuck(deadlock)).toThrow('Neither player has a legal move');
   });
 });
 

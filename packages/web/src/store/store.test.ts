@@ -7,6 +7,7 @@ import {
   createGame,
   listValidMoves,
 } from '@termitary/engine';
+import { BEFORE_SQUEEZE, SQUEEZE } from '@termitary/engine/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { gameStore, isLive } from './store.js';
 
@@ -123,6 +124,15 @@ describe('store view', () => {
     gameStore.getState().applyGameState(FOUR_PLIES);
     const last: Move | undefined = FOUR_PLIES.history.at(-1);
     expect(gameStore.getState().lastMove).toEqual(last);
+  });
+
+  it('marks the move behind a forced pass, live and when stepping back', () => {
+    const squeezed = applyMove(BEFORE_SQUEEZE.reduce(applyMove, createGame()), SQUEEZE);
+    gameStore.getState().applyGameState(squeezed);
+    expect(gameStore.getState().lastMove).toEqual(SQUEEZE);
+
+    gameStore.getState().setViewIndex(squeezed.history.length - 1);
+    expect(gameStore.getState().lastMove).toEqual(SQUEEZE);
   });
 
   // A history that was legal when it was stored and is not under the current

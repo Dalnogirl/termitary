@@ -1,4 +1,4 @@
-import { BASE_RULESET, type Ruleset } from '@termitary/engine';
+import { BASE_RULESET, type GameState, type Ruleset, passIfStuck } from '@termitary/engine';
 import {
   WireGameStateSchema,
   WireRulesetSchema,
@@ -35,6 +35,19 @@ const overviewRulesetOf = (stored: RoomRow['ruleset']): Ruleset => {
   }
 };
 
+const AUTO_PASS_STATE_VERSION = 3;
+
+// A room where neither side can move is left as stored rather than made
+// unreadable: its players can still resign out of it.
+const upgrade = (state: GameState, version: number): GameState => {
+  if (version >= AUTO_PASS_STATE_VERSION) return state;
+  try {
+    return passIfStuck(state);
+  } catch {
+    return state;
+  }
+};
+
 // The column wins over the copy inside `state`: a room stored between S-6.3
 // and S-6.4 has its ruleset in the column and nowhere else.
 const toRoom = (row: RoomRow): Room => {
@@ -42,7 +55,7 @@ const toRoom = (row: RoomRow): Room => {
   return {
     id: row.id,
     ruleset,
-    state: fromWire(WireGameStateSchema.parse(row.state), ruleset),
+    state: upgrade(fromWire(WireGameStateSchema.parse(row.state), ruleset), row.stateVersion),
     players: { white: seat(row.whiteUserId), black: seat(row.blackUserId) },
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

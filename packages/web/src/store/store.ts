@@ -41,6 +41,13 @@ type StoreActions = {
 
 export type GameStore = StoreState & StoreActions;
 
+// A forced pass rides in on the move that caused it and places nothing, so the
+// move worth marking is the one before it.
+const movedLast = (history: readonly Move[], length: number): Move | null => {
+  const last = history[length - 1];
+  return (last?.kind === 'pass' ? history[length - 2] : last) ?? null;
+};
+
 const liveView = (
   liveGame: GameState,
   frames: readonly GameState[] | null,
@@ -49,7 +56,7 @@ const liveView = (
   liveGame,
   viewIndex: liveGame.history.length,
   view: liveGame,
-  lastMove: liveGame.history.at(-1) ?? null,
+  lastMove: movedLast(liveGame.history, liveGame.history.length),
   frames,
   replayFailed,
   validMoves: listValidMoves(liveGame),
@@ -87,7 +94,7 @@ const viewAt = (state: StoreState, index: number): StoreState => {
     ...state,
     viewIndex,
     view: frames[viewIndex] ?? state.liveGame,
-    lastMove: state.liveGame.history[viewIndex - 1] ?? null,
+    lastMove: movedLast(state.liveGame.history, viewIndex),
     frames,
     validMoves: [],
     selection: null,

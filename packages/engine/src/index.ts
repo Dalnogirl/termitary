@@ -14,6 +14,7 @@ export {
   applyMove,
   createGame,
   listValidMoves,
+  passIfStuck,
   resign,
   timeOut,
 } from './coordinator.js';

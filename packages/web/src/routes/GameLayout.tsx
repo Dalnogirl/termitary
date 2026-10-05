@@ -5,6 +5,7 @@ import { History } from '../history/History.js';
 import { ReplayBanner } from '../history/ReplayBanner.js';
 import { useHistoryKeys } from '../history/use-history-keys.js';
 import { useReplayFailedToast } from '../history/use-replay-failed-toast.js';
+import { usePassToast } from '../pass-notice/use-pass-toast.js';
 
 type Props = {
   /** Off when the result is already the reason you opened the page. */
@@ -15,6 +16,7 @@ type Props = {
 export const GameLayout = ({ showGameOver = true, returnLabel }: Props) => {
   useHistoryKeys();
   useReplayFailedToast();
+  usePassToast();
 
   return (
     <div className="flex flex-1 min-h-0">

@@ -13,7 +13,6 @@ export type Interaction = {
   /** Every highlighted cell, keyed by `coordKey`, with the move a click there commits. */
   readonly targets: ReadonlyMap<string, BoardMove>;
   readonly placeable: ReadonlySet<PieceType>;
-  readonly canPass: boolean;
 };
 
 export const coordKey = (c: HexCoord): string => `${c.q},${c.r}`;
@@ -67,7 +66,6 @@ const NOTHING: Interaction = {
   throwable: new Set(),
   targets: new Map(),
   placeable: new Set(),
-  canPass: false,
 };
 
 const derive = (state: StoreState, myColor: Color | null): Interaction => {
@@ -89,9 +87,7 @@ const derive = (state: StoreState, myColor: Color | null): Interaction => {
     }
     if (completes(state.selection, m)) targets.set(coordKey(m.to), m);
   }
-  const [only, ...rest] = state.validMoves;
-  const canPass = only?.kind === 'pass' && rest.length === 0;
-  return { actor, movable, throwable, targets, placeable, canPass };
+  return { actor, movable, throwable, targets, placeable };
 };
 
 // One entry is enough: the renderer, the input handlers and both hands all ask

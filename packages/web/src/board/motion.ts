@@ -26,13 +26,16 @@ const animating = (): boolean => resolveAnimation(prefsStore.getState().animatio
 
 /**
  * The move that history just gained, or null when it gained nothing it can
- * animate. Exactly one new entry means a move landed and we know which.
- * Anything else is a rollback, a server echo, or a fresh join, and snaps.
+ * animate. One new entry is a move; two ending in a pass are a move and the
+ * pass it forced. Anything else is a rollback, a server echo, or a fresh join,
+ * and snaps.
  */
 export const appendedMove = (before: StoreState, after: StoreState): Move | null => {
   const history = after.view.history;
-  if (history.length !== before.view.history.length + 1) return null;
-  return history[history.length - 1] ?? null;
+  const gained = history.length - before.view.history.length;
+  if (gained === 1) return history.at(-1) ?? null;
+  if (gained === 2 && history.at(-1)?.kind === 'pass') return history.at(-2) ?? null;
+  return null;
 };
 
 export const planMotion = (before: StoreState | null, after: StoreState): Motion | null => {
