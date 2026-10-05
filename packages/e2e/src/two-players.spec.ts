@@ -27,7 +27,9 @@ const stackedCell = (() => {
 // fixture was played under.
 const pair = async (seeker: Page, joiner: Page): Promise<void> => {
   await seeker.getByRole('button', { name: 'Play', exact: true }).click();
-  await expect(seeker.getByRole('listitem').filter({ hasText: 'Your seek' })).toBeVisible();
+  await expect(
+    seeker.getByRole('status').filter({ hasText: 'Looking for an opponent' }),
+  ).toBeVisible();
   // A board with no seek of your own is read once, not polled.
   await joiner.reload();
   await joiner.getByRole('listitem').getByRole('button', { name: 'Join' }).click();

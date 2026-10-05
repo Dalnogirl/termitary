@@ -13,26 +13,22 @@ const CHOICES: readonly { readonly value: TriState; readonly label: string }[] =
 type Props = {
   readonly preference: SeekPreference;
   readonly onChange: (preference: SeekPreference) => void;
-  /** A standing seek keeps the terms it was posted with. */
-  readonly locked: boolean;
 };
 
-export const SeekOptions = ({ preference, onChange, locked }: Props) => {
+export const SeekOptions = ({ preference, onChange }: Props) => {
   const accepted = acceptedRulesets(preference);
   const all = acceptedRulesets(ANY_GAME);
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <section className="flex flex-col gap-3 border-t border-border pt-4">
       <div className="flex flex-col gap-1">
         <h2 className="text-sm font-semibold">Expansion pieces</h2>
         <p className="m-0 text-xs text-muted-foreground">
-          {locked
-            ? 'Cancel your seek to change these.'
-            : accepted === all
-              ? 'Any pieces. Play pairs with whoever is waiting.'
-              : `Play accepts ${accepted} of ${all} rulesets.`}
+          {accepted === all
+            ? 'Any pieces. Play pairs with whoever is waiting.'
+            : `Play accepts ${accepted} of ${all} rulesets.`}
         </p>
       </div>
-      <fieldset disabled={locked} className="m-0 grid gap-3 border-0 p-0 disabled:opacity-60">
+      <fieldset className="m-0 grid gap-3 border-0 p-0">
         {EXPANSIONS.map(({ piece, label, note }) => (
           <fieldset key={piece} className="m-0 flex flex-col gap-1.5 border-0 p-0">
             <legend className="sr-only">{label}</legend>
@@ -48,7 +44,7 @@ export const SeekOptions = ({ preference, onChange, locked }: Props) => {
                       className={cn(
                         'px-2.5 py-1 text-xs transition-colors',
                         'focus-within:ring-2 focus-within:ring-foreground/30',
-                        locked ? 'cursor-not-allowed' : 'cursor-pointer',
+                        'cursor-pointer',
                         selected
                           ? 'bg-foreground text-background'
                           : 'text-muted-foreground hover:bg-muted/50',
