@@ -1,6 +1,11 @@
 import { Toaster, toast } from 'sonner';
 
-type NotifyOptions = { readonly id?: string };
+type NotifyOptions = {
+  readonly id?: string;
+  readonly description?: string;
+  readonly duration?: number;
+  readonly action?: { readonly label: string; readonly onClick: () => void };
+};
 
 export type Notifier = {
   readonly error: (message: string, options?: NotifyOptions) => void;

@@ -188,39 +188,6 @@ describe('createInputHandlers', () => {
     });
   });
 
-  describe('passing', () => {
-    // A real pass-only position takes a long, fragile setup to reach. The
-    // handler's contract is over validMoves, so the store is loaded with the
-    // shape the engine would produce instead.
-    const passOnly = (): void => {
-      gameStore.setState({ validMoves: [{ kind: 'pass' }] });
-    };
-
-    it('passes when passing is the only thing left to do', () => {
-      passOnly();
-
-      createInputHandlers(controller, 'white').handlePassClick();
-
-      expect(commits).toEqual([{ kind: 'pass' }]);
-    });
-
-    it('refuses to pass while a real move is available', () => {
-      const real = gameStore.getState().validMoves[0];
-      if (real === undefined) throw new Error('expected an opening move');
-      gameStore.setState({ validMoves: [{ kind: 'pass' }, real] });
-
-      createInputHandlers(controller, 'white').handlePassClick();
-
-      expect(commits).toEqual([]);
-    });
-
-    it('does nothing when there is no pass to make', () => {
-      createInputHandlers(controller, 'white').handlePassClick();
-
-      expect(commits).toEqual([]);
-    });
-  });
-
   describe('gating on whose turn it is', () => {
     // validMoves describes the opponent's options while they are to move, so
     // acting on them would let this client play their side.
@@ -232,7 +199,6 @@ describe('createInputHandlers', () => {
 
       handlers.handleBoardPieceClick(WHITE_QUEEN);
       handlers.handleTargetClick(to);
-      handlers.handlePassClick();
 
       expect(commits).toEqual([]);
       expect(gameStore.getState().selection).toEqual({ kind: 'board', coord: WHITE_QUEEN });
@@ -260,7 +226,6 @@ describe('createInputHandlers', () => {
 
       handlers.handleBoardPieceClick(WHITE_QUEEN);
       handlers.handleTargetClick(BLACK_QUEEN);
-      handlers.handlePassClick();
 
       expect(commits).toEqual([]);
       expect(gameStore.getState().selection).toEqual({ kind: 'board', coord: WHITE_QUEEN });

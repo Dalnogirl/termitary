@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { type Color, type PieceType, type Ruleset, rulesetPieceTypes } from '@termitary/engine';
 import { PieceMark } from '../board/PieceMark.js';
@@ -40,7 +39,7 @@ const slotPalette: Record<Color, string> = {
 export const Hand = ({ color, edge }: Props) => {
   const game = useGameStore((s) => s.view);
   const selection = useGameStore((s) => s.selection);
-  const { handleHandSlotClick, handlePassClick } = useInputHandlers();
+  const { handleHandSlotClick } = useInputHandlers();
   const { myColor } = useRoomContext();
   const hasTurn = useGameStore((s) => turnHolder(s, myColor)) === color;
   const can = useGameStore((s) => interaction(s, myColor));
@@ -94,12 +93,6 @@ export const Hand = ({ color, edge }: Props) => {
           );
         })}
       </div>
-      {acting && can.canPass && (
-        <Button onClick={handlePassClick} size="sm" className="shrink-0">
-          <span className="md:hidden">Pass</span>
-          <span className="hidden md:inline">Pass turn (no moves available)</span>
-        </Button>
-      )}
     </div>
   );
 };

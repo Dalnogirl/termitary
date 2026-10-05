@@ -11,6 +11,7 @@ import type { HexCoord } from './hex.js';
 import type { Piece } from './piece.js';
 import { replayFrames } from './replay.js';
 import { BASE_RULESET, PILLBUG_RULESET, type Ruleset } from './ruleset.js';
+import { BEFORE_SQUEEZE, SQUEEZE } from './testing/forced-pass.js';
 
 const WQ: Piece = { type: 'queen', color: 'white' };
 const WA: Piece = { type: 'ant', color: 'white' };
@@ -68,6 +69,20 @@ describe('replayFrames', () => {
     const frames = replayFrames(SCRIPT, BASE_RULESET);
     expect(frames.map((f) => f.history.length)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(frames[3]?.history).toEqual(SCRIPT.slice(0, 3));
+  });
+
+  it('replays a pass the game played for a stuck player as its own frame', () => {
+    const game = applyMove(BEFORE_SQUEEZE.reduce(applyMove, createGame()), SQUEEZE);
+    const frames = replayFrames(game.history, BASE_RULESET);
+    expect(frames).toHaveLength(game.history.length + 1);
+    expect(frames.at(-2)?.currentPlayer).toBe('white');
+    expect(frames.at(-1)).toEqual(game);
+  });
+
+  it('rejects a pass from a player with a legal move', () => {
+    expect(() => replayFrames([...SCRIPT, { kind: 'pass' }], BASE_RULESET)).toThrow(
+      IllegalMoveError,
+    );
   });
 
   it('returns just the opening position for an empty history', () => {

@@ -7,7 +7,6 @@ export type InputHandlers = {
   readonly handleBoardPieceClick: (coord: HexCoord) => void;
   readonly handleClearSelection: () => void;
   readonly handleHandSlotClick: (color: Color, type: PieceType) => void;
-  readonly handlePassClick: () => void;
   readonly handleTargetClick: (coord: HexCoord) => void;
 };
 
@@ -61,11 +60,6 @@ export const createInputHandlers = (
     state.setSelection(held ? null : { kind: 'hand', piece: type });
   };
 
-  const handlePassClick = (): void => {
-    if (!interaction(gameStore.getState(), myColor).canPass) return;
-    controller.commitMove({ kind: 'pass' });
-  };
-
   const handleTargetClick = (coord: HexCoord): void => {
     const move = interaction(gameStore.getState(), myColor).targets.get(coordKey(coord));
     if (move === undefined) return;
@@ -76,7 +70,6 @@ export const createInputHandlers = (
     handleBoardPieceClick,
     handleClearSelection,
     handleHandSlotClick,
-    handlePassClick,
     handleTargetClick,
   };
 };

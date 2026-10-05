@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BASE_RULESET, applyMove, createGame, replayFrames } from '@termitary/engine';
+import { BEFORE_SQUEEZE, SQUEEZE } from '@termitary/engine/testing';
 import { type WireGameState, toWire } from '@termitary/protocol';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -102,6 +103,45 @@ describe('DrizzleRoomStore', () => {
         createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
       );
       expect(rowOf(db, 'r1')?.stateVersion).toBe(CURRENT_STATE_VERSION);
+    }));
+
+  it('plays the pass a room stored before auto-pass was still waiting on', async () =>
+    withStore(async ({ db, store }) => {
+      const stuck = replayFrames([...BEFORE_SQUEEZE, SQUEEZE], BASE_RULESET).at(-1);
+      if (stuck === undefined) throw new Error('no frames');
+      await store.create({
+        ...createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
+        state: stuck,
+      });
+      db.db.update(roomsTable).set({ stateVersion: 2 }).where(eq(roomsTable.id, 'r1')).run();
+
+      const stored = await store.get('r1');
+      expect(stored?.state.history.at(-1)).toEqual({ kind: 'pass' });
+      expect(stored?.state.currentPlayer).toBe('black');
+    }));
+
+  it('reads a stored room where neither side can move, as stored', async () =>
+    withStore(async ({ db, store }) => {
+      const room = createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000));
+      await store.create(room);
+      const deadlock = toWire({
+        ...room.state,
+        board: {
+          cells: new Map([
+            ['0,0', [{ type: 'queen', color: 'white' }]],
+            ['5,0', [{ type: 'queen', color: 'black' }]],
+          ]),
+        },
+        hands: { white: {}, black: {} },
+        turnNumbers: { white: 11, black: 11 },
+      });
+      db.db
+        .update(roomsTable)
+        .set({ state: deadlock, stateVersion: 2 })
+        .where(eq(roomsTable.id, 'r1'))
+        .run();
+
+      expect((await store.get('r1'))?.state.history).toEqual([]);
     }));
 
   it('reads a null ruleset column as base', async () =>

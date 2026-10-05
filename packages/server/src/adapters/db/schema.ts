@@ -25,9 +25,11 @@ export const profiles = sqliteTable('profiles', {
 
 export type ProfileRow = typeof profiles.$inferSelect;
 
-// Bump when `state` changes shape. WireGameStateSchema is strict, so old rows
-// stop parsing; this is what a read-time upgrade would branch on.
-export const CURRENT_STATE_VERSION = 2;
+// Bump when `state` changes shape or meaning; a read-time upgrade branches on
+// it. WireGameStateSchema is strict, so a row of an older shape stops parsing.
+// 3: the engine passes for a stuck player itself, so a v2 row may be one pass
+// short.
+export const CURRENT_STATE_VERSION = 3;
 
 export const rooms = sqliteTable(
   'rooms',

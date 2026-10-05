@@ -91,17 +91,21 @@ describe('e2e: random game fuzzer', () => {
         if (state.status === 'finished') break;
 
         const moves = listValidMoves(state);
-        // In-progress states always have at least the pass move.
         expect(moves.length).toBeGreaterThan(0);
+        expect(moves.some((m) => m.kind === 'pass')).toBe(false);
 
         const move = pickRandom(moves);
         const before = state;
         state = applyMove(state, move);
 
         // Post-move structural invariants
-        expect(state.history.length).toBe(before.history.length + 1);
+        const played = state.history.slice(before.history.length);
+        const autoPassed = played.length === 2;
+        expect(played[0]).toEqual(move);
+        if (autoPassed) expect(played[1]).toEqual({ kind: 'pass' });
+        else expect(played).toHaveLength(1);
         if (state.status === 'in_progress') {
-          expect(state.currentPlayer).not.toBe(before.currentPlayer);
+          expect(state.currentPlayer === before.currentPlayer).toBe(autoPassed);
         }
         assertInvariants(state);
       }
@@ -159,44 +163,6 @@ describe('e2e: scripted endgame scenarios', () => {
     if (after.status === 'finished') {
       expect(after.result).toBe('white-wins');
     }
-  });
-
-  it('pass is a legal and listed move when no other moves are available', () => {
-    // Hand-build a state where the current player's queen is on the board but
-    // every potential move (placement + relocation) is illegal. The simplest
-    // case: black is pinned (no movable pieces), no hand pieces can be placed
-    // because every adjacent-to-black candidate cell also touches white.
-    //
-    // For this smoke test we lean on listValidMoves emitting `pass` as the
-    // sole option in such states; constructing the exact deadlock board is
-    // brittle. Instead, we run an in-progress game and check that *if* a
-    // 'pass' shows up in any state's listValidMoves, applying it works.
-    //
-    // To deterministically force a pass, we use a state where black has no
-    // pieces on board and no legal placement cells — degenerate but valid
-    // shape for testing the pass branch.
-    const state: GameState = {
-      status: 'in_progress',
-      ruleset: BASE_RULESET,
-      board: fromCells([[{ q: 0, r: 0 }, [WQ]]]),
-      hands: {
-        white: { queen: 0, ant: 3, beetle: 2, spider: 2, grasshopper: 3 },
-        black: { queen: 1, ant: 3, beetle: 2, spider: 2, grasshopper: 3 },
-      },
-      currentPlayer: 'black',
-      turnNumbers: { white: 1, black: 0 },
-      history: [],
-    };
-    // Black turn 0 with a white piece on the board has 6 valid placement
-    // coords (around the WQ), so listValidMoves will NOT be a single pass.
-    // Sanity-check the inverse: pass would arrive only when the list of
-    // genuine moves is empty.
-    const moves = listValidMoves(state);
-    expect(moves.length).toBeGreaterThan(1);
-    // (A targeted "forced pass" scenario is hard to construct without a
-    // careful boardware setup; the fuzzer above covers pass paths in
-    // practice when random play happens to deadlock.)
-    expect(moves.some((m) => m.kind === 'place')).toBe(true);
   });
 
   it('white-wins-by-mid-game-surround scenario produces consistent history and result', () => {

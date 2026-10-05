@@ -7,7 +7,7 @@
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/testing/scripted-game.ts"
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
     "test": "vitest run",

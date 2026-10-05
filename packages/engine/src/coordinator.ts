@@ -136,21 +136,46 @@ export const listValidMoves = (state: GameState): Move[] => {
     }
   }
 
-  const all = [...placements, ...relocations, ...throws];
-  if (all.length === 0) return [{ kind: 'pass' }];
-  return all;
+  return [...placements, ...relocations, ...throws];
 };
 
-export const applyMove = (state: GameState, move: Move): GameState => {
+const isStuck = (state: GameState): boolean =>
+  state.status === 'in_progress' && listValidMoves(state).length === 0;
+
+/**
+ * Plays the pass owed by a player with no legal move, so nobody is ever asked
+ * to choose one. A position where neither side can move is taken to be
+ * unreachable; it throws rather than passing back and forth.
+ */
+export const passIfStuck = (state: GameState): GameState => {
+  if (!isStuck(state)) return state;
+  const passed = advance(state, { kind: 'pass' });
+  if (isStuck(passed)) throw new Error('Neither player has a legal move');
+  return passed;
+};
+
+/**
+ * One history entry, validated but never followed by a pass of its own: a
+ * recorded game already carries its passes as entries. A pass is legal only
+ * for a player with nothing else.
+ */
+export const applyRecordedMove = (state: GameState, move: Move): GameState => {
   if (state.status === 'finished') {
     throw new IllegalMoveError('Game is already finished');
   }
 
-  const valid = listValidMoves(state);
+  const valid = isStuck(state) ? [{ kind: 'pass' } as const] : listValidMoves(state);
   if (!valid.some((m) => sameMove(m, move))) {
     throw new IllegalMoveError(`Illegal move for ${state.currentPlayer}`);
   }
 
+  return advance(state, move);
+};
+
+export const applyMove = (state: GameState, move: Move): GameState =>
+  passIfStuck(applyRecordedMove(state, move));
+
+const advance = (state: GameState, move: Move): GameState => {
   let newBoard: Board = state.board;
   const newHand: Hand = cloneHand(state.hands[state.currentPlayer]);
 
