@@ -50,6 +50,9 @@ importers:
 
   packages/protocol:
     dependencies:
+      '@termitary/clock':
+        specifier: workspace:*
+        version: link:../clock
       '@termitary/engine':
         specifier: workspace:*
         version: link:../engine
@@ -65,6 +68,9 @@ importers:
       '@fastify/websocket':
         specifier: ^11.0.0
         version: 11.2.0
+      '@termitary/clock':
+        specifier: workspace:*
+        version: link:../clock
       '@termitary/engine':
         specifier: workspace:*
         version: link:../engine

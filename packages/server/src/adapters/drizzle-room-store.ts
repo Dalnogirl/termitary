@@ -1,10 +1,13 @@
+import { type Clock, type TimeControl, charge, startClock, timeControlOf } from '@termitary/clock';
 import { BASE_RULESET, type GameState, type Ruleset, passIfStuck } from '@termitary/engine';
 import {
+  WireClockSchema,
   WireGameStateSchema,
   WireRulesetSchema,
   fromWire,
   fromWireRuleset,
   toWire,
+  toWireClock,
   toWireRuleset,
 } from '@termitary/protocol';
 import { and, desc, eq, or, sql } from 'drizzle-orm';
@@ -14,7 +17,7 @@ import {
   type RoomOverview,
   type RoomStore,
 } from '../domain/room-store.js';
-import type { Room } from '../domain/room.js';
+import { type Room, UNTIMED } from '../domain/room.js';
 import type { Db } from './db/client.js';
 import { violates } from './db/constraint.js';
 import { CURRENT_STATE_VERSION, type RoomRow, rooms as roomsTable } from './db/schema.js';
@@ -48,18 +51,45 @@ const upgrade = (state: GameState, version: number): GameState => {
   }
 };
 
+// A row from before the clock column is untimed. Untimed times nothing, but
+// `charge` still checks whose turn it is, so the clock is charged once per
+// move already played to land on the game's side to move.
+const untimedClockFor = (state: GameState, at: Date): Clock =>
+  state.history.reduce(
+    (clock) => charge(clock, clock.toMove, at.getTime()),
+    startClock(UNTIMED, at.getTime()),
+  );
+
+const clockOf = (row: RoomRow, state: GameState): Clock => {
+  const clock =
+    row.clock === null ? untimedClockFor(state, row.updatedAt) : WireClockSchema.parse(row.clock);
+  if (state.status === 'in_progress' && clock.toMove !== state.currentPlayer) {
+    throw new Error(`room ${row.id}: the clock and the game disagree on whose turn it is`);
+  }
+  return clock;
+};
+
 // The column wins over the copy inside `state`: a room stored between S-6.3
 // and S-6.4 has its ruleset in the column and nowhere else.
 const toRoom = (row: RoomRow): Room => {
   const ruleset = rulesetOf(row.ruleset);
+  const state = upgrade(fromWire(WireGameStateSchema.parse(row.state), ruleset), row.stateVersion);
   return {
     id: row.id,
     ruleset,
-    state: upgrade(fromWire(WireGameStateSchema.parse(row.state), ruleset), row.stateVersion),
+    state,
     players: { white: seat(row.whiteUserId), black: seat(row.blackUserId) },
+    clock: clockOf(row, state),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+};
+
+// Like the ruleset badge: an unreadable clock costs that row its time control.
+const overviewTimeControlOf = (stored: RoomRow['clock']): TimeControl => {
+  if (stored === null) return UNTIMED;
+  const parsed = WireClockSchema.safeParse(stored);
+  return parsed.success ? timeControlOf(parsed.data) : UNTIMED;
 };
 
 const overviewColumns = {
@@ -69,11 +99,12 @@ const overviewColumns = {
   status: roomsTable.status,
   updatedAt: roomsTable.updatedAt,
   ruleset: roomsTable.ruleset,
+  clock: roomsTable.clock,
 };
 
 type OverviewRow = Pick<
   RoomRow,
-  'id' | 'whiteUserId' | 'blackUserId' | 'status' | 'updatedAt' | 'ruleset'
+  'id' | 'whiteUserId' | 'blackUserId' | 'status' | 'updatedAt' | 'ruleset' | 'clock'
 >;
 
 const toOverview = (row: OverviewRow): RoomOverview => ({
@@ -82,6 +113,7 @@ const toOverview = (row: OverviewRow): RoomOverview => ({
   status: row.status,
   updatedAt: row.updatedAt,
   ruleset: overviewRulesetOf(row.ruleset),
+  timeControl: overviewTimeControlOf(row.clock),
 });
 
 const mutableColumns = (room: Room) => ({
@@ -91,6 +123,7 @@ const mutableColumns = (room: Room) => ({
   state: toWire(room.state),
   stateVersion: CURRENT_STATE_VERSION,
   ruleset: toWireRuleset(room.ruleset),
+  clock: toWireClock(room.clock),
 });
 
 const insertColumns = (room: Room) => ({

@@ -1,4 +1,4 @@
-import { applyMove, listValidMoves, resign as resignGame } from '@termitary/engine';
+import { listValidMoves, resign as resignGame } from '@termitary/engine';
 import type { ServerMessage } from '@termitary/protocol';
 import { toWireMove } from '@termitary/protocol';
 import { describe, expect, it } from 'vitest';
@@ -7,7 +7,7 @@ import type { Sender } from '../domain/connection-registry.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { ConcurrentModificationError, type RoomStore } from '../domain/room-store.js';
-import { createPairedRoom, touch } from '../domain/room.js';
+import { createPairedRoom, play, touch } from '../domain/room.js';
 import { createTestStores } from '../testing/stores.js';
 import { joinGame } from './join-game.js';
 import { makeMove } from './make-move.js';
@@ -90,8 +90,9 @@ const racingOnce = (ports: Ports, other: (rooms: RoomStore) => Promise<void>): P
 
 const playMove = async (rooms: RoomStore, roomId: string, index: number): Promise<void> => {
   const { value: room, version } = await readForUpdate(rooms, roomId);
+  if (room.state.status === 'finished') throw new Error('game is over');
   const move = await validMoveAt(rooms, roomId, index);
-  await rooms.save(touch({ ...room, state: applyMove(room.state, move) }, new Date()), version);
+  await rooms.save(play(room, room.state.currentPlayer, move, new Date()), version);
 };
 
 describe('a move racing another write', () => {

@@ -1,21 +1,31 @@
 import { resign as resignGame } from '@termitary/engine';
 import type { ClientResign } from '@termitary/protocol';
-import { toWire } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { colorOf, touch } from '../domain/room.js';
 import { answerMissingRoom } from './answer-missing-room.js';
+import { broadcastState } from './broadcast-state.js';
 import { commitPlayed } from './commit-played.js';
+import { finishIfFlagged } from './finish-on-time.js';
+import { type TimeDeps, arrivalOf } from './now.js';
 import { retryOnConflict } from './retry-on-conflict.js';
 import { sendError } from './send-error.js';
 
-export const resign = (identity: Identity, msg: ClientResign, ports: Ports): Promise<void> =>
-  retryOnConflict(() => attemptResign(identity, msg, ports));
+export const resign = (
+  identity: Identity,
+  msg: ClientResign,
+  ports: Ports,
+  deps: TimeDeps = {},
+): Promise<void> => {
+  const now = arrivalOf(deps);
+  return retryOnConflict(() => attemptResign(identity, msg, ports, now));
+};
 
 const attemptResign = async (
   identity: Identity,
   msg: ClientResign,
   ports: Ports,
+  now: Date,
 ): Promise<void> => {
   const { rooms, connections } = ports;
   // Also the late half of two players resigning inside one round trip: the
@@ -35,14 +45,13 @@ const attemptResign = async (
     await sendError(connections, identity, 'game already finished', 'resign');
     return;
   }
-  const updated = touch({ ...room, state: resignGame(room.state, color) }, new Date());
+  if ((await finishIfFlagged(room, version, identity, 'resign', now, ports)) !== 'in-time') {
+    return;
+  }
+  const updated = touch({ ...room, state: resignGame(room.state, color) }, now);
   if ((await commitPlayed(updated, version, ports)) === 'archive-failed') {
     await sendError(connections, identity, 'could not finish the game', 'resign');
     return;
   }
-  await connections.broadcast(updated.id, {
-    type: 'stateUpdated',
-    roomId: updated.id,
-    state: toWire(updated.state),
-  });
+  await broadcastState(connections, updated, now);
 };

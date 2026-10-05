@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { WireTimeControl } from './clock.js';
 import { ProfileNameSchema } from './profile.js';
 import { type SeekPreference, SeekPreferenceSchema } from './seek-preference.js';
 import type { WireGameState, WireRuleset } from './wire.js';
@@ -17,6 +18,7 @@ export type MyRoomSummaryDto = {
   /** Epoch milliseconds, rendered as a relative time. */
   readonly updatedAt: number;
   readonly ruleset: WireRuleset;
+  readonly timeControl: WireTimeControl;
 };
 
 // An offer to play that nobody has taken yet. No seeker name: the board shows

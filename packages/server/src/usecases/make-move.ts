@@ -1,21 +1,34 @@
-import { IllegalMoveError, applyMove } from '@termitary/engine';
+import { IllegalMoveError } from '@termitary/engine';
 import type { ClientMakeMove } from '@termitary/protocol';
-import { fromWireMove, toWire } from '@termitary/protocol';
+import { fromWireMove } from '@termitary/protocol';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
-import { type Room, colorOf, touch } from '../domain/room.js';
+import { type Room, colorOf, play } from '../domain/room.js';
 import { answerMissingRoom } from './answer-missing-room.js';
+import { broadcastState } from './broadcast-state.js';
 import { commitPlayed } from './commit-played.js';
+import { finishIfFlagged } from './finish-on-time.js';
+import { type TimeDeps, arrivalOf } from './now.js';
 import { retryOnConflict } from './retry-on-conflict.js';
 import { sendError } from './send-error.js';
 
-export const makeMove = (identity: Identity, msg: ClientMakeMove, ports: Ports): Promise<void> =>
-  retryOnConflict(() => attemptMove(identity, msg, ports));
+// Read once, outside the retry: a move that loses a race arrived when it
+// arrived, and its re-run judges it against the same instant.
+export const makeMove = (
+  identity: Identity,
+  msg: ClientMakeMove,
+  ports: Ports,
+  deps: TimeDeps = {},
+): Promise<void> => {
+  const now = arrivalOf(deps);
+  return retryOnConflict(() => attemptMove(identity, msg, ports, now));
+};
 
 const attemptMove = async (
   identity: Identity,
   msg: ClientMakeMove,
   ports: Ports,
+  now: Date,
 ): Promise<void> => {
   const { rooms, connections } = ports;
   const current = await rooms.getForUpdate(msg.roomId);
@@ -33,28 +46,26 @@ const attemptMove = async (
     await sendError(connections, identity, 'game already finished', 'makeMove');
     return;
   }
+  if ((await finishIfFlagged(room, version, identity, 'makeMove', now, ports)) !== 'in-time') {
+    return;
+  }
   if (room.state.currentPlayer !== color) {
     await sendError(connections, identity, 'not your turn', 'makeMove');
     return;
   }
 
-  let played: Room;
+  let updated: Room;
   try {
-    played = { ...room, state: applyMove(room.state, fromWireMove(msg.move)) };
+    updated = play(room, color, fromWireMove(msg.move), now);
   } catch (err) {
-    const message = err instanceof IllegalMoveError ? err.message : 'illegal move';
-    await sendError(connections, identity, message, 'makeMove');
+    if (!(err instanceof IllegalMoveError)) throw err;
+    await sendError(connections, identity, err.message, 'makeMove');
     return;
   }
 
-  const updated = touch(played, new Date());
   if ((await commitPlayed(updated, version, ports)) === 'archive-failed') {
     await sendError(connections, identity, 'could not finish the game', 'makeMove');
     return;
   }
-  await connections.broadcast(updated.id, {
-    type: 'stateUpdated',
-    roomId: updated.id,
-    state: toWire(updated.state),
-  });
+  await broadcastState(connections, updated, now);
 };

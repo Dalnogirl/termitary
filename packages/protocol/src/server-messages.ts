@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { WireClockReadingSchema } from './clock.js';
 import { WireGameStateSchema } from './wire.js';
 
 const PlayerColorSchema = z.enum(['white', 'black']);
@@ -26,6 +27,7 @@ export const ServerGameJoinedSchema = z
     roomId: z.string().min(1),
     playerColor: PlayerColorSchema,
     state: WireGameStateSchema,
+    clock: WireClockReadingSchema,
     opponent: OpponentPresenceSchema,
   })
   .strict();
@@ -36,6 +38,7 @@ export const ServerStateUpdatedSchema = z
     type: z.literal('stateUpdated'),
     roomId: z.string().min(1),
     state: WireGameStateSchema,
+    clock: WireClockReadingSchema,
   })
   .strict();
 export type ServerStateUpdated = z.infer<typeof ServerStateUpdatedSchema>;

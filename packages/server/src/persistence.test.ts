@@ -103,6 +103,7 @@ describe('room persistence across a restart', () => {
           seat: 'white',
           updatedAt: expect.any(Number),
           ruleset: BASE_WIRE,
+          timeControl: { kind: 'untimed' },
         },
       ]);
 

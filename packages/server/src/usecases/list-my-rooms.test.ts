@@ -30,12 +30,14 @@ describe('listMyRooms', () => {
           seat: 'white',
           updatedAt: 1234,
           ruleset: BASE_WIRE,
+          timeControl: { kind: 'untimed' },
         },
         {
           roomId: 'black-room',
           seat: 'black',
           updatedAt: 1234,
           ruleset: BASE_WIRE,
+          timeControl: { kind: 'untimed' },
         },
       ]),
     );

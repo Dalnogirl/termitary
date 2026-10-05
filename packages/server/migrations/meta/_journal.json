@@ -78,6 +78,13 @@
       "when": 1790590603447,
       "tag": "0010_delete_finished_rooms",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1791204488939,
+      "tag": "0011_room_clock",
+      "breakpoints": true
     }
   ]
 }

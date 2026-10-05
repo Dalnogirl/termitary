@@ -38,6 +38,8 @@ const notifier = { error: vi.fn(), info: vi.fn() };
 
 const { createRoomController } = await import('./room.js');
 
+const UNTIMED_CLOCK = { timeControl: { kind: 'untimed' }, remainingMs: null } as const;
+
 const deliver = (msg: ServerMessage): void => {
   const handler = messageHandlers.get(msg.type);
   if (handler === undefined) throw new Error(`no handler for ${msg.type}`);
@@ -60,6 +62,7 @@ const setup = () => {
     roomId: 'r1',
     playerColor: 'white',
     state: toWire(createGame()),
+    clock: UNTIMED_CLOCK,
     opponent: { status: 'connected', userId: 'u2', name: 'Amber Beetle' },
   });
   return controller;
@@ -109,7 +112,12 @@ describe('createRoomController', () => {
     controller.commitMove(firstMove());
 
     const authoritative = createGame();
-    deliver({ type: 'stateUpdated', roomId: 'r1', state: toWire(authoritative) });
+    deliver({
+      type: 'stateUpdated',
+      roomId: 'r1',
+      state: toWire(authoritative),
+      clock: UNTIMED_CLOCK,
+    });
 
     expect(gameStore.getState().liveGame).toEqual(authoritative);
   });
@@ -150,7 +158,12 @@ describe('createRoomController', () => {
     controller.commitMove(firstMove());
 
     // Clears the snapshot, as any stateUpdated does.
-    deliver({ type: 'stateUpdated', roomId: 'r1', state: toWire(createGame()) });
+    deliver({
+      type: 'stateUpdated',
+      roomId: 'r1',
+      state: toWire(createGame()),
+      clock: UNTIMED_CLOCK,
+    });
     sent.length = 0;
 
     deliver({ type: 'error', message: 'not your turn', requestKind: 'makeMove' });
@@ -187,6 +200,7 @@ describe('createRoomController', () => {
         result: 'black-wins',
         endReason: 'resignation',
       },
+      clock: UNTIMED_CLOCK,
     });
 
     const game = gameStore.getState().liveGame;

@@ -200,17 +200,24 @@ describe('message schemas', () => {
   it('parses each ServerMessage variant', () => {
     const state = toWire(createGame());
     const seated = { status: 'connected', userId: 'u2', name: 'Amber Beetle' };
+    const clock = { timeControl: { kind: 'untimed' }, remainingMs: null };
+    const timed = {
+      timeControl: { kind: 'realtime', initialMs: 300_000, incrementMs: 3_000 },
+      remainingMs: { white: 290_000, black: 300_000 },
+    };
     const samples = [
       { type: 'connected', playerId: 'p1' },
-      { type: 'gameJoined', roomId: 'r1', playerColor: 'black', state, opponent: seated },
+      { type: 'gameJoined', roomId: 'r1', playerColor: 'black', state, clock, opponent: seated },
       {
         type: 'gameJoined',
         roomId: 'r1',
         playerColor: 'black',
         state,
+        clock: timed,
         opponent: { ...seated, status: 'disconnected' },
       },
-      { type: 'stateUpdated', roomId: 'r1', state },
+      { type: 'stateUpdated', roomId: 'r1', state, clock },
+      { type: 'stateUpdated', roomId: 'r1', state, clock: timed },
       { type: 'presenceUpdate', roomId: 'r1', opponent: seated },
       { type: 'presenceUpdate', roomId: 'r1', opponent: { ...seated, status: 'disconnected' } },
       { type: 'gameArchived', roomId: 'r1' },
