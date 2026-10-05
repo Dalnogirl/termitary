@@ -10,6 +10,7 @@ import {
   listValidMoves,
   replayFrames,
   resign,
+  timeOut,
 } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import { ClientMessageSchema } from './client-messages.js';
@@ -98,6 +99,13 @@ describe('wire serialization', () => {
       expect(restored.result).toBe('black-wins');
       expect(restored.endReason).toBe('resignation');
     }
+  });
+
+  it('round-trips a game lost on time', () => {
+    const state = timeOut(playN(6), 'black');
+    const restored = fromWire(WireGameStateSchema.parse(JSON.parse(JSON.stringify(toWire(state)))));
+
+    expect(restored.status === 'finished' && restored.endReason).toBe('timeout');
   });
 
   it('rejects a finished state with no end reason', () => {

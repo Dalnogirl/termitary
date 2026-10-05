@@ -26,6 +26,7 @@ export type PlayerRecord = {
   readonly endings: {
     readonly queenSurrounded: number;
     readonly resignation: number;
+    readonly timeout: number;
   };
   readonly longestWinStreak: number;
   readonly lastPlayedAt: Date | null;
@@ -71,6 +72,7 @@ export const computeRecord = (outcomes: readonly PlayerGameOutcome[]): PlayerRec
       queenSurrounded: outcomes.filter((outcome) => outcome.endReason === 'queen-surrounded')
         .length,
       resignation: outcomes.filter((outcome) => outcome.endReason === 'resignation').length,
+      timeout: outcomes.filter((outcome) => outcome.endReason === 'timeout').length,
     },
     longestWinStreak: longestWinStreak(byFinish),
     lastPlayedAt: byFinish.at(-1)?.finishedAt ?? null,

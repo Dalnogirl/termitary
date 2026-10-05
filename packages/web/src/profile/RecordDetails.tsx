@@ -31,8 +31,8 @@ export const RecordDetails = ({ record }: { readonly record: PlayerRecordDto }) 
       <Row label="Longest win streak" value={String(record.longestWinStreak)} />
       <Row label="Average moves" value={String(Math.round(record.averageMoves))} />
       <Row
-        label="Queen surrounded / resignation"
-        value={`${record.endings.queenSurrounded} / ${record.endings.resignation}`}
+        label="Queen surrounded / resignation / timeout"
+        value={`${record.endings.queenSurrounded} / ${record.endings.resignation} / ${record.endings.timeout}`}
       />
     </div>
   </details>

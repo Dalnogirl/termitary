@@ -123,7 +123,9 @@ export const archivedGames = sqliteTable(
     whiteName: text('white_name'),
     blackName: text('black_name'),
     result: text('result', { enum: ['white-wins', 'black-wins', 'draw'] }).notNull(),
-    endReason: text('end_reason', { enum: ['queen-surrounded', 'resignation'] }).notNull(),
+    endReason: text('end_reason', {
+      enum: ['queen-surrounded', 'resignation', 'timeout'],
+    }).notNull(),
     state: text('state', { mode: 'json' }).$type<WireGameState>().notNull(),
     stateVersion: integer('state_version').notNull(),
     moveCount: integer('move_count').notNull(),

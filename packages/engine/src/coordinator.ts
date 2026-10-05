@@ -26,7 +26,7 @@ export type Move =
 
 type FinishedResult = Exclude<GameResult, 'ongoing'>;
 
-export type EndReason = 'queen-surrounded' | 'resignation';
+export type EndReason = 'queen-surrounded' | 'resignation' | 'timeout';
 
 export type GameState =
   | {
@@ -212,15 +212,15 @@ export const applyMove = (state: GameState, move: Move): GameState => {
   };
 };
 
-export const resign = (state: GameState, color: Color): GameState => {
+const forfeit = (state: GameState, loser: Color, endReason: EndReason): GameState => {
   if (state.status === 'finished') {
     throw new IllegalMoveError('Game is already finished');
   }
   return {
     status: 'finished',
     ruleset: state.ruleset,
-    result: color === 'white' ? 'black-wins' : 'white-wins',
-    endReason: 'resignation',
+    result: loser === 'white' ? 'black-wins' : 'white-wins',
+    endReason,
     board: state.board,
     hands: state.hands,
     currentPlayer: state.currentPlayer,
@@ -228,3 +228,9 @@ export const resign = (state: GameState, color: Color): GameState => {
     history: state.history,
   };
 };
+
+export const resign = (state: GameState, color: Color): GameState =>
+  forfeit(state, color, 'resignation');
+
+export const timeOut = (state: GameState, color: Color): GameState =>
+  forfeit(state, color, 'timeout');

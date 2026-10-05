@@ -15,6 +15,7 @@ export {
   createGame,
   listValidMoves,
   resign,
+  timeOut,
 } from './coordinator.js';
 export {
   type ExpansionPiece,
