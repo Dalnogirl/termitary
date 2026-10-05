@@ -167,6 +167,30 @@ export const describeRoomStoreContract = (
         expect(listed?.timeControl).toEqual(BLITZ);
       }));
 
+    // Created at 1s, so white's first-move window closes at 31s.
+    it('listOverdue finds a timed room once its deadline passes, and not before', async () =>
+      withStore(async ({ store }) => {
+        await store.create(timedRoomAt('r1', 1000));
+        expect(await store.listOverdue(at(30_999))).toEqual([]);
+        expect(await store.listOverdue(at(31_000))).toEqual(['r1']);
+      }));
+
+    // Both first moves by 3s start white's five-minute bank: due at 303s.
+    it('listOverdue follows the deadline a save moved', async () =>
+      withStore(async ({ store }) => {
+        const room = timedRoomAt('r1', 1000);
+        await store.create(room);
+        await saveFresh(store, playedTwice(room, 2000));
+        expect(await store.listOverdue(at(302_999))).toEqual([]);
+        expect(await store.listOverdue(at(303_000))).toEqual(['r1']);
+      }));
+
+    it('listOverdue never finds an untimed room', async () =>
+      withStore(async ({ store }) => {
+        await store.create(roomAt('r1', 'p1', 'p2', 1000));
+        expect(await store.listOverdue(at(10 ** 12))).toEqual([]);
+      }));
+
     it('create rejects duplicate ids', async () =>
       withStore(async ({ store }) => {
         await store.create(roomAt('r1', 'p1', 'p2', 1000));

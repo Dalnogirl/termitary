@@ -15,14 +15,14 @@ import { gateIdentity } from './http/gate.js';
 import { logRequest } from './http/log-request.js';
 import { registerRoutes } from './http/routes.js';
 import { WEB_DIST, serveWebDist } from './http/web-dist.js';
-import { startSeekSweep } from './seek-sweep.js';
+import { startSweep } from './sweep.js';
 import { createIdentityExtractor } from './ws/identity.js';
 import { registerSocket } from './ws/route.js';
 
 export type BuildAppOptions = {
   loggerInstance?: FastifyServerOptions['loggerInstance'];
-  /** 0 disables the periodic seek sweep. */
-  seekSweepIntervalMs?: number;
+  /** 0 disables the periodic sweep of expired seeks and games out of time. */
+  sweepIntervalMs?: number;
   // Test seam: callers may inject a pre-built db + auth (e.g. an in-memory
   // sqlite shared between asserts). Defaults wire from env.
   db?: DbHandle;
@@ -59,11 +59,7 @@ export const buildApp = async (options: BuildAppOptions = {}): Promise<FastifyIn
 
   app.decorateRequest('identity', null);
 
-  const sweepTimer = startSeekSweep(
-    app.log,
-    ports,
-    options.seekSweepIntervalMs ?? env.seekSweepIntervalMs,
-  );
+  const sweepTimer = startSweep(app.log, ports, options.sweepIntervalMs ?? env.sweepIntervalMs);
 
   app.addHook('onClose', async () => {
     if (sweepTimer !== undefined) clearInterval(sweepTimer);

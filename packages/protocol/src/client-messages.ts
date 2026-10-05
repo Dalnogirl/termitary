@@ -20,10 +20,18 @@ export const ClientResignSchema = z
   .strict();
 export type ClientResign = z.infer<typeof ClientResignSchema>;
 
+// Sent by the waiting player when the opponent's clock reads zero. The server
+// judges it against its own clock, not the client's.
+export const ClientClaimTimeoutSchema = z
+  .object({ type: z.literal('claimTimeout'), roomId: z.string().min(1) })
+  .strict();
+export type ClientClaimTimeout = z.infer<typeof ClientClaimTimeoutSchema>;
+
 export const ClientMessageSchema = z.discriminatedUnion('type', [
   ClientJoinGameSchema,
   ClientMakeMoveSchema,
   ClientResignSchema,
+  ClientClaimTimeoutSchema,
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 

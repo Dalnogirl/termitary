@@ -2,7 +2,7 @@ import type { TimeControl } from '@termitary/clock';
 import { BASE_RULESET } from '@termitary/engine';
 import { BEFORE_SQUEEZE, SQUEEZE } from '@termitary/engine/testing';
 import { describe, expect, it } from 'vitest';
-import { type Room, createPairedRoom, finishedOnTime, play } from './room.js';
+import { type Room, createPairedRoom, deadlineOf, finishedOnTime, play } from './room.js';
 
 const BLITZ: TimeControl = { kind: 'realtime', initialMs: 300_000, incrementMs: 3_000 };
 const at = (ms: number) => new Date(ms);
@@ -14,6 +14,11 @@ const scripted = (i: number) => {
   const move = BEFORE_SQUEEZE[i];
   if (move === undefined) throw new Error(`no scripted move ${i}`);
   return move;
+};
+
+const running = () => {
+  const first = play(timedRoom(), 'white', scripted(0), at(1000));
+  return play(first, 'black', scripted(1), at(2000));
 };
 
 const turnOf = (room: Room) => {
@@ -45,11 +50,6 @@ describe('play', () => {
 
 describe('finishedOnTime', () => {
   // Both first moves made at 1s and 2s, so white's bank runs from 2s.
-  const running = () => {
-    const first = play(timedRoom(), 'white', scripted(0), at(1000));
-    return play(first, 'black', scripted(1), at(2000));
-  };
-
   it('leaves a room alone while the side to move has time', () => {
     expect(finishedOnTime(running(), at(301_999))).toBeUndefined();
   });
@@ -77,5 +77,26 @@ describe('finishedOnTime', () => {
   it('never finishes an untimed room', () => {
     const room = createPairedRoom('r1', { playerId: 'w' }, { playerId: 'b' }, at(0));
     expect(finishedOnTime(room, at(10 ** 12))).toBeUndefined();
+  });
+});
+
+describe('deadlineOf', () => {
+  it('is the end of the first-move window before both sides have moved', () => {
+    expect(deadlineOf(timedRoom())).toEqual(at(30_000));
+  });
+
+  it('is when the side to move runs out of bank once the clock runs', () => {
+    expect(deadlineOf(running())).toEqual(at(302_000));
+  });
+
+  it('is undefined for an untimed room', () => {
+    const room = createPairedRoom('r1', { playerId: 'w' }, { playerId: 'b' }, at(0));
+    expect(deadlineOf(room)).toBeUndefined();
+  });
+
+  it('is undefined once the game is over', () => {
+    const finished = finishedOnTime(running(), at(302_000));
+    if (finished === undefined) throw new Error('expected a finish');
+    expect(deadlineOf(finished)).toBeUndefined();
   });
 });

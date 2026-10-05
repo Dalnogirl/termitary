@@ -97,6 +97,6 @@ export const env = {
   // the page the player left: better-auth refuses to redirect on to vite
   // unless its origin is trusted.
   trustedOrigins: nodeEnv === 'production' ? [] : ['http://localhost:5173'],
-  seekSweepIntervalMs: Number(process.env.SEEK_SWEEP_INTERVAL_MS ?? 60 * 60 * 1000),
+  sweepIntervalMs: Number(process.env.SEEK_SWEEP_INTERVAL_MS ?? 60 * 60 * 1000),
   socialProviders: resolveSocialProviders(),
 } as const;

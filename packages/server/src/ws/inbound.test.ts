@@ -21,6 +21,12 @@ describe('parseInbound', () => {
     expect(result.error.length).toBeGreaterThan(0);
   });
 
+  it('parses a timeout claim and refuses one with extra fields', () => {
+    const claim = { type: 'claimTimeout', roomId: 'r1' };
+    expect(parseInbound(JSON.stringify(claim))).toEqual({ ok: true, message: claim });
+    expect(parseInbound(JSON.stringify({ ...claim, loser: 'white' })).ok).toBe(false);
+  });
+
   it('accepts Buffer input', () => {
     const result = parseInbound(Buffer.from(JSON.stringify({ type: 'joinGame', roomId: 'r1' })));
     expect(result.ok).toBe(true);

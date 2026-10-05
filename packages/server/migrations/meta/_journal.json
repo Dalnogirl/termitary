@@ -85,6 +85,13 @@
       "when": 1791204488939,
       "tag": "0011_room_clock",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1791215119778,
+      "tag": "0012_room_deadline",
+      "breakpoints": true
     }
   ]
 }

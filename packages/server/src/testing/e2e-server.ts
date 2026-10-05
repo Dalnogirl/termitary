@@ -23,7 +23,7 @@ const auth = createAuth(db.db, createDrizzleUserStore(db.db), log, {
 });
 // The same request log `pnpm dev` prints, because a browser spec that fails on
 // CI leaves nothing else to read.
-const app = await buildApp({ db, auth, seekSweepIntervalMs: 0, loggerInstance: log });
+const app = await buildApp({ db, auth, sweepIntervalMs: 0, loggerInstance: log });
 
 // Registered here and nowhere else, so no deployment can serve it.
 app.get<{ Querystring: { email?: string } }>('/e2e/otp', async (req, reply) => {
