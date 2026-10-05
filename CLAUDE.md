@@ -56,13 +56,14 @@ Migrations run automatically on boot (`createDb` calls `migrate`), so a fresh ch
 
 ## Packages
 
-`engine` → `protocol` → `server` / `web`. The engine imports nothing; the protocol imports the engine; server and web import both.
+`engine` → `protocol` → `server` / `web`. The engine imports nothing; the protocol imports the engine; server and web import both. `clock` imports nothing and nothing imports it yet.
 
 - **`@termitary/engine`** — pure Hive rules. No IO, no framework, no deps beyond fast-check in tests.
+- **`@termitary/clock`** — pure time-control maths: the `TimeControl` kinds, their presets, and a clock state charged, flagged and abandoned against a `now` the caller passes. No IO.
 - **`@termitary/protocol`** — zod schemas for every WS message and REST body, plus `toWire`/`fromWire` converting `GameState` to and from JSON (the board is a `Map`, so it needs explicit conversion).
 - **`@termitary/server`** — Fastify + `@fastify/websocket`, better-auth over Drizzle/SQLite.
 - **`@termitary/web`** — React 19 SPA, Vite, Konva canvas board, zustand, Tailwind v4 + shadcn.
-- **`@termitary/e2e`** — Playwright specs driving a browser against the other four. Not in the dependency chain: nothing imports it.
+- **`@termitary/e2e`** — Playwright specs driving a browser against the rest. Not in the dependency chain: nothing imports it.
 
 Packages are consumed as raw TypeScript source (`"main": "src/index.ts"`); nothing builds to `dist`. Editing the engine changes the web app on the next vite reload with no build step.
 
