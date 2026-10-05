@@ -6,10 +6,12 @@ export {
   IllegalChargeError,
   abandoned,
   charge,
+  clockDefect,
   firstMoveRemaining,
   flagged,
   remaining,
   startClock,
+  timeControlOf,
 } from './clock.js';
 export {
   type CorrespondenceControl,

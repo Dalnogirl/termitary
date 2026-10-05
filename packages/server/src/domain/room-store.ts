@@ -1,3 +1,4 @@
+import type { TimeControl } from '@termitary/clock';
 import type { GameState, Ruleset } from '@termitary/engine';
 import type { Room, Seats } from './room.js';
 import type { WriteOp } from './unit-of-work.js';
@@ -11,6 +12,7 @@ export type RoomOverview = {
   readonly status: GameState['status'];
   readonly updatedAt: Date;
   readonly ruleset: Ruleset;
+  readonly timeControl: TimeControl;
 };
 
 /**

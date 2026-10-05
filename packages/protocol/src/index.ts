@@ -1,3 +1,4 @@
+export * from './clock.js';
 export * from './client-messages.js';
 export * from './profile.js';
 export * from './rest.js';

@@ -103,3 +103,49 @@ export const charge = (clock: Clock, side: Side, now: number): Clock => {
   }
   return { ...clock, ...turn };
 };
+
+export const timeControlOf = (clock: Clock): TimeControl => {
+  switch (clock.kind) {
+    case 'untimed':
+      return { kind: 'untimed' };
+    case 'correspondence':
+      return { kind: 'correspondence', daysPerMove: clock.daysPerMove };
+    case 'realtime':
+      return { kind: 'realtime', initialMs: clock.initialMs, incrementMs: clock.incrementMs };
+  }
+};
+
+const logDefect = (clock: Clock): string | undefined => {
+  if (clock.kind === 'untimed') {
+    return clock.log.length === 0 ? undefined : 'an untimed clock keeps no log';
+  }
+  const outOfTurn = clock.log.findIndex(
+    (entry, i) => entry.side !== (i % 2 === 0 ? 'white' : 'black'),
+  );
+  if (outOfTurn !== -1) return `log entry ${outOfTurn} is out of turn`;
+  if (clock.log.some((entry) => !(entry.remainingMs > 0))) return 'a logged move had no time left';
+  const last = clock.log.at(-1);
+  if (clock.toMove !== (last === undefined ? 'white' : opponent(last.side))) {
+    return `${clock.toMove} is to move, but the log says otherwise`;
+  }
+  if ((clock.phase === 'running') !== clock.log.length >= 2) {
+    return `phase ${clock.phase} disagrees with ${clock.log.length} logged moves`;
+  }
+  return undefined;
+};
+
+/**
+ * Why a clock that arrived from outside cannot be one `startClock` and
+ * `charge` would have produced, or undefined when it could be. Untimed clocks
+ * log nothing, so their phase and side to move go unchecked.
+ */
+export const clockDefect = (clock: Clock): string | undefined => {
+  if (!Number.isFinite(clock.turnStartedAt) || clock.turnStartedAt < 0) {
+    return 'turnStartedAt is not an instant';
+  }
+  if (clock.kind === 'realtime') {
+    if (!(clock.initialMs > 0) || !(clock.incrementMs >= 0)) return 'impossible time control';
+    if (!(clock.bankMs.white > 0) || !(clock.bankMs.black > 0)) return 'a bank is empty';
+  }
+  return logDefect(clock);
+};

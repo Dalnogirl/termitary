@@ -1,3 +1,4 @@
+import { charge, startClock } from '@termitary/clock';
 import type { Board, GameState, Piece } from '@termitary/engine';
 import { BASE_RULESET, listValidMoves } from '@termitary/engine';
 import type { ServerMessage } from '@termitary/protocol';
@@ -7,7 +8,7 @@ import { createInMemoryConnectionRegistry } from '../adapters/in-memory-connecti
 import type { Sender } from '../domain/connection-registry.js';
 import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
-import { createPairedRoom } from '../domain/room.js';
+import { UNTIMED, createPairedRoom } from '../domain/room.js';
 import { createTestStores } from '../testing/stores.js';
 import { announceDisconnect } from './announce-disconnect.js';
 import { joinGame } from './join-game.js';
@@ -397,6 +398,8 @@ describe('archiving a finished game', () => {
       ruleset: BASE_RULESET,
       state,
       players: { white: ident('alice'), black: ident('bob') },
+      // The position has black to move, and so must the clock.
+      clock: charge(startClock(UNTIMED, 1000), 'white', 1000),
       createdAt: new Date(1000),
       updatedAt: new Date(1000),
     });

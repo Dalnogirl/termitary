@@ -1,4 +1,4 @@
-import type { SeekPreference, WireGameState, WireRuleset } from '@termitary/protocol';
+import type { SeekPreference, WireClock, WireGameState, WireRuleset } from '@termitary/protocol';
 import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { user } from './auth-schema.js';
 
@@ -54,6 +54,9 @@ export const rooms = sqliteTable(
     // `state` carries its own copy since S-6.4; this column is the one a query
     // can reach, and the room store takes it as the authority on read.
     ruleset: text('ruleset', { mode: 'json' }).$type<WireRuleset>(),
+    // Null is a row written before the column, and reads as untimed. The
+    // time control is not a column of its own: the clock carries it.
+    clock: text('clock', { mode: 'json' }).$type<WireClock>(),
     // Optimistic concurrency: every `save` carries the version it read and
     // writes `WHERE version = ?`, so a lost compare-and-swap is a conflict.
     version: integer('version').notNull(),

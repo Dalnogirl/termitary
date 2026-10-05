@@ -29,6 +29,7 @@ const room = (roomId: string): MyRoomSummaryDto => ({
   seat: 'white',
   updatedAt: 0,
   ruleset: toWireRuleset(BASE_RULESET),
+  timeControl: { kind: 'untimed' },
 });
 
 let board: SeekBoardDto;

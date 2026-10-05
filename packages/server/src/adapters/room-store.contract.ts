@@ -1,4 +1,5 @@
-import { BASE_RULESET, type Ruleset } from '@termitary/engine';
+import type { TimeControl } from '@termitary/clock';
+import { BASE_RULESET, type Ruleset, listValidMoves } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import type { ArchivedGameStore } from '../domain/archived-game-store.js';
 import { toArchivedGame } from '../domain/archived-game.js';
@@ -10,8 +11,10 @@ import {
 import {
   type FinishedRoom,
   type Room,
+  UNTIMED,
   createPairedRoom,
   isFinished,
+  play,
   touch,
 } from '../domain/room.js';
 import type { UnitOfWork } from '../domain/unit-of-work.js';
@@ -45,6 +48,22 @@ const roomAt = (id: string, white: string, black: string, ms: number, ruleset?: 
 // One piece short of base, so a store that quietly rebuilt a base game passes
 // nothing below.
 const NO_SPIDERS: Ruleset = { pieces: { queen: 1, ant: 3, beetle: 2, grasshopper: 3 } };
+
+const BLITZ: TimeControl = { kind: 'realtime', initialMs: 300_000, incrementMs: 3_000 };
+
+const timedRoomAt = (id: string, ms: number) =>
+  createPairedRoom(id, ident('p1'), ident('p2'), at(ms), BASE_RULESET, BLITZ);
+
+const playFirstMove = (room: Room, now: Date): Room => {
+  if (room.state.status === 'finished') throw new Error('game is over');
+  const move = listValidMoves(room.state)[0];
+  if (move === undefined) throw new Error('no legal move');
+  return play(room, room.state.currentPlayer, move, now);
+};
+
+// Both first moves played, so the banks are running and the log has entries.
+const playedTwice = (room: Room, ms: number): Room =>
+  playFirstMove(playFirstMove(room, at(ms)), at(ms + 1000));
 
 // Playing to a real queen surround here would say nothing about the store.
 const FINISHED = { status: 'finished', result: 'draw', endReason: 'queen-surrounded' } as const;
@@ -111,6 +130,41 @@ export const describeRoomStoreContract = (
       withStore(async ({ store }) => {
         await store.create(roomAt('r1', 'p1', 'p2', 1000));
         expect((await store.get('r1'))?.ruleset).toEqual(BASE_RULESET);
+      }));
+
+    it('create + get round-trips a timed room', async () =>
+      withStore(async ({ store }) => {
+        const room = timedRoomAt('r1', 1000);
+        await store.create(room);
+        expect(await store.get('r1')).toEqual(room);
+      }));
+
+    it('create + get round-trips a correspondence room', async () =>
+      withStore(async ({ store }) => {
+        const room = createPairedRoom('r1', ident('p1'), ident('p2'), at(1000), BASE_RULESET, {
+          kind: 'correspondence',
+          daysPerMove: 3,
+        });
+        await store.create(playedTwice(room, 2000));
+        expect(await store.get('r1')).toEqual(playedTwice(room, 2000));
+      }));
+
+    it('save stores the clock a move charged', async () =>
+      withStore(async ({ store }) => {
+        const room = timedRoomAt('r1', 1000);
+        await store.create(room);
+
+        const played = playedTwice(room, 2000);
+        await saveFresh(store, played);
+
+        expect((await store.get('r1'))?.clock).toEqual(played.clock);
+      }));
+
+    it('a listing carries each room time control', async () =>
+      withStore(async ({ store }) => {
+        await store.create(timedRoomAt('r1', 1000));
+        const [listed] = await store.listSeatedBy('p1');
+        expect(listed?.timeControl).toEqual(BLITZ);
       }));
 
     it('create rejects duplicate ids', async () =>
@@ -210,6 +264,7 @@ export const describeRoomStoreContract = (
             status: 'in_progress',
             updatedAt: new Date(1000),
             ruleset: BASE_RULESET,
+            timeControl: UNTIMED,
           },
           {
             id: 'r2',
@@ -217,6 +272,7 @@ export const describeRoomStoreContract = (
             status: 'in_progress',
             updatedAt: new Date(1000),
             ruleset: BASE_RULESET,
+            timeControl: UNTIMED,
           },
         ]);
       }));

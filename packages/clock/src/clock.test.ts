@@ -6,10 +6,12 @@ import {
   type Side,
   abandoned,
   charge,
+  clockDefect,
   firstMoveRemaining,
   flagged,
   remaining,
   startClock,
+  timeControlOf,
 } from './clock.js';
 import type { TimeControl } from './time-control.js';
 
@@ -187,6 +189,54 @@ describe('a clock running backwards', () => {
   });
 });
 
+describe('timeControlOf', () => {
+  it('gives back the control a clock started from, whatever has been charged', () => {
+    for (const control of [UNTIMED, DAILY, BLITZ]) {
+      expect(timeControlOf(started(control))).toEqual(control);
+    }
+  });
+});
+
+describe('clockDefect', () => {
+  it('passes a clock straight from startClock', () => {
+    for (const control of [UNTIMED, DAILY, BLITZ]) {
+      expect(clockDefect(startClock(control, T0))).toBeUndefined();
+    }
+  });
+
+  it('catches an empty bank', () => {
+    const clock = started(BLITZ);
+    if (clock.kind !== 'realtime') throw new Error('unreachable');
+    expect(clockDefect({ ...clock, bankMs: { ...clock.bankMs, black: 0 } })).toBeDefined();
+  });
+
+  it('catches a phase the log disagrees with', () => {
+    expect(clockDefect({ ...startClock(BLITZ, T0), phase: 'running' })).toBeDefined();
+    expect(clockDefect({ ...started(DAILY), phase: 'pre_start' })).toBeDefined();
+  });
+
+  it('catches a side to move the log disagrees with', () => {
+    expect(clockDefect({ ...started(BLITZ), toMove: 'black' })).toBeDefined();
+  });
+
+  it('catches a log out of turn', () => {
+    const clock = started(DAILY);
+    const [first, second] = clock.log;
+    if (first === undefined || second === undefined) throw new Error('expected two entries');
+    expect(clockDefect({ ...clock, log: [second, first] })).toBeDefined();
+  });
+
+  it('catches a turn that started before the epoch', () => {
+    expect(clockDefect({ ...started(BLITZ), turnStartedAt: -1 })).toBeDefined();
+  });
+
+  it('catches an untimed clock with a log', () => {
+    expect(
+      clockDefect({ ...startClock(UNTIMED, T0), log: [{ side: 'white', remainingMs: 1 }] }),
+    ).toBeDefined();
+  });
+});
+
 const SIDES: readonly Side[] = ['white', 'black'];
 
 type Step = { readonly dt: number; readonly move: boolean };
@@ -284,6 +334,14 @@ describe('properties', () => {
             before = { ...before, [side]: after };
           }
         });
+      }),
+    );
+  });
+
+  it('finds no defect in any clock charge produces', () => {
+    fc.assert(
+      fc.property(gameArb, ([control, steps]) => {
+        play(control, steps, (clock) => expect(clockDefect(clock)).toBeUndefined());
       }),
     );
   });

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A multiplayer web Hive game, and an excuse to learn AWS by moving it there in stages (#50). It starts as a local monolith on familiar tech and stays playable without the cloud at every stage.
 
-Untimed, and a clock stays out. Expansion pieces are in: a `Ruleset` picks which types a game uses, and `BASE_RULESET` is the default.
+Expansion pieces are in: a `Ruleset` picks which types a game uses, and `BASE_RULESET` is the default.
 
 Principles, in rough order of how often they settle an argument:
 
@@ -56,7 +56,7 @@ Migrations run automatically on boot (`createDb` calls `migrate`), so a fresh ch
 
 ## Packages
 
-`engine` → `protocol` → `server` / `web`. The engine imports nothing; the protocol imports the engine; server and web import both. `clock` imports nothing and nothing imports it yet.
+`engine` and `clock` → `protocol` → `server` / `web`. The engine and the clock import nothing; the protocol imports both; server and web import what they need of all three.
 
 - **`@termitary/engine`** — pure Hive rules. No IO, no framework, no deps beyond fast-check in tests.
 - **`@termitary/clock`** — pure time-control maths: the `TimeControl` kinds, their presets, and a clock state charged, flagged and abandoned against a `now` the caller passes. No IO.

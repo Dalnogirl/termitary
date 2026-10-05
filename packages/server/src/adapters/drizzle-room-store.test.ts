@@ -1,13 +1,13 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BASE_RULESET, applyMove, createGame, replayFrames } from '@termitary/engine';
+import { BASE_RULESET, replayFrames } from '@termitary/engine';
 import { BEFORE_SQUEEZE, SQUEEZE } from '@termitary/engine/testing';
 import { type WireGameState, toWire } from '@termitary/protocol';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import type { RoomStore } from '../domain/room-store.js';
-import { createPairedRoom, touch } from '../domain/room.js';
+import { UNTIMED, createPairedRoom, play, touch } from '../domain/room.js';
 import { user } from './db/auth-schema.js';
 import { type DbHandle, createDb } from './db/client.js';
 import { CURRENT_STATE_VERSION, rooms as roomsTable } from './db/schema.js';
@@ -23,12 +23,19 @@ const seedUser = (db: DbHandle, id: string): void => {
     .run();
 };
 
-const placeAnt = (q: number, r: number) =>
-  applyMove(createGame(), {
-    kind: 'place',
-    piece: { type: 'ant', color: 'white' },
-    to: { q, r },
-  });
+const ANT_AT_ORIGIN = {
+  kind: 'place',
+  piece: { type: 'ant', color: 'white' },
+  to: { q: 0, r: 0 },
+} as const;
+
+const antPlaced = () =>
+  play(
+    createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
+    'white',
+    ANT_AT_ORIGIN,
+    new Date(2000),
+  );
 
 describeRoomStoreContract('DrizzleRoomStore', async () => {
   const db = createDb(':memory:');
@@ -60,10 +67,7 @@ describe('DrizzleRoomStore', () => {
 
   it('round-trips a played game, board and history included', async () =>
     withStore(async ({ store }) => {
-      const room = {
-        ...createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
-        state: placeAnt(0, 0),
-      };
+      const room = antPlaced();
       await store.create(room);
 
       const stored = await store.get('r1');
@@ -113,11 +117,17 @@ describe('DrizzleRoomStore', () => {
         ...createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
         state: stuck,
       });
-      db.db.update(roomsTable).set({ stateVersion: 2 }).where(eq(roomsTable.id, 'r1')).run();
+      // A version 2 row predates the clock column too.
+      db.db
+        .update(roomsTable)
+        .set({ stateVersion: 2, clock: null })
+        .where(eq(roomsTable.id, 'r1'))
+        .run();
 
       const stored = await store.get('r1');
       expect(stored?.state.history.at(-1)).toEqual({ kind: 'pass' });
       expect(stored?.state.currentPlayer).toBe('black');
+      expect(stored?.clock.toMove).toBe('black');
     }));
 
   it('reads a stored room where neither side can move, as stored', async () =>
@@ -157,10 +167,7 @@ describe('DrizzleRoomStore', () => {
 
   it('replays a state stored before it carried a ruleset', async () =>
     withStore(async ({ db, store }) => {
-      const room = {
-        ...createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
-        state: placeAnt(0, 0),
-      };
+      const room = antPlaced();
       await store.create(room);
       const { ruleset: _dropped, ...legacy } = toWire(room.state);
       db.db
@@ -190,6 +197,40 @@ describe('DrizzleRoomStore', () => {
       const [listed] = await store.listSeatedBy('p1');
       expect(listed?.ruleset).toEqual(BASE_RULESET);
       await expect(store.get('r1')).rejects.toThrow();
+    }));
+
+  it('reads a null clock column as untimed, with the game side to move', async () =>
+    withStore(async ({ db, store }) => {
+      await store.create(antPlaced());
+      // What a row written before the column looks like.
+      db.db.update(roomsTable).set({ clock: null }).where(eq(roomsTable.id, 'r1')).run();
+
+      const stored = await store.get('r1');
+      expect(stored?.clock.kind).toBe('untimed');
+      expect(stored?.clock.toMove).toBe('black');
+      const [listed] = await store.listSeatedBy('p1');
+      expect(listed?.timeControl).toEqual(UNTIMED);
+    }));
+
+  it('lists a room whose clock cannot be parsed, as untimed', async () =>
+    withStore(async ({ db, store }) => {
+      await store.create(antPlaced());
+      db.db
+        .update(roomsTable)
+        .set({ clock: { kind: 'sundial' } as never })
+        .where(eq(roomsTable.id, 'r1'))
+        .run();
+
+      const [listed] = await store.listSeatedBy('p1');
+      expect(listed?.timeControl).toEqual(UNTIMED);
+      await expect(store.get('r1')).rejects.toThrow();
+    }));
+
+  it('rejects a clock that disagrees with the game on whose turn it is', async () =>
+    withStore(async ({ store }) => {
+      const room = antPlaced();
+      await store.create({ ...room, clock: { ...room.clock, toMove: 'white' } });
+      await expect(store.get('r1')).rejects.toThrow(/whose turn/);
     }));
 
   it('rejects a state payload it cannot parse', async () =>
@@ -242,10 +283,7 @@ describe('DrizzleRoomStore', () => {
     const dir = mkdtempSync(join(tmpdir(), 'termitary-room-store-'));
     try {
       const path = join(dir, 'test.db');
-      const room = {
-        ...createPairedRoom('r1', { playerId: 'p1' }, { playerId: 'p2' }, new Date(1000)),
-        state: placeAnt(0, 0),
-      };
+      const room = antPlaced();
 
       const first = createDb(path);
       try {
