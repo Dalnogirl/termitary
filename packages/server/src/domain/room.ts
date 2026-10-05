@@ -77,21 +77,22 @@ export const play = (room: Room, color: Color, move: Move, now: Date): Room => {
   return touch({ ...room, state, clock }, now);
 };
 
-// A missed first move loses on time until #185 turns it into an abort.
 const outOfTime = (room: Room, now: Date): Color | undefined =>
-  room.state.status === 'finished'
-    ? undefined
-    : (flagged(room.clock, now.getTime()) ?? abandoned(room.clock, now.getTime()));
+  room.state.status === 'finished' ? undefined : flagged(room.clock, now.getTime());
 
-// When the side to move runs out, which can be long before anyone notices.
-// Infinite on an untimed clock.
+/** A side missed its first move, so the game is aborted rather than lost. */
+export const isAbandoned = (room: Room, now: Date): boolean =>
+  room.state.status !== 'finished' && abandoned(room.clock, now.getTime()) !== undefined;
+
+// When the side to move runs out of time or of its first-move window, which
+// can be long before anyone notices. Infinite on an untimed clock.
 const deadlineMsOf = (clock: Clock): number => {
   const start = clock.turnStartedAt;
   const window = firstMoveRemaining(clock, start);
   return start + (Number.isFinite(window) ? window : remaining(clock, clock.toMove, start));
 };
 
-/** When the game ends on time if nobody moves, or undefined when it never will. */
+/** When the game ends on time or aborts if nobody moves, or undefined when it never will. */
 export const deadlineOf = (room: Room): Date | undefined => {
   if (room.state.status === 'finished') return undefined;
   const ms = deadlineMsOf(room.clock);

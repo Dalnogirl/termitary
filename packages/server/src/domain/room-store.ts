@@ -49,8 +49,9 @@ export type RoomStore = {
    */
   listSeatedBy(playerId: string): Promise<readonly RoomOverview[]>;
   /**
-   * Ids of the games whose side to move ran out of time by `now`. Ids rather
-   * than rooms, so one unreadable game cannot stop the sweep finishing the rest.
+   * Ids of the games whose side to move ran out of time or missed its first
+   * move by `now`. Ids rather than rooms, so one unreadable game cannot stop
+   * the sweep ending the rest.
    */
   listOverdue(now: Date): Promise<readonly string[]>;
 };

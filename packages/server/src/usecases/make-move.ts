@@ -7,7 +7,7 @@ import { type Room, colorOf, play } from '../domain/room.js';
 import { answerMissingRoom } from './answer-missing-room.js';
 import { broadcastState } from './broadcast-state.js';
 import { commitPlayed } from './commit-played.js';
-import { finishIfFlagged } from './finish-on-time.js';
+import { endIfOutOfTime } from './end-on-time.js';
 import { type TimeDeps, arrivalOf } from './now.js';
 import { retryOnConflict } from './retry-on-conflict.js';
 import { sendError } from './send-error.js';
@@ -46,7 +46,7 @@ const attemptMove = async (
     await sendError(connections, identity, 'game already finished', 'makeMove');
     return;
   }
-  if ((await finishIfFlagged(room, version, identity, 'makeMove', now, ports)) !== 'in-time') {
+  if ((await endIfOutOfTime(room, version, identity, 'makeMove', now, ports)) !== 'in-time') {
     return;
   }
   if (room.state.currentPlayer !== color) {

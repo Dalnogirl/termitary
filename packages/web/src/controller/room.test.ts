@@ -236,6 +236,31 @@ describe('createRoomController', () => {
     expect(notifier.error).not.toHaveBeenCalled();
   });
 
+  it('marks the room aborted when the server says nobody started it, and says why', () => {
+    const controller = setup();
+
+    deliver({ type: 'gameAborted', roomId: 'r1' });
+
+    expect(controller.store.getState().status).toBe('aborted');
+    expect(notifier.info).toHaveBeenCalledWith('Game aborted: a first move was not made in time', {
+      id: 'game-aborted',
+    });
+    expect(notifier.error).not.toHaveBeenCalled();
+  });
+
+  it('ignores an error that trails the abort', () => {
+    const controller = setup();
+    deliver({ type: 'gameAborted', roomId: 'r1' });
+    sent.length = 0;
+
+    deliver({ type: 'error', message: 'room not found', requestKind: 'makeMove' });
+    deliver({ type: 'error', message: 'room not found', requestKind: 'resign' });
+
+    expect(controller.store.getState().status).toBe('aborted');
+    expect(notifier.error).not.toHaveBeenCalled();
+    expect(sent).toEqual([]);
+  });
+
   it('fails the room on an error that is not a move rejection, and says why', () => {
     const controller = setup();
 

@@ -59,6 +59,13 @@ export const ServerGameArchivedSchema = z
   .strict();
 export type ServerGameArchived = z.infer<typeof ServerGameArchivedSchema>;
 
+// The room is gone because a side missed its first move. Nothing was archived,
+// so a later request for the room gets `room not found`.
+export const ServerGameAbortedSchema = z
+  .object({ type: z.literal('gameAborted'), roomId: z.string().min(1) })
+  .strict();
+export type ServerGameAborted = z.infer<typeof ServerGameAbortedSchema>;
+
 export const ServerErrorSchema = z
   .object({
     type: z.literal('error'),
@@ -74,6 +81,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   ServerStateUpdatedSchema,
   ServerPresenceUpdateSchema,
   ServerGameArchivedSchema,
+  ServerGameAbortedSchema,
   ServerErrorSchema,
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

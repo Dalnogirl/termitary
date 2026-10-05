@@ -77,6 +77,8 @@ export const PlayPage = () => {
 
   if (room.status === 'error') return <Navigate to={paths.home} />;
   if (room.status === 'archived') return null;
+  // Replace, so Back does not land on a room that is gone.
+  if (room.status === 'aborted') return <Navigate to={paths.home} replace />;
   if (room.controller === null) {
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground">

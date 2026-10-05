@@ -4,7 +4,7 @@ import type { Ports } from '../domain/ports.js';
 import { colorOf } from '../domain/room.js';
 import { answerMissingRoom } from './answer-missing-room.js';
 import { stateUpdate } from './broadcast-state.js';
-import { finishIfFlagged } from './finish-on-time.js';
+import { endIfOutOfTime } from './end-on-time.js';
 import { type TimeDeps, arrivalOf } from './now.js';
 import { retryOnConflict } from './retry-on-conflict.js';
 import { sendError } from './send-error.js';
@@ -35,7 +35,7 @@ const attemptClaim = async (
     await sendError(ports.connections, identity, 'not in room', 'claimTimeout');
     return;
   }
-  if ((await finishIfFlagged(room, version, identity, 'claimTimeout', now, ports)) !== 'in-time') {
+  if ((await endIfOutOfTime(room, version, identity, 'claimTimeout', now, ports)) !== 'in-time') {
     return;
   }
   // The claimant's countdown ran ahead of the server's; this puts it back.

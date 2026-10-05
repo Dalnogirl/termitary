@@ -100,6 +100,8 @@ Seat and presence are separate concepts. A socket close during a game notifies t
 
 A finished game leaves `rooms` in the same commit that archives it, so no finished room is ever stored. `makeMove` and `resign` commit `rooms.deleteOp` and `archive.recordOp` through the `UnitOfWork` port and broadcast only after it succeeds. If the archive insert fails, the move fails with it: the room keeps its previous state and the player gets an error. The ops are opaque `WriteOp`s each store builds for its own table, and the commit runs them as plain synchronous functions because better-sqlite3 refuses an async transaction callback; on DynamoDB (#50) the same list is a `TransactWriteItems`. A seated player who comes back to an archived room, through `joinGame`, `makeMove` or `resign`, gets `gameArchived` and the web client follows it to `/archived-games/:id`. Anyone else gets `room not found`.
 
+A timed game whose side to move misses its first move is aborted instead: `abortRoom` commits the room's `deleteOp` alone, archives nothing, and sends `gameAborted`, and the web client goes back to the lobby. `makeMove`, `resign`, `joinGame`, `claimTimeout` and the sweep all check for it before checking for a flag. Nothing records the room, so anyone who comes back to it gets `room not found`.
+
 Tests use `createTestApp()` from `src/testing/auth-helper.ts`: in-memory SQLite, captured OTPs, and a `signIn(email)` returning a usable cookie. Use `app.inject` for REST; `ws/integration.test.ts` shows the WebSocket pattern.
 
 ## Web

@@ -11,8 +11,9 @@ const sweepAndLog = (log: FastifyBaseLogger, ports: SweepPorts): void => {
     })
     .catch((err: unknown) => log.error({ err }, 'seek sweep failed'));
   void sweepTimedOutRooms(ports)
-    .then((finished) => {
+    .then(({ finished, aborted }) => {
       if (finished > 0) log.info({ finished }, 'finished games out of time');
+      if (aborted > 0) log.info({ aborted }, 'aborted games nobody started');
     })
     .catch((err: unknown) => log.error({ err }, 'timeout sweep failed'));
 };

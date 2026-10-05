@@ -6,7 +6,7 @@ import type { Ports } from '../domain/ports.js';
 import { colorOf, playerAcross } from '../domain/room.js';
 import type { UserStore } from '../domain/user-store.js';
 import { answerMissingRoom } from './answer-missing-room.js';
-import { finishIfFlagged } from './finish-on-time.js';
+import { endIfOutOfTime } from './end-on-time.js';
 import { type TimeDeps, arrivalOf } from './now.js';
 import { retryOnConflict } from './retry-on-conflict.js';
 import { seatedPresence } from './seated-presence.js';
@@ -27,8 +27,22 @@ const presenceOf = async (
   return seatedPresence(users, opponentId, bound === roomId ? 'connected' : 'disconnected');
 };
 
+const ENDING_MESSAGE = { finished: 'gameArchived', aborted: 'gameAborted' } as const;
+
+// A joiner on a fresh socket is not attached yet, so the broadcast that ended
+// the game missed them. One already attached heard it.
+const tellUnattachedJoiner = async (
+  connections: ConnectionRegistry,
+  identity: Identity,
+  roomId: string,
+  type: (typeof ENDING_MESSAGE)[keyof typeof ENDING_MESSAGE],
+): Promise<void> => {
+  if ((await connections.findRoomByPlayerId(identity.playerId)) === roomId) return;
+  await connections.sendTo(identity.playerId, { type, roomId });
+};
+
 // Rooms are born with both seats filled, so a player who holds neither has no
-// way in. The retry only ever re-runs the flag check: nothing before it sends.
+// way in. The retry only ever re-runs the clock check: nothing before it sends.
 export const joinGame = (
   identity: Identity,
   msg: ClientJoinGame,
@@ -58,12 +72,11 @@ const attemptJoin = async (
     await sendError(connections, identity, 'room is full', 'joinGame');
     return;
   }
-  const flag = await finishIfFlagged(room, version, identity, 'joinGame', now, ports);
-  if (flag === 'finished') {
-    // The joiner is not attached yet, so the broadcast reached only the opponent.
-    await connections.sendTo(identity.playerId, { type: 'gameArchived', roomId: room.id });
+  const outcome = await endIfOutOfTime(room, version, identity, 'joinGame', now, ports);
+  if (outcome === 'finished' || outcome === 'aborted') {
+    await tellUnattachedJoiner(connections, identity, room.id, ENDING_MESSAGE[outcome]);
   }
-  if (flag !== 'in-time') return;
+  if (outcome !== 'in-time') return;
 
   // Re-attach: route remount, reconnect, or the first visit after pairing.
   await connections.joinRoom(identity.playerId, room.id);
