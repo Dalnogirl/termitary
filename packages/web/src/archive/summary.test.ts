@@ -66,6 +66,16 @@ describe('endReasonLabel', () => {
     );
   });
 
+  it('names who ran out of time', () => {
+    const timedOut = { endReason: 'timeout' } as const;
+    expect(endReasonLabel(game({ ...timedOut, seat: 'white', result: 'white-wins' }))).toBe(
+      'opponent ran out of time',
+    );
+    expect(endReasonLabel(game({ ...timedOut, seat: 'black', result: 'white-wins' }))).toBe(
+      'ran out of time',
+    );
+  });
+
   it('pluralizes the queens on a draw', () => {
     expect(endReasonLabel(game({ result: 'draw' }))).toBe('both queens surrounded');
   });

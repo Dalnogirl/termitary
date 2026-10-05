@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { type GameState, LADYBUG_RULESET, createGame, resign } from '@termitary/engine';
+import { type GameState, LADYBUG_RULESET, createGame, resign, timeOut } from '@termitary/engine';
 import type { OpponentPresence } from '@termitary/protocol';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
@@ -79,6 +79,13 @@ describe('game-over Modal', () => {
     show('white');
 
     expect(screen.getByText('Black queen surrounded')).toBeDefined();
+  });
+
+  it('names the player who ran out of time', () => {
+    load(timeOut(createGame(), 'black'));
+    show('white');
+
+    expect(screen.getByText('Black ran out of time')).toBeDefined();
   });
 
   it('stays dismissed when the same finished game is re-delivered', () => {

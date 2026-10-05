@@ -86,7 +86,7 @@ export type ArchivedGameSummaryDto = {
   readonly seat: 'white' | 'black';
   readonly players: ArchivedSeatPlayersDto;
   readonly result: 'white-wins' | 'black-wins' | 'draw';
-  readonly endReason: 'queen-surrounded' | 'resignation';
+  readonly endReason: 'queen-surrounded' | 'resignation' | 'timeout';
   /** Epoch milliseconds. */
   readonly startedAt: number;
   /** Epoch milliseconds. */
@@ -122,6 +122,7 @@ export type PlayerRecordDto = {
   readonly endings: {
     readonly queenSurrounded: number;
     readonly resignation: number;
+    readonly timeout: number;
   };
   /** Consecutive wins by finish order. A draw breaks it. */
   readonly longestWinStreak: number;

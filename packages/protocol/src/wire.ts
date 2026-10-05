@@ -94,7 +94,7 @@ export const WireMoveSchema = z.discriminatedUnion('kind', [
 export type WireMove = z.infer<typeof WireMoveSchema>;
 
 const WireFinishedResultSchema = z.enum(['white-wins', 'black-wins', 'draw']);
-const WireEndReasonSchema = z.enum(['queen-surrounded', 'resignation']);
+const WireEndReasonSchema = z.enum(['queen-surrounded', 'resignation', 'timeout']);
 
 const inProgressShape = {
   status: z.literal('in_progress'),

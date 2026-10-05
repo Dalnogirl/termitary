@@ -8,6 +8,7 @@ import {
   createGame,
   listValidMoves,
   resign,
+  timeOut,
 } from './coordinator.js';
 import { type HexCoord, key } from './hex.js';
 import type { Piece } from './piece.js';
@@ -253,6 +254,51 @@ describe('resign', () => {
     const finished = resign(s, 'white');
 
     expect(() => resign(finished, 'black')).toThrow(IllegalMoveError);
+  });
+});
+
+describe('timeOut', () => {
+  it('hands the win to the opponent', () => {
+    let s: GameState = createGame();
+    s = placeMove(s, WA, ORIGIN);
+    s = placeMove(s, BA, E);
+
+    const after = timeOut(s, 'white');
+
+    expect(after.status).toBe('finished');
+    if (after.status === 'finished') {
+      expect(after.result).toBe('black-wins');
+      expect(after.endReason).toBe('timeout');
+    }
+  });
+
+  it('works when it is not the flagged player turn', () => {
+    let s: GameState = createGame();
+    s = placeMove(s, WA, ORIGIN);
+    expect(s.status === 'in_progress' && s.currentPlayer).toBe('black');
+
+    const after = timeOut(s, 'white');
+
+    expect(after.status === 'finished' && after.result).toBe('black-wins');
+  });
+
+  it('leaves the board and history untouched', () => {
+    let s: GameState = createGame();
+    s = placeMove(s, WA, ORIGIN);
+    s = placeMove(s, BA, E);
+
+    const after = timeOut(s, 'black');
+
+    expect(after.board).toBe(s.board);
+    expect(after.history).toEqual(s.history);
+  });
+
+  it('rejects a finished game', () => {
+    let s: GameState = createGame();
+    s = placeMove(s, WA, ORIGIN);
+    const finished = resign(s, 'white');
+
+    expect(() => timeOut(finished, 'black')).toThrow(IllegalMoveError);
   });
 });
 

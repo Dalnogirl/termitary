@@ -37,8 +37,18 @@ const SURROUNDED_SUBTITLE: Record<FinishedResult, string> = {
   draw: 'Both queens surrounded simultaneously',
 };
 
-const subtitleOf = (result: FinishedResult, endReason: EndReason): string =>
-  endReason === 'resignation' ? SURRENDER_SUBTITLE[result] : SURROUNDED_SUBTITLE[result];
+const TIMEOUT_SUBTITLE: Record<FinishedResult, string> = {
+  'white-wins': 'Black ran out of time',
+  'black-wins': 'White ran out of time',
+  // Running out of time always names a winner, so this is unreachable.
+  draw: 'Out of time',
+};
+
+const SUBTITLE: Record<EndReason, Record<FinishedResult, string>> = {
+  resignation: SURRENDER_SUBTITLE,
+  'queen-surrounded': SURROUNDED_SUBTITLE,
+  timeout: TIMEOUT_SUBTITLE,
+};
 
 const WINNING_COLOR: Record<FinishedResult, Color | null> = {
   'white-wins': 'white',
@@ -96,7 +106,7 @@ export const Modal = () => {
           <AlertDialogTitle>
             <Title result={game.result} myColor={myColor} opponent={opponent} />
           </AlertDialogTitle>
-          <AlertDialogDescription>{subtitleOf(game.result, game.endReason)}</AlertDialogDescription>
+          <AlertDialogDescription>{SUBTITLE[game.endReason][game.result]}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => setDismissed(true)}>Review board</AlertDialogCancel>

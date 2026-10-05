@@ -290,7 +290,7 @@ describe('REST routes', () => {
         for (const player of [alice, bob]) {
           const record = (await profileOf(alice.cookie, player.id)).record;
           expect(record.overall).toMatchObject({ played: 1, wins: 0, losses: 0, draws: 1 });
-          expect(record.endings).toEqual({ queenSurrounded: 1, resignation: 0 });
+          expect(record.endings).toEqual({ queenSurrounded: 1, resignation: 0, timeout: 0 });
         }
       });
     });

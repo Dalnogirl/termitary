@@ -21,7 +21,7 @@ describe('computeRecord', () => {
       asWhite: { played: 0, wins: 0, losses: 0, draws: 0, winRate: 0 },
       asBlack: { played: 0, wins: 0, losses: 0, draws: 0, winRate: 0 },
       averageMoves: 0,
-      endings: { queenSurrounded: 0, resignation: 0 },
+      endings: { queenSurrounded: 0, resignation: 0, timeout: 0 },
       longestWinStreak: 0,
       lastPlayedAt: null,
     });
@@ -51,9 +51,15 @@ describe('computeRecord', () => {
   });
 
   it('splits how the games ended', () => {
-    expect(computeRecord([outcome(), outcome({ endReason: 'resignation' })]).endings).toEqual({
+    const outcomes = [
+      outcome(),
+      outcome({ endReason: 'resignation' }),
+      outcome({ endReason: 'timeout' }),
+    ];
+    expect(computeRecord(outcomes).endings).toEqual({
       queenSurrounded: 1,
       resignation: 1,
+      timeout: 1,
     });
   });
 

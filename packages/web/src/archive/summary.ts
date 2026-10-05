@@ -19,10 +19,14 @@ export const outcomeLabel = (game: ArchivedGameSummaryDto): string => {
 };
 
 export const endReasonLabel = (game: ArchivedGameSummaryDto): string => {
-  if (game.endReason === 'resignation') {
-    return won(game) ? 'opponent resigned' : 'resigned';
+  switch (game.endReason) {
+    case 'resignation':
+      return won(game) ? 'opponent resigned' : 'resigned';
+    case 'timeout':
+      return won(game) ? 'opponent ran out of time' : 'ran out of time';
+    case 'queen-surrounded':
+      return game.result === 'draw' ? 'both queens surrounded' : 'queen surrounded';
   }
-  return game.result === 'draw' ? 'both queens surrounded' : 'queen surrounded';
 };
 
 export const archivedDetail = (game: ArchivedGameSummaryDto): string =>
