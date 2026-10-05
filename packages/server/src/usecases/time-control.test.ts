@@ -9,6 +9,7 @@ import type { Ports } from '../domain/ports.js';
 import type { RoomStore } from '../domain/room-store.js';
 import { createPairedRoom, play } from '../domain/room.js';
 import { createTestStores } from '../testing/stores.js';
+import { claimTimeout } from './claim-timeout.js';
 import { joinGame } from './join-game.js';
 import { makeMove } from './make-move.js';
 import { resign } from './resign.js';
@@ -186,6 +187,55 @@ describe('a resignation against the clock', () => {
     await resign(ident('alice'), { type: 'resign', roomId }, ports, at(WHITE_FLAGS_AT));
 
     expectTimedOut(lastOf(bob), 'white');
+  });
+});
+
+describe('a timeout claim', () => {
+  const claim = (ports: Ports, player: string, roomId: string, ms: number) =>
+    claimTimeout(ident(player), { type: 'claimTimeout', roomId }, ports, at(ms));
+
+  it('that holds finishes the game on time for both players', async () => {
+    const { ports, alice, bob, roomId } = await runningGame();
+
+    await claim(ports, 'bob', roomId, WHITE_FLAGS_AT);
+
+    expectTimedOut(lastOf(alice), 'white');
+    expectTimedOut(lastOf(bob), 'white');
+    expect((await ports.archive.get(roomId))?.finishedAt).toEqual(new Date(WHITE_FLAGS_AT));
+  });
+
+  it('made early answers the claimant with the clock as the server reads it', async () => {
+    const { ports, alice, bob, roomId } = await runningGame();
+    const aliceHeard = alice.messages.length;
+
+    await claim(ports, 'bob', roomId, WHITE_FLAGS_AT - 1);
+
+    expect(lastOf(bob)).toMatchObject({
+      type: 'stateUpdated',
+      state: { status: 'in_progress' },
+      clock: { remainingMs: { white: 1, black: 300_000 } },
+    });
+    expect(alice.messages).toHaveLength(aliceHeard);
+    expect(await ports.rooms.get(roomId)).toBeDefined();
+  });
+
+  it('on a game already archived sends the claimant there', async () => {
+    const { ports, bob, roomId } = await runningGame();
+    await claim(ports, 'bob', roomId, WHITE_FLAGS_AT);
+
+    await claim(ports, 'bob', roomId, WHITE_FLAGS_AT + 1);
+
+    expect(lastOf(bob)).toEqual({ type: 'gameArchived', roomId });
+  });
+
+  it('from a stranger finishes nothing', async () => {
+    const { ports, connect, roomId } = await runningGame();
+    const carol = connect('carol');
+
+    await claim(ports, 'carol', roomId, WHITE_FLAGS_AT);
+
+    expect(lastOf(carol)).toMatchObject({ type: 'error', message: 'not in room' });
+    expect(await ports.rooms.get(roomId)).toBeDefined();
   });
 });
 

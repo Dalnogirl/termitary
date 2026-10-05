@@ -48,6 +48,11 @@ export type RoomStore = {
    * The predicate lives in the store so callers never scan the whole table.
    */
   listSeatedBy(playerId: string): Promise<readonly RoomOverview[]>;
+  /**
+   * Ids of the games whose side to move ran out of time by `now`. Ids rather
+   * than rooms, so one unreadable game cannot stop the sweep finishing the rest.
+   */
+  listOverdue(now: Date): Promise<readonly string[]>;
 };
 
 export class RoomAlreadyExistsError extends Error {

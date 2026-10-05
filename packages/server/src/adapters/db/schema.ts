@@ -57,6 +57,9 @@ export const rooms = sqliteTable(
     // Null is a row written before the column, and reads as untimed. The
     // time control is not a column of its own: the clock carries it.
     clock: text('clock', { mode: 'json' }).$type<WireClock>(),
+    // Denormalized from the clock so the timeout sweep finds overdue games
+    // without parsing every clock. Null is untimed, or a row from before it.
+    deadline: integer('deadline', { mode: 'timestamp_ms' }),
     // Optimistic concurrency: every `save` carries the version it read and
     // writes `WHERE version = ?`, so a lost compare-and-swap is a conflict.
     version: integer('version').notNull(),
@@ -69,6 +72,7 @@ export const rooms = sqliteTable(
   (table) => [
     index('rooms_white_idx').on(table.whiteUserId),
     index('rooms_black_idx').on(table.blackUserId),
+    index('rooms_deadline_idx').on(table.deadline),
   ],
 );
 

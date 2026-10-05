@@ -83,11 +83,19 @@ const outOfTime = (room: Room, now: Date): Color | undefined =>
     ? undefined
     : (flagged(room.clock, now.getTime()) ?? abandoned(room.clock, now.getTime()));
 
-// When the side to move ran out, which can be long before anyone noticed.
-const deadlineOf = (clock: Clock): number => {
+// When the side to move runs out, which can be long before anyone notices.
+// Infinite on an untimed clock.
+const deadlineMsOf = (clock: Clock): number => {
   const start = clock.turnStartedAt;
   const window = firstMoveRemaining(clock, start);
   return start + (Number.isFinite(window) ? window : remaining(clock, clock.toMove, start));
+};
+
+/** When the game ends on time if nobody moves, or undefined when it never will. */
+export const deadlineOf = (room: Room): Date | undefined => {
+  if (room.state.status === 'finished') return undefined;
+  const ms = deadlineMsOf(room.clock);
+  return Number.isFinite(ms) ? new Date(ms) : undefined;
 };
 
 /**
@@ -98,7 +106,7 @@ const deadlineOf = (clock: Clock): number => {
 export const finishedOnTime = (room: Room, now: Date): Room | undefined => {
   const loser = outOfTime(room, now);
   if (loser === undefined) return undefined;
-  const endedAt = new Date(Math.min(now.getTime(), deadlineOf(room.clock)));
+  const endedAt = new Date(Math.min(now.getTime(), deadlineMsOf(room.clock)));
   return touch({ ...room, state: timeOut(room.state, loser) }, endedAt);
 };
 

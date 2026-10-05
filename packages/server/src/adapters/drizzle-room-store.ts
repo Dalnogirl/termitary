@@ -10,14 +10,14 @@ import {
   toWireClock,
   toWireRuleset,
 } from '@termitary/protocol';
-import { and, desc, eq, or, sql } from 'drizzle-orm';
+import { and, desc, eq, lte, or, sql } from 'drizzle-orm';
 import {
   ConcurrentModificationError,
   RoomAlreadyExistsError,
   type RoomOverview,
   type RoomStore,
 } from '../domain/room-store.js';
-import { type Room, UNTIMED } from '../domain/room.js';
+import { type Room, UNTIMED, deadlineOf } from '../domain/room.js';
 import type { Db } from './db/client.js';
 import { violates } from './db/constraint.js';
 import { CURRENT_STATE_VERSION, type RoomRow, rooms as roomsTable } from './db/schema.js';
@@ -124,6 +124,7 @@ const mutableColumns = (room: Room) => ({
   stateVersion: CURRENT_STATE_VERSION,
   ruleset: toWireRuleset(room.ruleset),
   clock: toWireClock(room.clock),
+  deadline: deadlineOf(room) ?? null,
 });
 
 const insertColumns = (room: Room) => ({
@@ -197,4 +198,12 @@ export const createDrizzleRoomStore = (db: Db): RoomStore => ({
       .orderBy(desc(roomsTable.updatedAt))
       .all()
       .map(toOverview),
+
+  listOverdue: async (now) =>
+    db
+      .select({ id: roomsTable.id })
+      .from(roomsTable)
+      .where(lte(roomsTable.deadline, now))
+      .all()
+      .map((row) => row.id),
 });
