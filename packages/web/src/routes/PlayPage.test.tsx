@@ -52,6 +52,13 @@ describe('PlayPage', () => {
     expect(await screen.findByText('home')).toBeDefined();
   });
 
+  it('sends an aborted room home', async () => {
+    connection = connectionIn('aborted');
+    renderRoom();
+
+    expect(await screen.findByText('home')).toBeDefined();
+  });
+
   it('replaces an archived room with its archive, so Back skips the room', async () => {
     connection = connectionIn('archived');
     renderRoom();

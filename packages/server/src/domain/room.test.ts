@@ -2,7 +2,14 @@ import type { TimeControl } from '@termitary/clock';
 import { BASE_RULESET } from '@termitary/engine';
 import { BEFORE_SQUEEZE, SQUEEZE } from '@termitary/engine/testing';
 import { describe, expect, it } from 'vitest';
-import { type Room, createPairedRoom, deadlineOf, finishedOnTime, play } from './room.js';
+import {
+  type Room,
+  createPairedRoom,
+  deadlineOf,
+  finishedOnTime,
+  isAbandoned,
+  play,
+} from './room.js';
 
 const BLITZ: TimeControl = { kind: 'realtime', initialMs: 300_000, incrementMs: 3_000 };
 const at = (ms: number) => new Date(ms);
@@ -68,15 +75,35 @@ describe('finishedOnTime', () => {
     expect(finishedOnTime(running(), at(10_000_000))?.updatedAt).toEqual(at(302_000));
   });
 
-  it('counts a missed first move as a timeout', () => {
-    const finished = finishedOnTime(timedRoom(), at(90_000));
-    expect(finished?.state).toMatchObject({ endReason: 'timeout', result: 'black-wins' });
-    expect(finished?.updatedAt).toEqual(at(30_000));
+  it('leaves a missed first move to the abort', () => {
+    expect(finishedOnTime(timedRoom(), at(90_000))).toBeUndefined();
   });
 
   it('never finishes an untimed room', () => {
     const room = createPairedRoom('r1', { playerId: 'w' }, { playerId: 'b' }, at(0));
     expect(finishedOnTime(room, at(10 ** 12))).toBeUndefined();
+  });
+});
+
+describe('isAbandoned', () => {
+  it('holds once white misses the first-move window, and not before', () => {
+    expect(isAbandoned(timedRoom(), at(29_999))).toBe(false);
+    expect(isAbandoned(timedRoom(), at(30_000))).toBe(true);
+  });
+
+  it("holds once black misses a window opened by white's first move", () => {
+    const first = play(timedRoom(), 'white', scripted(0), at(1000));
+    expect(isAbandoned(first, at(30_999))).toBe(false);
+    expect(isAbandoned(first, at(31_000))).toBe(true);
+  });
+
+  it('never holds once both sides have moved', () => {
+    expect(isAbandoned(running(), at(10 ** 12))).toBe(false);
+  });
+
+  it('never holds for an untimed room', () => {
+    const room = createPairedRoom('r1', { playerId: 'w' }, { playerId: 'b' }, at(0));
+    expect(isAbandoned(room, at(10 ** 12))).toBe(false);
   });
 });
 

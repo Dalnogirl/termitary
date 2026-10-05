@@ -8,9 +8,17 @@ import { getWsUrl } from '../network/url.js';
 import { gameStore } from '../store/store.js';
 import type { Controller } from './port.js';
 
-// 'archived' is terminal like 'error': the game has ended and its room is gone,
-// so the page moves to the archived game.
-export type RoomStatus = 'connecting' | 'in-room' | 'reconnecting' | 'archived' | 'error';
+// 'archived' and 'aborted' are terminal like 'error': the room is gone, so the
+// page moves to the archived game or back to the lobby.
+export type RoomStatus =
+  | 'connecting'
+  | 'in-room'
+  | 'reconnecting'
+  | 'archived'
+  | 'aborted'
+  | 'error';
+
+const TERMINAL: ReadonlySet<RoomStatus> = new Set(['archived', 'aborted', 'error']);
 
 export type RoomState = {
   readonly status: RoomStatus;
@@ -54,10 +62,12 @@ export const createRoomController = ({ roomId, notifier }: Options): RoomControl
   // source of truth).
   let pendingSnapshot: GameState | null = null;
 
-  // A room fails once: the page leaves on the first failure, and a socket
-  // closing behind a server error would otherwise toast a second reason.
+  // A room ends once: the page leaves on the first ending, and an error trailing
+  // it (a socket closing, a request the ending overtook) would toast a second reason.
+  const hasEnded = (): boolean => TERMINAL.has(store.getState().status);
+
   const fail = (message: string): void => {
-    if (store.getState().status === 'error') return;
+    if (hasEnded()) return;
     notifier.error(message);
     store.setState({ status: 'error' });
   };
@@ -81,7 +91,14 @@ export const createRoomController = ({ roomId, notifier }: Options): RoomControl
     store.setState({ status: 'archived' });
   });
 
+  const offGameAborted = client.on('gameAborted', () => {
+    pendingSnapshot = null;
+    notifier.info('Game aborted: a first move was not made in time', { id: 'game-aborted' });
+    store.setState({ status: 'aborted' });
+  });
+
   const offError = client.on('error', (msg) => {
+    if (hasEnded()) return;
     if (msg.requestKind === 'makeMove') {
       notifier.error(msg.message);
       gameStore.getState().setSelection(null);
@@ -171,6 +188,7 @@ export const createRoomController = ({ roomId, notifier }: Options): RoomControl
     offStateUpdated();
     offPresenceUpdate();
     offGameArchived();
+    offGameAborted();
     offError();
     offStatus();
     client.close();

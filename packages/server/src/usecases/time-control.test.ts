@@ -139,24 +139,176 @@ describe('a move against the clock', () => {
   });
 });
 
+// Alice is white. Both players attached, nobody has moved: white's first-move
+// window closes at 30s.
+const unstartedGame = async (timeControl: TimeControl = BLITZ) => {
+  const { ports, connect } = setup();
+  const alice = connect('alice');
+  const bob = connect('bob');
+  const room = createPairedRoom(
+    'r1',
+    ident('alice'),
+    ident('bob'),
+    new Date(0),
+    BASE_RULESET,
+    timeControl,
+  );
+  await ports.rooms.create(room);
+  await joinGame(ident('alice'), { type: 'joinGame', roomId: room.id }, ports, at(0));
+  await joinGame(ident('bob'), { type: 'joinGame', roomId: room.id }, ports, at(0));
+  return { ports, connect, alice, bob, roomId: room.id };
+};
+
+const expectAborted = async (ports: Ports, inboxes: readonly Inbox[], roomId: string) => {
+  for (const inbox of inboxes) expect(lastOf(inbox)).toEqual({ type: 'gameAborted', roomId });
+  expect(await ports.rooms.get(roomId)).toBeUndefined();
+  expect(await ports.archive.get(roomId)).toBeUndefined();
+};
+
 describe('a first move against the clock', () => {
-  it('missed by white finishes the game on time', async () => {
-    const { ports, connect } = setup();
-    const bob = connect('bob');
-    const room = createPairedRoom(
-      'r1',
-      ident('alice'),
-      ident('bob'),
-      new Date(0),
-      BASE_RULESET,
-      BLITZ,
-    );
-    await ports.rooms.create(room);
-    await joinGame(ident('bob'), { type: 'joinGame', roomId: room.id }, ports, at(0));
+  it('missed by white aborts the game for both players and archives nothing', async () => {
+    const { ports, alice, bob, roomId } = await unstartedGame();
 
-    await moveNow(ports, 'alice', room.id, 30_000);
+    await moveNow(ports, 'alice', roomId, 30_000);
 
-    expectTimedOut(lastOf(bob), 'white');
+    await expectAborted(ports, [alice, bob], roomId);
+  });
+
+  it("missed by black aborts the game, counted from white's first move", async () => {
+    const { ports, alice, bob, roomId } = await unstartedGame();
+    await moveNow(ports, 'alice', roomId, 5_000);
+
+    await moveNow(ports, 'bob', roomId, 35_000);
+
+    await expectAborted(ports, [alice, bob], roomId);
+  });
+
+  it('made in time by both sides starts the clock', async () => {
+    const { ports, bob, roomId } = await unstartedGame();
+    await moveNow(ports, 'alice', roomId, 29_999);
+    await moveNow(ports, 'bob', roomId, 59_998);
+
+    await moveNow(ports, 'alice', roomId, 70_000);
+
+    expect(lastOf(bob)).toMatchObject({
+      type: 'stateUpdated',
+      state: { status: 'in_progress' },
+      clock: { remainingMs: { white: 292_998, black: 300_000 } },
+    });
+  });
+
+  it('never aborts an untimed game', async () => {
+    const { ports, bob, roomId } = await unstartedGame({ kind: 'untimed' });
+
+    await moveNow(ports, 'alice', roomId, 10 ** 12);
+
+    expect(lastOf(bob)).toMatchObject({ type: 'stateUpdated', state: { status: 'in_progress' } });
+  });
+
+  it('gets one per-move deadline in correspondence', async () => {
+    const DAY = 24 * 60 * 60_000;
+    const { ports, alice, bob, roomId } = await unstartedGame({
+      kind: 'correspondence',
+      daysPerMove: 1,
+    });
+    await moveNow(ports, 'alice', roomId, DAY - 1);
+
+    await moveNow(ports, 'bob', roomId, 2 * DAY - 1);
+
+    await expectAborted(ports, [alice, bob], roomId);
+  });
+
+  it('missed, then resigned, aborts rather than resigns', async () => {
+    const { ports, alice, bob, roomId } = await unstartedGame();
+
+    await resign(ident('bob'), { type: 'resign', roomId }, ports, at(30_000));
+
+    await expectAborted(ports, [alice, bob], roomId);
+  });
+
+  it('missed, then claimed, aborts rather than finishes', async () => {
+    const { ports, alice, bob, roomId } = await unstartedGame();
+
+    await claimTimeout(ident('bob'), { type: 'claimTimeout', roomId }, ports, at(30_000));
+
+    await expectAborted(ports, [alice, bob], roomId);
+  });
+
+  it('missed, then joined, aborts and tells the joiner', async () => {
+    const { ports, connect, bob, roomId } = await unstartedGame();
+    // Alice comes back on a fresh socket, not yet attached to the room.
+    const alice = connect('alice');
+    await ports.connections.leaveRoom('alice');
+
+    await joinGame(ident('alice'), { type: 'joinGame', roomId }, ports, at(30_000));
+
+    await expectAborted(ports, [alice, bob], roomId);
+  });
+
+  it('missed, then joined again on an attached socket, tells the joiner once', async () => {
+    const { ports, alice, roomId } = await unstartedGame();
+    const heard = alice.messages.length;
+
+    await joinGame(ident('alice'), { type: 'joinGame', roomId }, ports, at(30_000));
+
+    expect(alice.messages.slice(heard)).toEqual([{ type: 'gameAborted', roomId }]);
+  });
+
+  it('noticed by two requests at once is aborted once, and the loser hears only that', async () => {
+    const { ports, alice, bob, roomId } = await unstartedGame();
+    const heard = { alice: alice.messages.length, bob: bob.messages.length };
+    let raced = false;
+    // Alice's resign commits its abort between Bob's read and Bob's delete.
+    const racing: Ports = {
+      ...ports,
+      unitOfWork: {
+        commit: async (ops) => {
+          if (!raced) {
+            raced = true;
+            await resign(ident('alice'), { type: 'resign', roomId }, ports, at(30_000));
+          }
+          await ports.unitOfWork.commit(ops);
+        },
+      },
+    };
+
+    await resign(ident('bob'), { type: 'resign', roomId }, racing, at(30_000));
+
+    expect(alice.messages.slice(heard.alice)).toEqual([{ type: 'gameAborted', roomId }]);
+    expect(bob.messages.slice(heard.bob)).toEqual([{ type: 'gameAborted', roomId }]);
+  });
+
+  it('loses to a resignation committed first, and is sent to the archive', async () => {
+    const { ports, bob, roomId } = await unstartedGame();
+    let raced = false;
+    // A resign that arrived inside the window archives the game between the
+    // late request's read and its delete.
+    const racing: Ports = {
+      ...ports,
+      unitOfWork: {
+        commit: async (ops) => {
+          if (!raced) {
+            raced = true;
+            await resign(ident('alice'), { type: 'resign', roomId }, ports, at(29_999));
+          }
+          await ports.unitOfWork.commit(ops);
+        },
+      },
+    };
+
+    await claimTimeout(ident('bob'), { type: 'claimTimeout', roomId }, racing, at(30_000));
+
+    expect(lastOf(bob)).toEqual({ type: 'gameArchived', roomId });
+    expect((await ports.archive.get(roomId))?.endReason).toBe('resignation');
+  });
+
+  it('leaves no trace for a player who comes back to the room', async () => {
+    const { ports, alice, roomId } = await unstartedGame();
+    await moveNow(ports, 'alice', roomId, 30_000);
+
+    await joinGame(ident('alice'), { type: 'joinGame', roomId }, ports, at(31_000));
+
+    expect(lastOf(alice)).toMatchObject({ type: 'error', message: 'room not found' });
   });
 });
 

@@ -7,6 +7,7 @@ import { createDrizzleSeekStore } from './adapters/drizzle-seek-store.js';
 import { createPairedRoom } from './domain/room.js';
 import { SEEK_TTL_MS, createSeek } from './domain/seek.js';
 import { createTestApp } from './testing/auth-helper.js';
+import { startedRoom } from './testing/rooms.js';
 
 describe('sweep on boot', () => {
   it('removes an expired seek with no request made', async () => {
@@ -50,7 +51,9 @@ describe('sweep on boot', () => {
       const white = { playerId: alice.userId };
       const black = { playerId: bob.userId };
       const anHourAgo = new Date(Date.now() - 60 * 60_000);
-      await rooms.create(createPairedRoom('late', white, black, anHourAgo, BASE_RULESET, blitz));
+      await rooms.create(
+        startedRoom(createPairedRoom('late', white, black, anHourAgo, BASE_RULESET, blitz)),
+      );
       await rooms.create(createPairedRoom('fresh', white, black, new Date(), BASE_RULESET, blitz));
 
       const booted = await createTestApp(db);

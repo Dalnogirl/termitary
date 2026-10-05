@@ -6,7 +6,7 @@ import { colorOf, touch } from '../domain/room.js';
 import { answerMissingRoom } from './answer-missing-room.js';
 import { broadcastState } from './broadcast-state.js';
 import { commitPlayed } from './commit-played.js';
-import { finishIfFlagged } from './finish-on-time.js';
+import { endIfOutOfTime } from './end-on-time.js';
 import { type TimeDeps, arrivalOf } from './now.js';
 import { retryOnConflict } from './retry-on-conflict.js';
 import { sendError } from './send-error.js';
@@ -45,7 +45,7 @@ const attemptResign = async (
     await sendError(connections, identity, 'game already finished', 'resign');
     return;
   }
-  if ((await finishIfFlagged(room, version, identity, 'resign', now, ports)) !== 'in-time') {
+  if ((await endIfOutOfTime(room, version, identity, 'resign', now, ports)) !== 'in-time') {
     return;
   }
   const updated = touch({ ...room, state: resignGame(room.state, color) }, now);
