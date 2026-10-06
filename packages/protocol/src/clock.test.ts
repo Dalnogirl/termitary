@@ -31,6 +31,16 @@ describe('readClock', () => {
     expect(readClock(started(BLITZ), T0 + 12_000)).toEqual({
       timeControl: BLITZ,
       remainingMs: { white: 290_000, black: 300_000 },
+      firstMoveMs: null,
+    });
+  });
+
+  it('reads the first-move window, not the bank, before both sides have moved', () => {
+    const opened = charge(startClock(BLITZ, T0), 'white', T0 + 1_000);
+    expect(readClock(opened, T0 + 11_000)).toEqual({
+      timeControl: BLITZ,
+      remainingMs: { white: 300_000, black: 300_000 },
+      firstMoveMs: 20_000,
     });
   });
 
@@ -38,6 +48,7 @@ describe('readClock', () => {
     expect(readClock(startClock({ kind: 'untimed' }, T0), T0)).toEqual({
       timeControl: { kind: 'untimed' },
       remainingMs: null,
+      firstMoveMs: null,
     });
   });
 });

@@ -3,7 +3,6 @@ import type { Identity } from '../domain/identity.js';
 import type { Ports } from '../domain/ports.js';
 import { colorOf } from '../domain/room.js';
 import { answerMissingRoom } from './answer-missing-room.js';
-import { stateUpdate } from './broadcast-state.js';
 import { endIfOutOfTime } from './end-on-time.js';
 import { type TimeDeps, arrivalOf } from './now.js';
 import { retryOnConflict } from './retry-on-conflict.js';
@@ -35,9 +34,7 @@ const attemptClaim = async (
     await sendError(ports.connections, identity, 'not in room', 'claimTimeout');
     return;
   }
-  if ((await endIfOutOfTime(room, version, identity, 'claimTimeout', now, ports)) !== 'in-time') {
-    return;
-  }
-  // The claimant's countdown ran ahead of the server's; this puts it back.
-  await ports.connections.sendTo(identity.playerId, stateUpdate(room, now));
+  // A claim the clock does not bear out is dropped without a word. A resync here
+  // would carry the position, and roll back a reply the claimant has in flight.
+  await endIfOutOfTime(room, version, identity, 'claimTimeout', now, ports);
 };

@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { type Color, type PieceType, type Ruleset, rulesetPieceTypes } from '@termitary/engine';
+import type { ReactNode } from 'react';
 import { PieceMark } from '../board/PieceMark.js';
 import { PIECE_ORDER } from '../board/pieces.js';
 import { useInputHandlers } from '../controller/InputProvider.js';
@@ -19,6 +20,7 @@ const handSlots = (ruleset: Ruleset): readonly PieceType[] => {
 type Props = {
   readonly color: Color;
   readonly edge: 'top' | 'bottom';
+  readonly clock?: ReactNode;
 };
 
 const edgeAnchor: Record<Props['edge'], string> = {
@@ -36,7 +38,7 @@ const slotPalette: Record<Color, string> = {
     'bg-(--piece-black-fill) text-foreground border border-border shadow-sm hover:brightness-125',
 };
 
-export const Hand = ({ color, edge }: Props) => {
+export const Hand = ({ color, edge, clock }: Props) => {
   const game = useGameStore((s) => s.view);
   const selection = useGameStore((s) => s.selection);
   const { handleHandSlotClick } = useInputHandlers();
@@ -93,6 +95,7 @@ export const Hand = ({ color, edge }: Props) => {
           );
         })}
       </div>
+      {clock}
     </div>
   );
 };

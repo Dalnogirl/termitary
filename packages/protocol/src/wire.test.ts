@@ -200,10 +200,11 @@ describe('message schemas', () => {
   it('parses each ServerMessage variant', () => {
     const state = toWire(createGame());
     const seated = { status: 'connected', userId: 'u2', name: 'Amber Beetle' };
-    const clock = { timeControl: { kind: 'untimed' }, remainingMs: null };
+    const clock = { timeControl: { kind: 'untimed' }, remainingMs: null, firstMoveMs: null };
     const timed = {
       timeControl: { kind: 'realtime', initialMs: 300_000, incrementMs: 3_000 },
       remainingMs: { white: 290_000, black: 300_000 },
+      firstMoveMs: null,
     };
     const samples = [
       { type: 'connected', playerId: 'p1' },

@@ -17,6 +17,7 @@ const connectionIn = (status: RoomConnection['status']): RoomConnection => ({
   status,
   myColor: null,
   opponent: null,
+  clock: null,
   controller: null,
   resign: () => {},
 });
