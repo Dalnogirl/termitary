@@ -1,6 +1,12 @@
 import { type Color, type GameState, type Move, applyMove } from '@termitary/engine';
-import { type OpponentPresence, fromWire, toWireMove } from '@termitary/protocol';
+import {
+  type OpponentPresence,
+  type WireClockReading,
+  fromWire,
+  toWireMove,
+} from '@termitary/protocol';
 import { type StoreApi, createStore } from 'zustand';
+import { type ClockSnapshot, remainingAt } from '../clock/clock-face.js';
 import { messageOf } from '../lib/message-of.js';
 import type { Notifier } from '../lib/notify.js';
 import { createWsClient } from '../network/client.js';
@@ -18,6 +24,10 @@ export type RoomStatus =
   | 'aborted'
   | 'error';
 
+const CLAIM_RETRY_MS = 500;
+const CLAIM_BACKOFF = 1.1;
+const CLAIM_RETRY_MAX_MS = 5_000;
+
 const TERMINAL: ReadonlySet<RoomStatus> = new Set(['archived', 'aborted', 'error']);
 
 export type RoomState = {
@@ -25,12 +35,15 @@ export type RoomState = {
   readonly myColor: Color | null;
   // null until gameJoined answers.
   readonly opponent: OpponentPresence | null;
+  // null until gameJoined answers.
+  readonly clock: ClockSnapshot | null;
 };
 
 export const INITIAL_ROOM_STATE: RoomState = {
   status: 'connecting',
   myColor: null,
   opponent: null,
+  clock: null,
 };
 
 export type RoomController = Controller & {
@@ -66,20 +79,67 @@ export const createRoomController = ({ roomId, notifier }: Options): RoomControl
   // it (a socket closing, a request the ending overtook) would toast a second reason.
   const hasEnded = (): boolean => TERMINAL.has(store.getState().status);
 
+  let claimTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const cancelClaim = (): void => {
+    clearTimeout(claimTimer);
+    claimTimer = undefined;
+  };
+
   const fail = (message: string): void => {
     if (hasEnded()) return;
+    cancelClaim();
     notifier.error(message);
     store.setState({ status: 'error' });
   };
 
+  // The server judges the claim on its own clock and drops an early one without
+  // a word, so the claim repeats, backing off, until a new reading rearms it.
+  const claimUntilAnswered = (delayMs: number): void => {
+    claimTimer = setTimeout(() => {
+      client.send({ type: 'claimTimeout', roomId });
+      claimUntilAnswered(Math.min(delayMs * CLAIM_BACKOFF, CLAIM_RETRY_MAX_MS));
+    }, delayMs);
+  };
+
+  const armClaim = (): void => {
+    cancelClaim();
+    const { clock, myColor } = store.getState();
+    if (clock === null || clock.toMove === null || clock.toMove === myColor) return;
+    const left = remainingAt(clock, clock.toMove, clock.receivedAt);
+    if (left === null) return;
+    claimTimer = setTimeout(() => {
+      client.send({ type: 'claimTimeout', roomId });
+      claimUntilAnswered(CLAIM_RETRY_MS);
+    }, left);
+  };
+
+  // Side to move comes from the server's state, not the board, which an
+  // optimistic move hands to the opponent before the server has charged anyone.
+  const takeReading = (state: GameState, reading: WireClockReading): ClockSnapshot => ({
+    reading,
+    toMove: state.status === 'in_progress' ? state.currentPlayer : null,
+    receivedAt: performance.now(),
+  });
+
   const offGameJoined = client.on('gameJoined', (msg) => {
-    gameStore.getState().applyGameState(fromWire(msg.state));
-    store.setState({ status: 'in-room', myColor: msg.playerColor, opponent: msg.opponent });
+    const state = fromWire(msg.state);
+    gameStore.getState().applyGameState(state);
+    store.setState({
+      status: 'in-room',
+      myColor: msg.playerColor,
+      opponent: msg.opponent,
+      clock: takeReading(state, msg.clock),
+    });
+    armClaim();
   });
 
   const offStateUpdated = client.on('stateUpdated', (msg) => {
     pendingSnapshot = null;
-    gameStore.getState().applyGameState(fromWire(msg.state));
+    const state = fromWire(msg.state);
+    gameStore.getState().applyGameState(state);
+    store.setState({ clock: takeReading(state, msg.clock) });
+    armClaim();
   });
 
   const offPresenceUpdate = client.on('presenceUpdate', (msg) => {
@@ -88,11 +148,13 @@ export const createRoomController = ({ roomId, notifier }: Options): RoomControl
 
   const offGameArchived = client.on('gameArchived', () => {
     pendingSnapshot = null;
+    cancelClaim();
     store.setState({ status: 'archived' });
   });
 
   const offGameAborted = client.on('gameAborted', () => {
     pendingSnapshot = null;
+    cancelClaim();
     notifier.info('Game aborted: a first move was not made in time', { id: 'game-aborted' });
     store.setState({ status: 'aborted' });
   });
@@ -128,6 +190,8 @@ export const createRoomController = ({ roomId, notifier }: Options): RoomControl
       // Optimistic application is only safe while a rejection can still come
       // back, so drop the snapshot nothing will roll back to.
       pendingSnapshot = null;
+      // A claim sent now is dropped; the rejoin's gameJoined rearms it.
+      cancelClaim();
       store.setState({ status: 'reconnecting' });
       return;
     }
@@ -184,6 +248,7 @@ export const createRoomController = ({ roomId, notifier }: Options): RoomControl
   };
 
   const dispose = (): void => {
+    cancelClaim();
     offGameJoined();
     offStateUpdated();
     offPresenceUpdate();

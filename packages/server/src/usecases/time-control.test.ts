@@ -103,6 +103,7 @@ describe('a move against the clock', () => {
     expect(msg.clock).toEqual({
       timeControl: BLITZ,
       remainingMs: { white: 3_001, black: 300_000 },
+      firstMoveMs: null,
     });
   });
 
@@ -356,18 +357,15 @@ describe('a timeout claim', () => {
     expect((await ports.archive.get(roomId))?.finishedAt).toEqual(new Date(WHITE_FLAGS_AT));
   });
 
-  it('made early answers the claimant with the clock as the server reads it', async () => {
+  it('made early is dropped without an answer to either player', async () => {
     const { ports, alice, bob, roomId } = await runningGame();
     const aliceHeard = alice.messages.length;
+    const bobHeard = bob.messages.length;
 
     await claim(ports, 'bob', roomId, WHITE_FLAGS_AT - 1);
 
-    expect(lastOf(bob)).toMatchObject({
-      type: 'stateUpdated',
-      state: { status: 'in_progress' },
-      clock: { remainingMs: { white: 1, black: 300_000 } },
-    });
     expect(alice.messages).toHaveLength(aliceHeard);
+    expect(bob.messages).toHaveLength(bobHeard);
     expect(await ports.rooms.get(roomId)).toBeDefined();
   });
 

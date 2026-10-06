@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import type { OpponentPresence } from '@termitary/protocol';
 import { useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
+import { GameClock } from '../clock/GameClock.js';
 import { InputProvider } from '../controller/InputProvider.js';
 import { RoomProvider } from '../controller/RoomContext.js';
 import type { RoomStatus } from '../controller/room.js';
@@ -88,6 +89,13 @@ export const PlayPage = () => {
   }
 
   const gameOver = gameStatus === 'finished';
+  const clocks =
+    room.clock === null
+      ? undefined
+      : {
+          white: <GameClock snapshot={room.clock} side="white" />,
+          black: <GameClock snapshot={room.clock} side="black" />,
+        };
 
   return (
     <RoomProvider myColor={room.myColor} opponent={room.opponent}>
@@ -106,7 +114,7 @@ export const PlayPage = () => {
               </Button>
             )}
           </div>
-          <GameLayout />
+          <GameLayout {...(clocks === undefined ? {} : { clocks })} />
         </div>
         <AlertDialog open={showQuitDialog} onOpenChange={setShowQuitDialog}>
           <AlertDialogContent>

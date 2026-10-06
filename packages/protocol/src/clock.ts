@@ -2,6 +2,7 @@ import {
   type Clock,
   type TimeControl,
   clockDefect,
+  firstMoveRemaining,
   remaining,
   timeControlOf,
 } from '@termitary/clock';
@@ -62,12 +63,14 @@ export type WireClock = z.infer<typeof WireClockSchema>;
 
 /**
  * Both sides' time as of one instant. Null for an untimed game, which has no
- * time to show.
+ * time to show. `firstMoveMs` is the side to move's window to make its first
+ * move, null once both sides have moved.
  */
 export const WireClockReadingSchema = z
   .object({
     timeControl: WireTimeControlSchema,
     remainingMs: z.object({ white: z.number(), black: z.number() }).strict().nullable(),
+    firstMoveMs: z.number().nullable(),
   })
   .strict();
 export type WireClockReading = z.infer<typeof WireClockReadingSchema>;
@@ -82,4 +85,7 @@ export const readClock = (clock: Clock, now: number): WireClockReading => ({
     clock.kind === 'untimed'
       ? null
       : { white: remaining(clock, 'white', now), black: remaining(clock, 'black', now) },
+  firstMoveMs: finiteOrNull(firstMoveRemaining(clock, now)),
 });
+
+const finiteOrNull = (ms: number): number | null => (Number.isFinite(ms) ? ms : null);

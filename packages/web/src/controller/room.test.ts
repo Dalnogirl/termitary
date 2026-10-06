@@ -1,8 +1,14 @@
 // @vitest-environment jsdom
-import { type Move, createGame, listValidMoves } from '@termitary/engine';
-import type { ClientMessage, ServerMessage } from '@termitary/protocol';
+import {
+  type GameState,
+  type Move,
+  applyMove,
+  createGame,
+  listValidMoves,
+} from '@termitary/engine';
+import type { ClientMessage, ServerGameJoined, ServerMessage } from '@termitary/protocol';
 import { toWire } from '@termitary/protocol';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WsClient, WsStatus } from '../network/client.js';
 import { gameStore } from '../store/store.js';
 
@@ -38,7 +44,11 @@ const notifier = { error: vi.fn(), info: vi.fn() };
 
 const { createRoomController } = await import('./room.js');
 
-const UNTIMED_CLOCK = { timeControl: { kind: 'untimed' }, remainingMs: null } as const;
+const UNTIMED_CLOCK = {
+  timeControl: { kind: 'untimed' },
+  remainingMs: null,
+  firstMoveMs: null,
+} as const;
 
 const deliver = (msg: ServerMessage): void => {
   const handler = messageHandlers.get(msg.type);
@@ -54,15 +64,18 @@ const firstMove = (): Move => {
 
 // Brings a controller to the state a player is in mid-game: socket open,
 // joined as white, one optimistic move sent and unanswered.
-const setup = () => {
+const setup = (
+  clock: ServerGameJoined['clock'] = UNTIMED_CLOCK,
+  state: GameState = createGame(),
+) => {
   const controller = createRoomController({ roomId: 'r1', notifier });
   emitStatus('open');
   deliver({
     type: 'gameJoined',
     roomId: 'r1',
     playerColor: 'white',
-    state: toWire(createGame()),
-    clock: UNTIMED_CLOCK,
+    state: toWire(state),
+    clock,
     opponent: { status: 'connected', userId: 'u2', name: 'Amber Beetle' },
   });
   return controller;
@@ -81,10 +94,11 @@ describe('createRoomController', () => {
   it('seats the color and opponent the server assigns', () => {
     const controller = setup();
 
-    expect(controller.store.getState()).toEqual({
+    expect(controller.store.getState()).toMatchObject({
       status: 'in-room',
       myColor: 'white',
       opponent: { status: 'connected', userId: 'u2', name: 'Amber Beetle' },
+      clock: { reading: UNTIMED_CLOCK, toMove: 'white' },
     });
     expect(gameStore.getState().liveGame).toEqual(createGame());
   });
@@ -286,5 +300,110 @@ describe('createRoomController', () => {
     emitStatus('closed');
 
     expect(notifier.error).toHaveBeenCalledTimes(1);
+  });
+
+  describe('timeout claim', () => {
+    const BLITZ = { kind: 'realtime', initialMs: 300_000, incrementMs: 3_000 } as const;
+    const reading = (white: number, black: number) => ({
+      timeControl: BLITZ,
+      remainingMs: { white, black },
+      firstMoveMs: null,
+    });
+    const blackToMove = (): GameState => {
+      const game = createGame();
+      const move = listValidMoves(game)[0];
+      if (move === undefined) throw new Error('no valid moves');
+      return applyMove(game, move);
+    };
+    const claims = () => sent.filter((msg) => msg.type === 'claimTimeout');
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("claims once the opponent's time runs out", () => {
+      setup(reading(200_000, 5_000), blackToMove());
+
+      vi.advanceTimersByTime(4_999);
+      expect(claims()).toEqual([]);
+
+      vi.advanceTimersByTime(1);
+      expect(claims()).toEqual([{ type: 'claimTimeout', roomId: 'r1' }]);
+    });
+
+    it('repeats a claim the server let pass, backing off, until a new reading', () => {
+      setup(reading(200_000, 5_000), blackToMove());
+
+      vi.advanceTimersByTime(5_000);
+      vi.advanceTimersByTime(500);
+      expect(claims()).toHaveLength(2);
+      vi.advanceTimersByTime(549);
+      expect(claims()).toHaveLength(2);
+      vi.advanceTimersByTime(1);
+      expect(claims()).toHaveLength(3);
+
+      deliver({
+        type: 'stateUpdated',
+        roomId: 'r1',
+        state: toWire(createGame()),
+        clock: reading(200_000, 5_000),
+      });
+      vi.advanceTimersByTime(60_000);
+      expect(claims()).toHaveLength(3);
+    });
+
+    it("claims on the opponent's first-move window, not its bank", () => {
+      setup({ ...reading(300_000, 300_000), firstMoveMs: 30_000 }, blackToMove());
+
+      vi.advanceTimersByTime(30_000);
+      expect(claims()).toHaveLength(1);
+    });
+
+    it('never claims against itself', () => {
+      setup(reading(5_000, 200_000));
+
+      vi.advanceTimersByTime(10_000);
+      expect(claims()).toEqual([]);
+    });
+
+    it('rearms from each new reading rather than the first', () => {
+      setup(reading(200_000, 5_000), blackToMove());
+      vi.advanceTimersByTime(4_000);
+
+      deliver({
+        type: 'stateUpdated',
+        roomId: 'r1',
+        state: toWire(blackToMove()),
+        clock: reading(200_000, 3_000),
+      });
+      vi.advanceTimersByTime(2_999);
+      expect(claims()).toEqual([]);
+
+      vi.advanceTimersByTime(1);
+      expect(claims()).toHaveLength(1);
+    });
+
+    it('holds the claim while reconnecting and after the game is gone', () => {
+      setup(reading(200_000, 5_000), blackToMove());
+      emitStatus('reconnecting');
+      vi.advanceTimersByTime(10_000);
+      expect(claims()).toEqual([]);
+
+      emitStatus('open');
+      deliver({
+        type: 'gameJoined',
+        roomId: 'r1',
+        playerColor: 'white',
+        state: toWire(blackToMove()),
+        clock: reading(200_000, 5_000),
+        opponent: { status: 'connected', userId: 'u2', name: 'Amber Beetle' },
+      });
+      deliver({ type: 'gameArchived', roomId: 'r1' });
+      vi.advanceTimersByTime(10_000);
+      expect(claims()).toEqual([]);
+    });
   });
 });

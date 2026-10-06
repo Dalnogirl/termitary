@@ -39,11 +39,13 @@ export const useRoomConnection = (roomId: string | undefined): RoomConnection =>
   const status = useStore(store, (s) => s.status);
   const myColor = useStore(store, (s) => s.myColor);
   const opponent = useStore(store, (s) => s.opponent);
+  const clock = useStore(store, (s) => s.clock);
 
   return {
     status,
     myColor,
     opponent,
+    clock,
     controller,
     resign: () => controller?.resign(),
   };
