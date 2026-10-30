@@ -1,4 +1,5 @@
 import type { ArchivedGameSummaryDto, ArchivedPlayerDto } from '@termitary/protocol';
+import { timeControlLabel } from '../clock/time-control-label.js';
 import { relativeTime } from '../lib/relative-time.js';
 
 /** The seat opposite the one the row is written from: the profile owner's opponent. */
@@ -29,9 +30,14 @@ export const endReasonLabel = (game: ArchivedGameSummaryDto): string => {
   }
 };
 
+// Untimed is the default, so only a clock is worth naming.
+const timed = (game: ArchivedGameSummaryDto): string[] =>
+  game.timeControl.kind === 'untimed' ? [] : [timeControlLabel(game.timeControl)];
+
 export const archivedDetail = (game: ArchivedGameSummaryDto): string =>
   [
     `${outcomeLabel(game)}, ${endReasonLabel(game)}`,
+    ...timed(game),
     `playing ${game.seat}`,
     `${game.moveCount} moves`,
     relativeTime(game.finishedAt),

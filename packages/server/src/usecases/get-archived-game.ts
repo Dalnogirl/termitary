@@ -17,5 +17,9 @@ export const getArchivedGame = async (
   const game = await archive.get(id);
   if (game === undefined) return undefined;
   const seat = archivedSeatOf(game.players, identity.playerId) ?? 'white';
-  return { ...summarizeArchived(seat, game), state: toWire(game.state) };
+  return {
+    ...summarizeArchived(seat, game),
+    state: toWire(game.state),
+    clockLog: [...game.clockLog],
+  };
 };

@@ -157,6 +157,7 @@ describe('REST routes', () => {
               startedAt: 1000,
               finishedAt: 5000,
               moveCount: 0,
+              timeControl: { kind: 'untimed' },
             },
             expect.objectContaining({ gameId: 'older', seat: 'white' }),
           ],

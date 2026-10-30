@@ -1,4 +1,11 @@
-import type { SeekPreference, WireClock, WireGameState, WireRuleset } from '@termitary/protocol';
+import type {
+  SeekPreference,
+  WireClock,
+  WireClockLog,
+  WireGameState,
+  WireRuleset,
+  WireTimeControl,
+} from '@termitary/protocol';
 import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { user } from './auth-schema.js';
 
@@ -142,6 +149,9 @@ export const archivedGames = sqliteTable(
     state: text('state', { mode: 'json' }).$type<WireGameState>().notNull(),
     stateVersion: integer('state_version').notNull(),
     moveCount: integer('move_count').notNull(),
+    // Both null for an untimed game, and for every row from before the columns.
+    timeControl: text('time_control', { mode: 'json' }).$type<WireTimeControl>(),
+    clockLog: text('clock_log', { mode: 'json' }).$type<WireClockLog>(),
     startedAt: integer('started_at', { mode: 'timestamp_ms' }).notNull(),
     finishedAt: integer('finished_at', { mode: 'timestamp_ms' }).notNull(),
   },
