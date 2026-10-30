@@ -1,4 +1,12 @@
-import { WireGameStateSchema, fromWire, toWire } from '@termitary/protocol';
+import type { TimeControl } from '@termitary/clock';
+import {
+  WireClockLogSchema,
+  WireGameStateSchema,
+  WireTimeControlSchema,
+  fromWire,
+  toWire,
+  toWireTimeControl,
+} from '@termitary/protocol';
 import { and, desc, eq, lt, or } from 'drizzle-orm';
 import type { ArchivedGameCursor, ArchivedGameStore } from '../domain/archived-game-store.js';
 import type {
@@ -6,6 +14,7 @@ import type {
   ArchivedGameOverview,
   ArchivedPlayer,
 } from '../domain/archived-game.js';
+import { UNTIMED } from '../domain/room.js';
 import type { Db } from './db/client.js';
 import { type ArchivedGameRow, CURRENT_ARCHIVE_STATE_VERSION, archivedGames } from './db/schema.js';
 import { type Tx, toWriteOp } from './drizzle-unit-of-work.js';
@@ -26,11 +35,19 @@ const overviewColumns = {
   result: archivedGames.result,
   endReason: archivedGames.endReason,
   moveCount: archivedGames.moveCount,
+  timeControl: archivedGames.timeControl,
   startedAt: archivedGames.startedAt,
   finishedAt: archivedGames.finishedAt,
 };
 
-type OverviewRow = Omit<ArchivedGameRow, 'state' | 'stateVersion'>;
+type OverviewRow = Omit<ArchivedGameRow, 'state' | 'stateVersion' | 'clockLog'>;
+
+// Like the lobby's: one unreadable time control costs that row its label, not
+// the player their whole history page. Null is untimed, or a row from before it.
+const timeControlOf = (stored: OverviewRow['timeControl']): TimeControl => {
+  const parsed = WireTimeControlSchema.safeParse(stored);
+  return parsed.success ? parsed.data : UNTIMED;
+};
 
 const toOverview = (row: OverviewRow): ArchivedGameOverview => ({
   id: row.id,
@@ -43,6 +60,7 @@ const toOverview = (row: OverviewRow): ArchivedGameOverview => ({
   startedAt: row.startedAt,
   finishedAt: row.finishedAt,
   moveCount: row.moveCount,
+  timeControl: timeControlOf(row.timeControl),
 });
 
 const toGame = (row: ArchivedGameRow): ArchivedGame => {
@@ -50,7 +68,8 @@ const toGame = (row: ArchivedGameRow): ArchivedGame => {
   if (state.status !== 'finished') {
     throw new Error(`archived game ${row.id} is not a finished game`);
   }
-  return { ...toOverview(row), state };
+  const clockLog = row.clockLog === null ? [] : WireClockLogSchema.parse(row.clockLog);
+  return { ...toOverview(row), state, clockLog };
 };
 
 // Insert-or-ignore: the row is immutable once written, so a retried archive of
@@ -68,6 +87,9 @@ const insertGame = (tx: Tx, game: ArchivedGame): void => {
       state: toWire(game.state),
       stateVersion: CURRENT_ARCHIVE_STATE_VERSION,
       moveCount: game.moveCount,
+      ...(game.timeControl.kind === 'untimed'
+        ? {}
+        : { timeControl: toWireTimeControl(game.timeControl), clockLog: [...game.clockLog] }),
       startedAt: game.startedAt,
       finishedAt: game.finishedAt,
     })

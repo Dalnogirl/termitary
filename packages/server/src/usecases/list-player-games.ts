@@ -1,5 +1,9 @@
 import type { Color } from '@termitary/engine';
-import type { ArchivedGameSummaryDto, ArchivedPlayerDto } from '@termitary/protocol';
+import {
+  type ArchivedGameSummaryDto,
+  type ArchivedPlayerDto,
+  toWireTimeControl,
+} from '@termitary/protocol';
 import type { ArchivedGameCursor, ArchivedGameStore } from '../domain/archived-game-store.js';
 import {
   type ArchivedGameOverview,
@@ -33,6 +37,7 @@ export const summarizeArchived = (
   startedAt: game.startedAt.getTime(),
   finishedAt: game.finishedAt.getTime(),
   moveCount: game.moveCount,
+  timeControl: toWireTimeControl(game.timeControl),
 });
 
 // The store answers with games this player holds a seat in, so a row without

@@ -37,11 +37,17 @@ export const WireSeekTimeControlSchema = z.discriminatedUnion('kind', [
 ]);
 export type WireSeekTimeControl = z.infer<typeof WireSeekTimeControlSchema>;
 
+// The mover's remaining time after each move, one entry per ply of `history`.
+export const WireClockLogSchema = z.array(
+  z.object({ side: WireSideSchema, remainingMs: z.number().int() }).strict(),
+);
+export type WireClockLog = z.infer<typeof WireClockLogSchema>;
+
 const clockCommon = {
   phase: z.enum(['pre_start', 'running']),
   toMove: WireSideSchema,
   turnStartedAt: z.number().int(),
-  log: z.array(z.object({ side: WireSideSchema, remainingMs: z.number().int() }).strict()),
+  log: WireClockLogSchema,
 };
 
 // A stored clock. Structure alone admits clocks no sequence of charges could

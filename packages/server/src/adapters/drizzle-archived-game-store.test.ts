@@ -7,7 +7,7 @@ import {
   replayFrames,
   resign,
 } from '@termitary/engine';
-import { type WireGameState, toWire } from '@termitary/protocol';
+import { type WireGameState, type WireTimeControl, toWire } from '@termitary/protocol';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { toArchivedGame } from '../domain/archived-game.js';
@@ -115,6 +115,22 @@ describe('DrizzleArchivedGameStore', () => {
       const stored = await archive.get('r1');
       expect(stored?.state.ruleset).toEqual(BASE_RULESET);
       expect(replayFrames(stored?.state.history ?? [], BASE_RULESET)).toHaveLength(1);
+    }));
+
+  it('lists a row whose time control no longer parses as untimed', async () =>
+    withArchive(async (db) => {
+      const archive = createDrizzleArchivedGameStore(db.db);
+      await archive.record(finishedGame('r1'));
+      db.db
+        .update(archivedGames)
+        .set({
+          timeControl: { kind: 'correspondence', daysPerMove: 7 } as unknown as WireTimeControl,
+        })
+        .where(eq(archivedGames.id, 'r1'))
+        .run();
+
+      const [listed] = await archive.listForPlayer('p1', { limit: 10 });
+      expect(listed?.timeControl).toEqual({ kind: 'untimed' });
     }));
 
   it('replays an archived pillbug game to the position it finished in', async () =>

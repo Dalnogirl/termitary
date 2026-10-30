@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  type WireClockLog,
   type WireSeekTimeControl,
   WireSeekTimeControlSchema,
   type WireTimeControl,
@@ -101,12 +102,15 @@ export type ArchivedGameSummaryDto = {
   /** Epoch milliseconds. */
   readonly finishedAt: number;
   readonly moveCount: number;
+  readonly timeControl: WireTimeControl;
 };
 
 // The whole game, so a replay needs no second call: `state.history` is what
 // the scrub controls fold back into positions.
 export type ArchivedGameDetailDto = ArchivedGameSummaryDto & {
   readonly state: WireGameState;
+  /** Parallel to `state.history`. Empty for an untimed game. */
+  readonly clockLog: WireClockLog;
 };
 
 /** Every count is over finished games only; a game in progress is in no record. */

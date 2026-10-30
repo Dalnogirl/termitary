@@ -1,9 +1,9 @@
-import { BASE_RULESET, type Ruleset } from '@termitary/engine';
+import { BASE_RULESET, type Ruleset, listValidMoves } from '@termitary/engine';
 import { describe, expect, it } from 'vitest';
 import type { ArchivedGameStore } from '../domain/archived-game-store.js';
 import type { ArchivedGame } from '../domain/archived-game.js';
 import { toArchivedGame } from '../domain/archived-game.js';
-import { createPairedRoom, isFinished, touch } from '../domain/room.js';
+import { type Room, createPairedRoom, isFinished, play, touch } from '../domain/room.js';
 
 export type ArchivedGameStoreHarness = {
   readonly archive: ArchivedGameStore;
@@ -21,6 +21,29 @@ const FINISHED = { status: 'finished', result: 'draw', endReason: 'queen-surroun
 
 const SPIDERLESS: Ruleset = { pieces: { queen: 1, ant: 3, beetle: 2, grasshopper: 3 } };
 
+const DAILY = { kind: 'correspondence', daysPerMove: 1 } as const;
+
+const finishAndArchive = (room: Room, finishedAt: number): ArchivedGame => {
+  const finished = touch({ ...room, state: { ...room.state, ...FINISHED } }, new Date(finishedAt));
+  if (!isFinished(finished)) throw new Error('unreachable: the room was just finished');
+  const { white, black } = finished.players;
+  return toArchivedGame(
+    finished,
+    new Map([
+      [white.playerId, `${white.playerId} name`],
+      [black.playerId, `${black.playerId} name`],
+    ]),
+  );
+};
+
+const playFirstMove = (room: Room, at: number): Room => {
+  const move = listValidMoves(room.state)[0];
+  if (move === undefined || room.state.status !== 'in_progress') {
+    throw new Error('unreachable: an opening position has moves');
+  }
+  return play(room, room.state.currentPlayer, move, new Date(at));
+};
+
 const gameOf = (
   id: string,
   {
@@ -36,18 +59,11 @@ const gameOf = (
     finishedAt?: number;
     ruleset?: Ruleset;
   } = {},
-): ArchivedGame => {
-  const seated = createPairedRoom(id, ident(white), ident(black), new Date(startedAt), ruleset);
-  const room = touch({ ...seated, state: { ...seated.state, ...FINISHED } }, new Date(finishedAt));
-  if (!isFinished(room)) throw new Error('unreachable: the room was just finished');
-  return toArchivedGame(
-    room,
-    new Map([
-      [white, `${white} name`],
-      [black, `${black} name`],
-    ]),
+): ArchivedGame =>
+  finishAndArchive(
+    createPairedRoom(id, ident(white), ident(black), new Date(startedAt), ruleset),
+    finishedAt,
   );
-};
 
 // Anything asserted here belongs to the port, not to an implementation.
 export const describeArchivedGameStoreContract = (
@@ -88,6 +104,34 @@ export const describeArchivedGameStoreContract = (
         const stored = await archive.get('r1');
         expect(stored?.state.ruleset).toEqual(SPIDERLESS);
         expect(stored?.state.hands.white).not.toHaveProperty('spider');
+      }));
+
+    it('round-trips a timed game with its time control and per-move log', async () =>
+      withArchive(async ({ archive }) => {
+        const paired = createPairedRoom(
+          'r1',
+          ident('p1'),
+          ident('p2'),
+          new Date(1000),
+          BASE_RULESET,
+          DAILY,
+        );
+        const game = finishAndArchive(playFirstMove(playFirstMove(paired, 1500), 1800), 2000);
+        await archive.record(game);
+
+        const stored = await archive.get('r1');
+        expect(stored).toEqual(game);
+        expect(stored?.clockLog.map((entry) => entry.side)).toEqual(['white', 'black']);
+        expect((await archive.listForPlayer('p1', ALL))[0]?.timeControl).toEqual(DAILY);
+      }));
+
+    it('reads an untimed game back with no log', async () =>
+      withArchive(async ({ archive }) => {
+        await archive.record(gameOf('r1'));
+
+        const stored = await archive.get('r1');
+        expect(stored?.timeControl).toEqual({ kind: 'untimed' });
+        expect(stored?.clockLog).toEqual([]);
       }));
 
     it('get on a game never recorded returns undefined', async () =>
@@ -141,6 +185,7 @@ export const describeArchivedGameStoreContract = (
             startedAt: new Date(1000),
             finishedAt: new Date(4000),
             moveCount: 0,
+            timeControl: { kind: 'untimed' },
           },
         ]);
       }));

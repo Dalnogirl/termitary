@@ -1,3 +1,4 @@
+import { type ClockEntry, type TimeControl, timeControlOf } from '@termitary/clock';
 import type { Color, EndReason, GameState } from '@termitary/engine';
 import type { FinishedRoom } from './room.js';
 
@@ -23,10 +24,13 @@ export type ArchivedGameOverview = {
   readonly startedAt: Date;
   readonly finishedAt: Date;
   readonly moveCount: number;
+  readonly timeControl: TimeControl;
 };
 
 export type ArchivedGame = ArchivedGameOverview & {
   readonly state: FinishedState;
+  /** Empty for an untimed game, which logs nothing. */
+  readonly clockLog: readonly ClockEntry[];
 };
 
 const player = (
@@ -56,5 +60,7 @@ export const toArchivedGame = (
   startedAt: room.createdAt,
   finishedAt: room.updatedAt,
   moveCount: room.state.history.length,
+  timeControl: timeControlOf(room.clock),
   state: room.state,
+  clockLog: room.clock.log,
 });

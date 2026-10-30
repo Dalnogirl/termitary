@@ -20,6 +20,7 @@ const game = (over: Partial<ArchivedGameSummaryDto> = {}): ArchivedGameSummaryDt
   startedAt: 0,
   finishedAt: 0,
   moveCount: 12,
+  timeControl: { kind: 'untimed' },
   ...over,
 });
 
@@ -85,6 +86,13 @@ describe('archivedDetail', () => {
   it('carries outcome, seat and move count', () => {
     expect(archivedDetail(game({ finishedAt: Date.now() }))).toBe(
       'Won, queen surrounded · playing white · 12 moves · just now',
+    );
+  });
+
+  it("puts a timed game's clock next to the result", () => {
+    const timeControl = { kind: 'correspondence', daysPerMove: 3 } as const;
+    expect(archivedDetail(game({ timeControl, finishedAt: Date.now() }))).toBe(
+      'Won, queen surrounded · 3 days per move · playing white · 12 moves · just now',
     );
   });
 });
